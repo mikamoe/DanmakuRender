@@ -2,6 +2,11 @@
 
 - 在原项目的基础上添加了 **biliup**。
 - 新增用于 Linux 的脚本，支持一键安装和卸载（适用于 VPS）。
+运行以下命令下载并执行脚本：
+
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh)
+```
 
 #### 以下为原项目的 README.md
 ---
