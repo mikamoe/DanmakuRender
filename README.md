@@ -7,6 +7,7 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh)
 ```
+### 感谢所有开源作者
 
 #### 以下为原项目的 README.md
 ---
