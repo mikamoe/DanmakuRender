@@ -11,7 +11,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ## 脚本逻辑
 安装逻辑：
 检查目录 -> 安装git与其他依赖 -> 克隆仓库 -> 设置虚拟环境 -> 进入虚拟环境 -> 安装python依赖 -> 安装biliup -> 完成
-- 最后所有文件的目录为/opt/DanmakuRender-5
+- 最后所有文件的目录为
+- /opt/DanmakuRender-5
 
 启动逻辑：
 进入目录 -> 激活虚拟环境 -> 启动DMR -> 输出PID
