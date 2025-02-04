@@ -1,6 +1,6 @@
 ## 新增内容
 
-- 在原项目的基础上添加了 **biliup**。
+- 在原项目的基础上添加了[**biliup**](https://github.com/biliup/biliup-rs/releases)。
 - 新增脚本（适用于**Debian/Ubuntu**）。
 - 运行以下命令下载并执行脚本：
 - 脚本支持一键安装/卸载,启动/停止录制
