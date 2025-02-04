@@ -8,6 +8,17 @@
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/IMG_1628.jpeg)
+
+## 脚本逻辑
+安装逻辑
+检查目录 -> 安装依赖 -> 克隆仓库 -> 设置虚拟环境 -> 安装biliup -> 完成
+
+启动逻辑：
+进入目录 -> 激活虚拟环境 -> 启动DMR -> 输出PID
+
+停止逻辑：
+查找进程 -> 停止进程 -> 提示结果
+
 ### 感谢所有开源作者
 ### 如果此fork影响到上游了，请给我发一封邮件
 ##### sillda76@gmail.com
