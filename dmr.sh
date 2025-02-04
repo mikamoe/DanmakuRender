@@ -87,13 +87,32 @@ install_dmr() {
         return 1
     }
 
-    # 安装ffmpeg
-    echo -e "${BLUE}正在安装ffmpeg...${NC}"
-    sudo apt update
-    sudo apt install -y ffmpeg || {
-        echo -e "${RED}ffmpeg安装失败！${NC}"
+    # 安装biliup
+    echo -e "${BLUE}正在部署biliup...${NC}"
+    mkdir -p "$BILIUP_DIR" && cd "$BILIUP_DIR" || return 1
+
+    # 获取最新版本的biliup-rs
+    local download_url=$(curl -sL $BILIUP_REPO | grep -oP '"browser_download_url": "\K[^"]+x86_64-linux\.tar\.gz')
+    if [ -z "$download_url" ]; then
+        echo -e "${RED}获取biliup下载链接失败！${NC}"
         return 1
-    }
+    fi
+
+    # 下载并解压biliup
+    echo -e "${BLUE}正在下载biliup...${NC}"
+    if curl -LO "$download_url" && tar -zxvf *.tar.gz; then
+        # 将解压后的文件夹命名为biliup和版本号
+        local folder_name=$(basename $(tar -tf *.tar.gz | head -n 1) | cut -d '/' -f 1)
+        mv "$folder_name" "biliup-$(echo $folder_name | grep -oP '\d+\.\d+\.\d+')"
+        # 将biliup程序复制到tools目录
+        cp biliup-*/biliup ./
+        chmod +x biliup
+        rm -f *.tar.gz
+        echo -e "${GREEN}biliup部署成功！${NC}"
+    else
+        echo -e "${RED}biliup部署失败！${NC}"
+        return 1
+    fi
 
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
@@ -114,7 +133,7 @@ uninstall_dmr() {
         echo -e "${YELLOW}未找到安装目录${NC}"
         return 0
     }
-    
+    
     rm -rf "$DMR_DIR" && \
     echo -e "${GREEN}卸载完成！${NC}" || \
     echo -e "${RED}卸载失败！${NC}"
@@ -147,17 +166,46 @@ delete_replays() {
 
 # 更新Cookies
 update_cookies() {
-    echo -e "${YELLOW}注意：biliup已被移除，此功能不可用。${NC}"
+    cd "$BILIUP_DIR" && ./biliup login
 }
 
 # 上传视频
 biliup_upload() {
-    echo -e "${YELLOW}注意：biliup已被移除，此功能不可用。${NC}"
+    while true; do
+        read -p "请输入视频目录路径: " video_path
+        [ -d "$video_path" ] && break
+        echo -e "${RED}路径不存在！${NC}"
+    done
+
+    read -p "请输入分区tid: " tid
+    read -p "请输入视频标签: " tags
+    
+    cd "$BILIUP_DIR" && \
+    ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
 }
 
 # 追加上传
 biliup_append() {
-    echo -e "${YELLOW}注意：biliup已被移除，此功能不可用。${NC}"
+    while true; do
+        read -p "请输入BV号: " vid
+        [[ "$vid" =~ ^BV ]] && break
+        echo -e "${RED}无效的BV号！${NC}"
+    done
+
+    video_paths=()
+    while true; do
+        read -p "请输入视频路径: " path
+        if [ -f "$path" ]; then
+            video_paths+=("$path")
+            read -p "继续添加？(y/n): " choice
+            [[ "$choice" != "y" ]] && break
+        else
+            echo -e "${RED}文件不存在！${NC}"
+        fi
+    done
+
+    cd "$BILIUP_DIR" && \
+    ./biliup append --vid "$vid" "${video_paths[@]}"
 }
 
 # 安装字体
@@ -186,15 +234,15 @@ main_menu() {
         echo "9.  更新DanmakuRender V5"
         echo "10. 卸载DanmakuRender V5"
         echo "0.  退出脚本"
-        
+        
         read -p "请输入选项： " choice
         case $choice in
             1) install_dmr ;;
-            2) 
-                if check_dmr; then 
+            2) 
+                if check_dmr; then 
                     stop_dmr
                 else
-                    start_dmr 
+                    start_dmr 
                 fi ;;
             3) view_log ;;
             4) delete_replays ;;
@@ -213,4 +261,3 @@ main_menu() {
 
 # 启动脚本
 main_menu
-```​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
