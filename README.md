@@ -7,7 +7,7 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
-![脚本图片](https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/IMG_1626.jpeg)
+![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/IMG_1628.jpeg)
 ### 感谢所有开源作者
 ### 如果此fork影响到上游了，请给我发一封邮件
 ##### sillda76@gmail.com
