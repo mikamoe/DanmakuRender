@@ -1,12 +1,11 @@
 ## 新增内容
 
-- 在原项目的基础上添加了[**biliup-rs**](https://github.com/biliup/biliup-rs/releases)v0.22。
 - 新增脚本（适用于**Debian/Ubuntu**）。
 - 运行以下命令下载并执行脚本：
 - 脚本支持一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/IMG_1626.jpeg)
 ### 感谢所有开源作者
