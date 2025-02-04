@@ -90,15 +90,20 @@ install_dmr() {
     # 安装biliup
     echo -e "${BLUE}正在部署biliup...${NC}"
     mkdir -p "$BILIUP_DIR" && cd "$BILIUP_DIR" || return 1
-    
-    local latest_tag=$(curl -sL $BILIUP_REPO | grep -oP '"tag_name": "\K[^"]+')
-    [ -z "$latest_tag" ] && {
-        echo -e "${RED}获取biliup版本失败！${NC}"
-        return 1
-    }
 
-    local download_url="https://github.com/biliup/biliup-rs/releases/download/${latest_tag}/biliup-rs-${latest_tag}-x86_64-linux.tar.gz"
-    if curl -LO "$download_url" && tar -zxvf *.tar.gz && rm -f *.tar.gz; then
+    # 获取最新版本的biliup-rs
+    local download_url=$(curl -sL $BILIUP_REPO | grep -oP '"browser_download_url": "\K[^"]+x86_64-linux\.tar\.gz')
+    if [ -z "$download_url" ]; then
+        echo -e "${RED}获取biliup下载链接失败！${NC}"
+        return 1
+    fi
+
+    # 下载并解压biliup
+    echo -e "${BLUE}正在下载biliup...${NC}"
+    if curl -LO "$download_url" && tar -zxvf *.tar.gz; then
+        # 将biliup程序复制到tools目录
+        cp biliup-rs-*/biliup ./
+        rm -rf biliup-rs-* *.tar.gz
         chmod +x biliup
         echo -e "${GREEN}biliup部署成功！${NC}"
     else
