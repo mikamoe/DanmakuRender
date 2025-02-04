@@ -8,7 +8,7 @@ COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 GIT_REPO="https://github.com/sillda76/DanmakuRender.git"
 GIT_BRANCH="v5"
-BILIUP_REPO="https://api.github.com/repos/biliup/biliup-rs/releases/latest"
+BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
 
 # 颜色配置
 RED='\033[0;31m'
@@ -22,7 +22,6 @@ NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
-# 显示标题
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
@@ -30,7 +29,6 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
-# 检查DMR状态
 check_dmr() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
@@ -46,7 +44,6 @@ check_dmr() {
     fi
 }
 
-# 安装DanmakuRender V5
 install_dmr() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}DanmakuRender-5 已存在于 $DMR_DIR${NC}"
@@ -76,12 +73,22 @@ install_dmr() {
         return 1
     }
 
+    # 检查并安装pip
+    if ! command -v pip &> /dev/null; then
+        echo -e "${BLUE}正在安装pip...${NC}"
+        sudo apt install -y python3-pip || {
+            echo -e "${RED}pip安装失败！${NC}"
+            return 1
+        }
+    fi
+
     # 安装python环境
     echo -e "${BLUE}正在设置Python环境...${NC}"
     sudo apt install -y python3-venv && \
     cd "$DMR_DIR" && \
     python3 -m venv venv && \
     source venv/bin/activate && \
+    pip install --upgrade pip && \
     pip install -r requirements.txt || {
         echo -e "${RED}Python环境设置失败！${NC}"
         return 1
@@ -91,23 +98,12 @@ install_dmr() {
     echo -e "${BLUE}正在部署biliup...${NC}"
     mkdir -p "$BILIUP_DIR" && cd "$BILIUP_DIR" || return 1
 
-    # 获取最新版本的biliup-rs
-    local download_url=$(curl -sL $BILIUP_REPO | grep -oP '"browser_download_url": "\K[^"]+x86_64-linux\.tar\.gz')
-    if [ -z "$download_url" ]; then
-        echo -e "${RED}获取biliup下载链接失败！${NC}"
-        return 1
-    fi
-
-    # 下载并解压biliup
     echo -e "${BLUE}正在下载biliup...${NC}"
-    if curl -LO "$download_url" && tar -zxvf *.tar.gz; then
-        # 将解压后的文件夹命名为biliup和版本号
-        local folder_name=$(basename $(tar -tf *.tar.gz | head -n 1) | cut -d '/' -f 1)
-        mv "$folder_name" "biliup-$(echo $folder_name | grep -oP '\d+\.\d+\.\d+')"
-        # 将biliup程序复制到tools目录
-        cp biliup-*/biliup ./
+    if curl -LO "$BILIUP_URL" && tar -xJvf *.tar.xz; then
+        # 复制并清理文件
+        cp biliupR-*/biliup ./
         chmod +x biliup
-        rm -f *.tar.gz
+        rm -rf biliupR-* *.tar.xz
         echo -e "${GREEN}biliup部署成功！${NC}"
     else
         echo -e "${RED}biliup部署失败！${NC}"
@@ -117,7 +113,6 @@ install_dmr() {
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
 
-# 更新DanmakuRender V5
 update_dmr() {
     echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
     if pgrep -f "$DMR_CMD" >/dev/null; then
@@ -127,7 +122,6 @@ update_dmr() {
     install_dmr
 }
 
-# 卸载DanmakuRender V5
 uninstall_dmr() {
     [ ! -d "$DMR_DIR" ] && {
         echo -e "${YELLOW}未找到安装目录${NC}"
@@ -139,37 +133,31 @@ uninstall_dmr() {
     echo -e "${RED}卸载失败！${NC}"
 }
 
-# 启动DMR
 start_dmr() {
     cd "$DMR_DIR" && source venv/bin/activate && \
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
-# 停止DMR
 stop_dmr() {
     pkill -f "$DMR_CMD" && \
     echo -e "${GREEN}已停止DMR${NC}" || \
     echo -e "${RED}停止DMR失败${NC}"
 }
 
-# 查看日志
 view_log() {
     tail -f "$DMR_DIR/$LOG_FILE"
 }
 
-# 删除回放
 delete_replays() {
     rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
     echo -e "${GREEN}已删除所有回放文件${NC}"
 }
 
-# 更新Cookies
 update_cookies() {
     cd "$BILIUP_DIR" && ./biliup login
 }
 
-# 上传视频
 biliup_upload() {
     while true; do
         read -p "请输入视频目录路径: " video_path
@@ -184,7 +172,6 @@ biliup_upload() {
     ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
 }
 
-# 追加上传
 biliup_append() {
     while true; do
         read -p "请输入BV号: " vid
@@ -208,7 +195,6 @@ biliup_append() {
     ./biliup append --vid "$vid" "${video_paths[@]}"
 }
 
-# 安装字体
 install_fonts() {
     sudo mkdir -p /usr/share/fonts/truetype/microsoft
     sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
@@ -217,7 +203,6 @@ install_fonts() {
     echo -e "${GREEN}字体安装完成！${NC}"
 }
 
-# 主菜单
 main_menu() {
     while true; do
         show_header
@@ -259,5 +244,4 @@ main_menu() {
     done
 }
 
-# 启动脚本
 main_menu
