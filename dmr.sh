@@ -22,6 +22,7 @@ NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
+# 显示标题
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
@@ -29,6 +30,7 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
+# 检查DMR状态
 check_dmr() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
@@ -44,6 +46,7 @@ check_dmr() {
     fi
 }
 
+# 安装DanmakuRender V5
 install_dmr() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}DanmakuRender-5 已存在于 $DMR_DIR${NC}"
@@ -113,15 +116,60 @@ install_dmr() {
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
 
+# 更新DanmakuRender V5
 update_dmr() {
     echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
+    
+    # 停止运行中的DMR
     if pgrep -f "$DMR_CMD" >/dev/null; then
         echo -e "${YELLOW}正在停止运行中的DMR...${NC}"
         pkill -f "$DMR_CMD"
     fi
-    install_dmr
+
+    # 检查安装目录
+    if [ ! -d "$DMR_DIR" ]; then
+        echo -e "${RED}错误：未找到安装目录，请先执行安装！${NC}"
+        return 1
+    fi
+
+    # 更新仓库代码
+    echo -e "${BLUE}正在拉取最新代码...${NC}"
+    cd "$DMR_DIR"
+    if ! git pull origin "$GIT_BRANCH"; then
+        echo -e "${RED}代码更新失败！请检查网络或仓库权限${NC}"
+        return 1
+    fi
+
+    # 更新Python依赖
+    echo -e "${BLUE}正在更新虚拟环境...${NC}"
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate && \
+    pip install -U pip && \
+    pip install -r requirements.txt || {
+        echo -e "${RED}依赖更新失败！${NC}"
+        return 1
+    }
+
+    # 更新biliup
+    echo -e "${BLUE}正在更新biliup...${NC}"
+    mkdir -p "$BILIUP_DIR"
+    cd "$BILIUP_DIR" && \
+    rm -f biliup && \
+    curl -LO "$BILIUP_URL" && \
+    tar -xJvf *.tar.xz && \
+    cp biliupR-*/biliup ./ && \
+    chmod +x biliup && \
+    rm -rf biliupR-* *.tar.xz || {
+        echo -e "${RED}biliup更新失败！${NC}"
+        return 1
+    }
+
+    echo -e "${GREEN}更新完成！建议重启DMR服务${NC}"
 }
 
+# 卸载DanmakuRender V5
 uninstall_dmr() {
     [ ! -d "$DMR_DIR" ] && {
         echo -e "${YELLOW}未找到安装目录${NC}"
@@ -133,31 +181,37 @@ uninstall_dmr() {
     echo -e "${RED}卸载失败！${NC}"
 }
 
+# 启动DMR
 start_dmr() {
     cd "$DMR_DIR" && source venv/bin/activate && \
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
+# 停止DMR
 stop_dmr() {
     pkill -f "$DMR_CMD" && \
     echo -e "${GREEN}已停止DMR${NC}" || \
     echo -e "${RED}停止DMR失败${NC}"
 }
 
+# 查看日志
 view_log() {
     tail -f "$DMR_DIR/$LOG_FILE"
 }
 
+# 删除回放
 delete_replays() {
     rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
     echo -e "${GREEN}已删除所有回放文件${NC}"
 }
 
+# 更新Cookies
 update_cookies() {
     cd "$BILIUP_DIR" && ./biliup login
 }
 
+# 上传视频
 biliup_upload() {
     while true; do
         read -p "请输入视频目录路径: " video_path
@@ -172,6 +226,7 @@ biliup_upload() {
     ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
 }
 
+# 追加上传
 biliup_append() {
     while true; do
         read -p "请输入BV号: " vid
@@ -195,6 +250,7 @@ biliup_append() {
     ./biliup append --vid "$vid" "${video_paths[@]}"
 }
 
+# 安装字体
 install_fonts() {
     sudo mkdir -p /usr/share/fonts/truetype/microsoft
     sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
@@ -203,6 +259,7 @@ install_fonts() {
     echo -e "${GREEN}字体安装完成！${NC}"
 }
 
+# 主菜单
 main_menu() {
     while true; do
         show_header
@@ -244,4 +301,5 @@ main_menu() {
     done
 }
 
+# 启动脚本
 main_menu
