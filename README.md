@@ -7,7 +7,7 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh)
 ```
-![脚本图片](https://pic1.imgdb.cn/item/67a23886d0e0a243d4fbd679.jpg)
+![脚本图片](https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/IMG_1625.jpeg)
 ### 感谢所有开源作者
 
 #### 以下为原项目的 README.md
