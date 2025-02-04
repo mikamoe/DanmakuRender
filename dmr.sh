@@ -216,16 +216,16 @@ main_menu() {
         check_dmr
         echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo "1.  安装DanmakuRender V5"
-        echo "2.  启动/停止 DMR"
+        echo "2.  启动/停止录制"
         echo "3.  查看实时日志"
-        echo "4.  删除回放文件"
-        echo "5.  更新Cookies"
-        echo "6.  视频上传"
-        echo "7.  视频追加上传"
-        echo "8.  安装字体"
+        echo "4.  删除回放/渲染文件"
+        echo "5.  更新哔哩哔哩Cookies"
+        echo "6.  哔哩哔哩快速上传"
+        echo "7.  哔哩哔哩视频追加上传"
+        echo "8.  安装微软雅黑和Emoji表情"
         echo "9.  更新DanmakuRender V5"
         echo "10. 卸载DanmakuRender V5"
-        echo "0. 退出"
+        echo "0.  退出脚本"
         
         read -p "请输入选项： " choice
         case $choice in
