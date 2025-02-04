@@ -4,6 +4,7 @@
 - 新增脚本（适用于**Debian/Ubuntu**）。
 - 运行以下命令下载并执行脚本：
 - 脚本支持一键安装/卸载,启动/停止录制
+- ~~其实Docker构建更方便~~
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/dmr.sh)
 ```
