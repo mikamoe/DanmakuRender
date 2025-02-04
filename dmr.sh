@@ -26,7 +26,7 @@ NORMAL=$(tput sgr0)
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
-    echo -e "${CYAN}        ${BOLD}DMR直播录制控制${NORMAL}        ${NC}"
+    echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
     echo -e "${CYAN}==============================${NC}"
 }
 
@@ -215,16 +215,16 @@ main_menu() {
         show_header
         check_dmr
         echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
-        echo "1. 安装 DanmakuRender V5"
-        echo "2. 启动/停止 DMR"
-        echo "3. 查看实时日志"
-        echo "4. 删除回放文件"
-        echo "5. 更新Cookies"
-        echo "6. 视频上传"
-        echo "7. 视频追加上传"
-        echo "8. 安装字体"
-        echo "9. 更新 DMR"
-        echo "10. 卸载 DMR"
+        echo "1.  安装DanmakuRender V5"
+        echo "2.  启动/停止 DMR"
+        echo "3.  查看实时日志"
+        echo "4.  删除回放文件"
+        echo "5.  更新Cookies"
+        echo "6.  视频上传"
+        echo "7.  视频追加上传"
+        echo "8.  安装字体"
+        echo "9.  更新DanmakuRender V5"
+        echo "10. 卸载DanmakuRender V5"
         echo "0. 退出"
         
         read -p "请输入选项： " choice
