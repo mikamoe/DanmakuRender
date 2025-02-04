@@ -10,8 +10,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/IMG_1628.jpeg)
 
 ## 脚本逻辑
-安装逻辑
-检查目录 -> 安装依赖 -> 克隆仓库 -> 设置虚拟环境 -> 安装biliup -> 完成
+安装逻辑:
+检查目录 -> 安装git与其他依赖 -> 克隆仓库 -> 设置虚拟环境 -> 进入虚拟环境 -> 安装python依赖 -> 安装biliup -> 完成
 
 启动逻辑：
 进入目录 -> 激活虚拟环境 -> 启动DMR -> 输出PID
