@@ -11,7 +11,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/vps-scripts/refs/hea
 ![脚本图片](https://raw.githubusercontent.com/sillda76/vps-scripts/refs/heads/main/IMG_1626.jpeg)
 ### 感谢所有开源作者
 ### 如果此fork影响到上游了，请给我发一封邮件
-### sillda76@gmail.com
+##### sillda76@gmail.com
 
 #### 以下为原项目的 README.md
 ---
