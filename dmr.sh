@@ -6,6 +6,7 @@ DMR_CMD="python3 main.py"
 LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
+GIT_REPO="https://github.com/sillda76/DanmakuRender.git"
 GIT_BRANCH="v5"
 BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
 
@@ -76,6 +77,24 @@ install_dmr() {
     pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
 
     deactivate
+
+    # 下载并部署 biliup 到 tools 文件夹
+    echo -e "${BLUE}正在下载 biliup...${NC}"
+    mkdir -p "$BILIUP_DIR" || { echo -e "${RED}创建 tools 文件夹失败！${NC}"; return 1; }
+    cd "$BILIUP_DIR" || { echo -e "${RED}进入 tools 文件夹失败！${NC}"; return 1; }
+    curl -LO "$BILIUP_URL" || { echo -e "${RED}下载 biliup 压缩包失败！${NC}"; return 1; }
+    archive_name=$(basename "$BILIUP_URL")
+    tar -xJvf "$archive_name" || { echo -e "${RED}解压 biliup 压缩包失败！${NC}"; return 1; }
+    extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
+    if [ -z "$extracted_folder" ]; then
+        echo -e "${RED}未找到解压后的 biliup 文件夹！${NC}"
+        return 1
+    fi
+    mv "$extracted_folder/biliup" . || { echo -e "${RED}移动 biliup 文件失败！${NC}"; return 1; }
+    chmod +x biliup || { echo -e "${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
+    rm -rf "$extracted_folder" || { echo -e "${RED}删除解压后的文件夹失败！${NC}"; return 1; }
+    echo -e "${GREEN}biliup 部署成功！${NC}"
+
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
 
