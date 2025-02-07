@@ -6,7 +6,6 @@ DMR_CMD="python3 main.py"
 LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
-GIT_REPO="https://github.com/sillda76/DanmakuRender.git"
 GIT_BRANCH="v5"
 BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
 
@@ -46,130 +45,55 @@ check_dmr() {
     fi
 }
 
-# 安装DanmakuRender V5
+# 选项1：安装 DanmakuRender V5
 install_dmr() {
-    if [ -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}DanmakuRender-5 已存在于 $DMR_DIR${NC}"
-        read -p "是否重新安装？（将覆盖现有安装）(y/n): " reinstall
-        if [[ ! "$reinstall" =~ ^[Yy]$ ]]; then
-            echo -e "${YELLOW}已取消安装${NC}"
-            return 0
-        else
-            echo -e "${BLUE}开始重新安装 DanmakuRender V5...${NC}"
-            rm -rf "$DMR_DIR"
-        fi
-    fi
+    echo -e "${BLUE}正在下载 DanmakuRender V5 分支的文件...${NC}"
+    tmp_dir=$(mktemp -d)
+    cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
+    # 将解压后的文件夹重命名为 DanmakuRender-5 并移动到 /opt 目录下
+    sudo mv DanmakuRender-v5 /opt/DanmakuRender-5 || { echo -e "${RED}移动文件夹失败！${NC}"; return 1; }
+    cd - > /dev/null
+    rm -rf "$tmp_dir"
+    echo -e "${GREEN}文件下载并解压完成！${NC}"
 
-    # 安装git
-    if ! command -v git &> /dev/null; then
-        echo -e "${BLUE}正在安装git...${NC}"
-        sudo apt update && sudo apt install -y git || {
-            echo -e "${RED}git安装失败！${NC}"
-            return 1
-        }
-    fi
+    # 进入 DanmakuRender-5 目录并配置 Python 环境
+    cd /opt/DanmakuRender-5 || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}安装 python3-venv...${NC}"
+    sudo apt install python3-venv -y || { echo -e "${RED}python3-venv 安装失败！${NC}"; return 1; }
 
-    # 克隆仓库
-    echo -e "${BLUE}正在克隆仓库...${NC}"
-    git clone -b "$GIT_BRANCH" "$GIT_REPO" "$DMR_DIR" || {
-        echo -e "${RED}仓库克隆失败！${NC}"
-        return 1
-    }
+    echo -e "${BLUE}创建虚拟环境...${NC}"
+    python3 -m venv venv || { echo -e "${RED}创建虚拟环境失败！${NC}"; return 1; }
 
-    # 检查并安装pip
-    if ! command -v pip &> /dev/null; then
-        echo -e "${BLUE}正在安装pip...${NC}"
-        sudo apt install -y python3-pip || {
-            echo -e "${RED}pip安装失败！${NC}"
-            return 1
-        }
-    fi
+    echo -e "${BLUE}激活虚拟环境...${NC}"
+    source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
 
-    # 安装python环境
-    echo -e "${BLUE}正在设置Python环境...${NC}"
-    sudo apt install -y python3-venv && \
-    cd "$DMR_DIR" && \
-    python3 -m venv venv && \
-    source venv/bin/activate && \
-    pip install --upgrade pip && \
-    pip install -r requirements.txt || {
-        echo -e "${RED}Python环境设置失败！${NC}"
-        return 1
-    }
+    echo -e "${BLUE}安装 pip3...${NC}"
+    sudo apt-get install python3-pip -y || { echo -e "${RED}pip3 安装失败！${NC}"; return 1; }
 
-    # 安装biliup
-    echo -e "${BLUE}正在部署biliup...${NC}"
-    mkdir -p "$BILIUP_DIR" && cd "$BILIUP_DIR" || return 1
+    echo -e "${BLUE}安装 Python 依赖...${NC}"
+    pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
 
-    echo -e "${BLUE}正在下载biliup...${NC}"
-    if curl -LO "$BILIUP_URL" && tar -xJvf *.tar.xz; then
-        # 复制并清理文件
-        cp biliupR-*/biliup ./
-        chmod +x biliup
-        rm -rf biliupR-* *.tar.xz
-        echo -e "${GREEN}biliup部署成功！${NC}"
-    else
-        echo -e "${RED}biliup部署失败！${NC}"
-        return 1
-    fi
-
+    deactivate
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
 
-# 更新DanmakuRender V5
+# 选项9：更新 DanmakuRender V5（覆盖更新）
 update_dmr() {
     echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
-    
-    # 停止运行中的DMR
-    if pgrep -f "$DMR_CMD" >/dev/null; then
-        echo -e "${YELLOW}正在停止运行中的DMR...${NC}"
-        pkill -f "$DMR_CMD"
-    fi
-
-    # 检查安装目录
-    if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${RED}错误：未找到安装目录，请先执行安装！${NC}"
-        return 1
-    fi
-
-    # 更新仓库代码
-    echo -e "${BLUE}正在拉取最新代码...${NC}"
-    cd "$DMR_DIR"
-    if ! git pull origin "$GIT_BRANCH"; then
-        echo -e "${RED}代码更新失败！请检查网络或仓库权限${NC}"
-        return 1
-    fi
-
-    # 更新Python依赖
-    echo -e "${BLUE}正在更新虚拟环境...${NC}"
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
-    source venv/bin/activate && \
-    pip install -U pip && \
-    pip install -r requirements.txt || {
-        echo -e "${RED}依赖更新失败！${NC}"
-        return 1
-    }
-
-    # 更新biliup
-    echo -e "${BLUE}正在更新biliup...${NC}"
-    mkdir -p "$BILIUP_DIR"
-    cd "$BILIUP_DIR" && \
-    rm -f biliup && \
-    curl -LO "$BILIUP_URL" && \
-    tar -xJvf *.tar.xz && \
-    cp biliupR-*/biliup ./ && \
-    chmod +x biliup && \
-    rm -rf biliupR-* *.tar.xz || {
-        echo -e "${RED}biliup更新失败！${NC}"
-        return 1
-    }
-
-    echo -e "${GREEN}更新完成！建议重启DMR服务${NC}"
+    tmp_dir=$(mktemp -d)
+    cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
+    # 使用 rsync 覆盖更新 /opt/DanmakuRender-5 目录下的文件
+    sudo rsync -a --delete DanmakuRender-v5/ /opt/DanmakuRender-5/ || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }
+    cd - > /dev/null
+    rm -rf "$tmp_dir"
+    echo -e "${GREEN}DanmakuRender V5 更新完成！${NC}"
 }
 
-# 卸载DanmakuRender V5
+# 卸载 DanmakuRender V5
 uninstall_dmr() {
     [ ! -d "$DMR_DIR" ] && {
         echo -e "${YELLOW}未找到安装目录${NC}"
@@ -181,14 +105,14 @@ uninstall_dmr() {
     echo -e "${RED}卸载失败！${NC}"
 }
 
-# 启动DMR
+# 启动 DMR
 start_dmr() {
     cd "$DMR_DIR" && source venv/bin/activate && \
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
-# 停止DMR
+# 停止 DMR
 stop_dmr() {
     pkill -f "$DMR_CMD" && \
     echo -e "${GREEN}已停止DMR${NC}" || \
@@ -206,12 +130,12 @@ delete_replays() {
     echo -e "${GREEN}已删除所有回放文件${NC}"
 }
 
-# 更新Cookies
+# 更新 Cookies
 update_cookies() {
     cd "$BILIUP_DIR" && ./biliup login
 }
 
-# 上传视频
+# 哔哩哔哩快速上传
 biliup_upload() {
     while true; do
         read -p "请输入视频目录路径: " video_path
@@ -226,7 +150,7 @@ biliup_upload() {
     ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
 }
 
-# 追加上传
+# 哔哩哔哩视频追加上传
 biliup_append() {
     while true; do
         read -p "请输入BV号: " vid
