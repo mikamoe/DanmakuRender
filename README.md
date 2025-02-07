@@ -14,9 +14,9 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
    - `apt install python3-venv` → `python3 -m venv venv`
 3. **安装 pip3 及依赖**  
    - `source venv/bin/activate` → `apt install python3-pip` → `pip3 install -r requirements.txt`
-4. **完成**  
-   - `deactivate` → 提示安装成功
-- 最后所有文件的目录为
+4. **下载biliup-rs**  
+   - 所有操作完成后提示安装成功
+- 所有文件的目录为
 - /opt/DanmakuRender-5
 
 启动逻辑：
