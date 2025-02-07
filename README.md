@@ -9,7 +9,10 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/IMG_1628.jpeg)
 ## 脚本逻辑
 安装逻辑：
-检查目录 -> 安装git与其他依赖 -> 克隆仓库 -> 设置虚拟环境 -> 进入虚拟环境 -> 安装python依赖 -> 安装biliup -> 完成
+	1.	下载并解压 → 获取 v5.zip → 解压到 /opt/DanmakuRender-5
+	2.	安装 Python 依赖 → apt install python3-venv → python3 -m venv venv
+	3.	安装 pip3 及依赖 → source venv/bin/activate → apt install python3-pip → pip3 install -r requirements.txt
+	4.	完成 → deactivate → 提示安装成功
 - 最后所有文件的目录为
 - /opt/DanmakuRender-5
 
