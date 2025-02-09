@@ -149,41 +149,152 @@ update_cookies() {
     cd "$BILIUP_DIR" && ./biliup login
 }
 
+# 优化后的选项6：哔哩哔哩快速上传
 biliup_upload() {
-    while true; do
-        read -p "请输入视频目录路径: " video_path
-        [ -d "$video_path" ] && break
-        echo -e "${RED}路径不存在！${NC}"
-    done
+    echo -e "${CYAN}${BOLD}请选择视频所在目录类型：${NC}${NORMAL}"
+    echo "1. 直播回放"
+    echo "2. 直播回放弹幕版"
+    echo "3. 其他路径"
+    read -p "请输入选项 (1/2/3): " type_choice
 
-    read -p "请输入分区tid: " tid
-    read -p "请输入视频标签: " tags
+    case $type_choice in
+        1)
+            video_dir="/opt/DanmakuRender-5/直播回放"
+            ;;
+        2)
+            video_dir="/opt/DanmakuRender-5/直播回放（弹幕版）"
+            ;;
+        3)
+            read -p "请输入视频所在目录的绝对路径: " video_dir
+            ;;
+        *)
+            echo -e "${RED}无效选项！${NC}"
+            return 1
+            ;;
+    esac
 
-    cd "$BILIUP_DIR" && \
-    ./biliup upload "$video_path" --tid "$tid" --tag "$tags"
+    if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
+        if [ ! -d "$video_dir" ]; then
+            echo -e "${RED}目录不存在：$video_dir${NC}"
+            return 1
+        fi
+
+        files=("$video_dir"/*)
+        if [ ${#files[@]} -eq 0 ]; then
+            echo -e "${RED}目录下没有视频文件！${NC}"
+            return 1
+        fi
+
+        echo -e "${CYAN}目录下的视频文件：${NC}"
+        for i in "${!files[@]}"; do
+            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
+        done
+        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
+
+        read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
+
+        all_option=$(( ${#files[@]} + 1 ))
+        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
+            video_paths=("$video_dir")
+        else
+            video_paths=()
+            for num in "${selections[@]}"; do
+                if [[ "$num" -ge 1 && "$num" -le "${#files[@]}" ]]; then
+                    video_paths+=("${files[$((num-1))]}")
+                else
+                    echo -e "${RED}无效选项：$num${NC}"
+                    return 1
+                fi
+            done
+        fi
+    else
+        read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+    fi
+
+    read -p "请输入tid号（默认65）: " tid
+    tid=${tid:-65}
+    read -p "请输入视频标签（默认直播回放,录播）: " tags
+    tags=${tags:-"直播回放,录播"}
+
+    cd "$BILIUP_DIR" || { echo -e "${RED}进入工具目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
+    ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
+# 优化后的选项7：哔哩哔哩视频追加上传
 biliup_append() {
     while true; do
-        read -p "请输入BV号: " vid
-        [[ "$vid" =~ ^BV ]] && break
-        echo -e "${RED}无效的BV号！${NC}"
-    done
-
-    video_paths=()
-    while true; do
-        read -p "请输入视频路径: " path
-        if [ -f "$path" ]; then
-            video_paths+=("$path")
-            read -p "继续添加？(y/n): " choice
-            [[ "$choice" != "y" ]] && break
+        read -p "请输入视频BV号: " bv
+        if [[ "$bv" =~ ^BV ]]; then
+            break
         else
-            echo -e "${RED}文件不存在！${NC}"
+            echo -e "${RED}无效的BV号，请确保以BV开头！${NC}"
         fi
     done
 
-    cd "$BILIUP_DIR" && \
-    ./biliup append --vid "$vid" "${video_paths[@]}"
+    video_paths=()
+
+    echo -e "${CYAN}${BOLD}请选择视频所在目录类型：${NC}${NORMAL}"
+    echo "1. 直播回放"
+    echo "2. 直播回放弹幕版"
+    echo "3. 其他路径"
+    read -p "请输入选项 (1/2/3): " type_choice
+
+    case $type_choice in
+        1)
+            video_dir="/opt/DanmakuRender-5/直播回放"
+            ;;
+        2)
+            video_dir="/opt/DanmakuRender-5/直播回放（弹幕版）"
+            ;;
+        3)
+            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+            ;;
+        *)
+            echo -e "${RED}无效选项！${NC}"
+            return 1
+            ;;
+    esac
+
+    if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
+        if [ ! -d "$video_dir" ]; then
+            echo -e "${RED}目录不存在：$video_dir${NC}"
+            return 1
+        fi
+
+        files=("$video_dir"/*)
+        if [ ${#files[@]} -eq 0 ]; then
+            echo -e "${RED}目录下没有视频文件！${NC}"
+            return 1
+        fi
+
+        echo -e "${CYAN}目录下的视频文件：${NC}"
+        for i in "${!files[@]}"; do
+            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
+        done
+        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
+        
+        read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
+
+        all_option=$(( ${#files[@]} + 1 ))
+        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
+            video_paths=("$video_dir")
+        else
+            video_paths=()
+            for num in "${selections[@]}"; do
+                if [[ "$num" -ge 1 && "$num" -le "${#files[@]}" ]]; then
+                    video_paths+=("${files[$((num-1))]}")
+                else
+                    echo -e "${RED}无效选项：$num${NC}"
+                    return 1
+                fi
+            done
+        fi
+    fi
+
+    cd "$BILIUP_DIR" || { echo -e "${RED}进入工具目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
+    ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
 install_fonts() {
@@ -197,7 +308,7 @@ install_fonts() {
 main_menu() {
     while true; do
         show_header
-        check_dmr
+        # 选项2中不再调用显示当前状态的函数
         echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo "1.  安装DanmakuRender V5"
         echo "2.  启动/停止录制"
@@ -215,11 +326,12 @@ main_menu() {
         case $choice in
             1) install_dmr ;;
             2)
-                if check_dmr; then
+                if pgrep -f "$DMR_CMD" > /dev/null; then
                     stop_dmr
                 else
                     start_dmr
-                fi ;;
+                fi
+                ;;
             3) view_log ;;
             4) delete_replays ;;
             5) update_cookies ;;
