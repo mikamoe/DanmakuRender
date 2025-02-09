@@ -25,12 +25,13 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
-# 显示当前状态
+# 显示当前状态（如果正在运行则显示 PID）
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
          echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
     elif pgrep -f "$DMR_CMD" > /dev/null; then
-         echo -e "${GREEN}${BOLD}当前状态：正在运行${NC}${NORMAL}"
+         pid=$(pgrep -f "$DMR_CMD" | head -n 1)
+         echo -e "${GREEN}${BOLD}当前状态：正在运行 (PID: $pid)${NC}${NORMAL}"
     else
          echo -e "${RED}${BOLD}当前状态：未运行${NC}${NORMAL}"
     fi
@@ -46,6 +47,10 @@ require_installed() {
 }
 
 install_dmr() {
+    # 更新系统软件包索引
+    echo -e "${BLUE}正在更新软件包列表...${NC}"
+    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
+
     echo -e "${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
@@ -96,6 +101,11 @@ install_dmr() {
     chmod +x biliup || { echo -e "${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
     rm -rf "$extracted_folder" || { echo -e "${RED}删除解压后的文件夹失败！${NC}"; return 1; }
     echo -e "${GREEN}biliup 部署成功！${NC}"
+
+    # 安装 ffmpeg
+    echo -e "${BLUE}正在安装 ffmpeg...${NC}"
+    sudo apt install ffmpeg -y || { echo -e "${RED}ffmpeg 安装失败！${NC}"; return 1; }
+    echo -e "${GREEN}ffmpeg 安装完成！${NC}"
 
     echo -e "${GREEN}DanmakuRender V5 安装完成！${NC}"
 }
@@ -283,7 +293,7 @@ biliup_append() {
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
         echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-        
+        
         read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
 
         all_option=$(( ${#files[@]} + 1 ))
