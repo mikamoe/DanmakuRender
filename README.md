@@ -10,11 +10,14 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ## 脚本逻辑
 1. **下载并解压**  
    - 获取 `v5.zip` → 解压到 `/opt/DanmakuRender-5`
-2. **安装 Python 依赖**  
+2. **安装并创建 python 虚拟环境**  
    - `apt install python3-venv` → `python3 -m venv venv`
 3. **安装 pip3 及依赖**  
    - `source venv/bin/activate` → `apt install python3-pip` → `pip3 install -r requirements.txt`
-4. **下载biliup-rs**  
+4. **下载biliup-rs**
+  - `目前最新版本为biliupR-v0.2.2`
+5. **安装ffmpeg**  
+   - `sudo apt install ffmpeg -y`
    - 所有操作完成后提示安装成功
 - 所有文件的目录为
 - /opt/DanmakuRender-5
