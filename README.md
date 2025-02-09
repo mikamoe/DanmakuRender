@@ -1,8 +1,8 @@
 ## 新增内容
-
-- 新增脚本（适用于**Debian/Ubuntu**）
+- 安装/管理脚本（适用于**Debian/Ubuntu**）
 - 脚本支持一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
+- 因为Linux系统可能没有微软雅黑字体，所以安装完毕需要再次运行选项8安装一下（如果需要渲染弹幕）
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
