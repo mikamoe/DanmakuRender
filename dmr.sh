@@ -17,6 +17,7 @@ NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
+# 显示标题
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
@@ -24,19 +25,24 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
 }
 
-check_dmr() {
+# 显示当前状态
+show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
-        return 2
-    fi
-
-    if pgrep -f "$DMR_CMD" > /dev/null; then
-        echo -e "${GREEN}${BOLD}当前状态：DMR正在运行${NC}${NORMAL}"
-        return 0
+         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
+    elif pgrep -f "$DMR_CMD" > /dev/null; then
+         echo -e "${GREEN}${BOLD}当前状态：正在运行${NC}${NORMAL}"
     else
-        echo -e "${RED}${BOLD}当前状态：DMR未运行${NC}${NORMAL}"
-        return 1
+         echo -e "${RED}${BOLD}当前状态：未运行${NC}${NORMAL}"
     fi
+}
+
+# 检查是否安装（存在安装目录）
+require_installed() {
+    if [ ! -d "$DMR_DIR" ]; then
+         echo -e "${RED}${BOLD}错误：DanmakuRender V5 未安装，请先选择安装选项（1）进行安装！${NC}${NORMAL}"
+         return 1
+    fi
+    return 0
 }
 
 install_dmr() {
@@ -95,6 +101,7 @@ install_dmr() {
 }
 
 update_dmr() {
+    require_installed || return 1
     echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
@@ -114,43 +121,45 @@ update_dmr() {
 }
 
 uninstall_dmr() {
-    [ ! -d "$DMR_DIR" ] && {
-        echo -e "${YELLOW}未找到安装目录${NC}"
-        return 0
-    }
-
+    require_installed || return 1
     rm -rf "$DMR_DIR" && \
     echo -e "${GREEN}卸载完成！${NC}" || \
     echo -e "${RED}卸载失败！${NC}"
 }
 
 start_dmr() {
+    require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate && \
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
 stop_dmr() {
+    require_installed || return 1
     pkill -f "$DMR_CMD" && \
     echo -e "${GREEN}已停止DMR${NC}" || \
     echo -e "${RED}停止DMR失败${NC}"
 }
 
 view_log() {
+    require_installed || return 1
     tail -f "$DMR_DIR/$LOG_FILE"
 }
 
 delete_replays() {
+    require_installed || return 1
     rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
     echo -e "${GREEN}已删除所有回放文件${NC}"
 }
 
 update_cookies() {
+    require_installed || return 1
     cd "$BILIUP_DIR" && ./biliup login
 }
 
-# 优化后的选项6：哔哩哔哩快速上传
+# 优化后的选项6：哔哩哔哩快速上传（支持多选）
 biliup_upload() {
+    require_installed || return 1
     echo -e "${CYAN}${BOLD}请选择视频所在目录类型：${NC}${NORMAL}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
@@ -221,8 +230,9 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 优化后的选项7：哔哩哔哩视频追加上传
+# 优化后的选项7：哔哩哔哩视频追加上传（支持多选）
 biliup_append() {
+    require_installed || return 1
     while true; do
         read -p "请输入视频BV号: " bv
         if [[ "$bv" =~ ^BV ]]; then
@@ -273,7 +283,7 @@ biliup_append() {
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
         echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-        
+        
         read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
 
         all_option=$(( ${#files[@]} + 1 ))
@@ -308,7 +318,7 @@ install_fonts() {
 main_menu() {
     while true; do
         show_header
-        # 选项2中不再调用显示当前状态的函数
+        show_status
         echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo "1.  安装DanmakuRender V5"
         echo "2.  启动/停止录制"
@@ -326,20 +336,21 @@ main_menu() {
         case $choice in
             1) install_dmr ;;
             2)
+                require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
                 if pgrep -f "$DMR_CMD" > /dev/null; then
                     stop_dmr
                 else
                     start_dmr
                 fi
                 ;;
-            3) view_log ;;
-            4) delete_replays ;;
-            5) update_cookies ;;
-            6) biliup_upload ;;
-            7) biliup_append ;;
+            3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
+            4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; delete_replays ;;
+            5) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_cookies ;;
+            6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
+            7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
             8) install_fonts ;;
-            9) update_dmr ;;
-            10) uninstall_dmr ;;
+            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
+            10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效选项！${NC}" ;;
         esac
