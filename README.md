@@ -22,7 +22,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 - 所有文件的目录为
 - /opt/DanmakuRender-5
 
-### 感谢此项目作者
+### 感谢此项目以及其他开源作者
 ### 如果此fork影响到上游了，请给我发一封邮件
 ##### 📮 sillda76@gmail.com
 
