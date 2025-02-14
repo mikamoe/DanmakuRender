@@ -276,17 +276,17 @@ main_menu() {
         show_header
         show_status
         echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装 DanmakuRender V5"
-        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 删除回放/渲染文件"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 更新 哔哩哔哩 Cookies"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} 哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装 微软雅黑 和 Emoji 表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL}  安装 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL}  启动/停止录制"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL}  查看实时日志"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL}  删除回放/渲染文件"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL}  更新 哔哩哔哩 Cookies"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL}  哔哩哔哩快速上传"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL}  哔哩哔哩视频追加上传"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL}  安装 微软雅黑 和 Emoji 表情"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  更新 DanmakuRender V5"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载 DanmakuRender V5"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL}  退出脚本"
         read -p "请输入选项： " choice
         case $choice in
             1) install_dmr ;;
