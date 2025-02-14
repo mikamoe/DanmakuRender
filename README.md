@@ -22,12 +22,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 - 所有文件的目录为
 - /opt/DanmakuRender-5
 
-启动逻辑：
-进入目录 -> 激活虚拟环境 -> 启动DMR -> 输出PID
-
-停止逻辑：
-查找进程 -> 停止进程 -> 提示结果
-
 ### 感谢此项目作者
 ### 如果此fork影响到上游了，请给我发一封邮件
 ##### sillda76@gmail.com
