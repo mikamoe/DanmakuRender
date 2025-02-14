@@ -1,4 +1,4 @@
-## 🆕
+## 🆕 脚本
 - 安装/管理脚本（适用于**Debian/Ubuntu**）
 - 脚本支持一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
@@ -7,7 +7,7 @@
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/docs/IMG_1666.jpeg)
-## 💻 安装
+## 💻 逻辑
 1. **下载并解压**  
    - 获取 `v5.zip` → 解压到 `/opt/DanmakuRender-5`
 2. **安装并创建 python 虚拟环境**  
