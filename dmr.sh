@@ -53,26 +53,16 @@ require_installed() {
     return 0
 }
 
-# 检查系统依赖
-check_dependencies() {
-    local deps=("wget" "unzip" "curl" "tar" "python3" "git")
-    local missing=()
-    
-    echo -e "${BLUE}正在检查系统依赖...${NC}"
-    for dep in "${deps[@]}"; do
-        if ! command -v "$dep" &> /dev/null; then
-            missing+=("$dep")
+# 检查安装必要工具
+check_install_tools() {
+    echo -e "${BLUE}正在检查系统依赖工具...${NC}"
+    declare -a required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar")
+    for tool in "${required_tools[@]}"; do
+        if ! command -v $tool &> /dev/null; then
+            echo -e "${YELLOW}未找到 $tool，正在安装...${NC}"
+            sudo apt install -y $tool || { echo -e "${RED}$tool 安装失败！${NC}"; return 1; }
         fi
     done
-
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "${YELLOW}缺少依赖：${missing[*]}，正在安装...${NC}"
-        sudo apt update && sudo apt install -y "${missing[@]}" || {
-            echo -e "${RED}依赖安装失败！${NC}"
-            return 1
-        }
-    fi
-    return 0
 }
 
 # 安装 DanmakuRender V5（含回滚机制）
@@ -80,7 +70,7 @@ install_dmr() {
     local rollback_needed=true
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
 
-    check_dependencies || return 1
+    check_install_tools || return 1
 
     echo -e "${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
@@ -89,20 +79,16 @@ install_dmr() {
     unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
     [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }
+    sudo mv "$extracted_folder" "$DMR_DIR" || { echo -e "${RED}移动文件夹失败！${NC}"; return 1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
     echo -e "${GREEN}文件下载并解压完成！${NC}"
 
     cd "$DMR_DIR" || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
-    echo -e "${BLUE}安装 python3-venv...${NC}"
-    sudo apt install python3-venv -y || { echo -e "${RED}python3-venv 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}创建虚拟环境...${NC}"
     python3 -m venv venv || { echo -e "${RED}创建虚拟环境失败！${NC}"; return 1; }
     echo -e "${BLUE}激活虚拟环境...${NC}"
     source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
-    echo -e "${BLUE}安装 pip3...${NC}"
-    sudo apt-get install python3-pip -y || { echo -e "${RED}pip3 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}安装 Python 依赖...${NC}"
     pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
     deactivate
@@ -120,25 +106,36 @@ install_dmr() {
     rm -rf "$extracted_folder" || { echo -e "${RED}删除解压后的文件夹失败！${NC}"; return 1; }
     echo -e "${GREEN}biliup 部署成功！${NC}"
 
-    echo -e "${BLUE}正在安装 ffmpeg...${NC}"
-    sudo apt install ffmpeg -y || { echo -e "${RED}ffmpeg 安装失败！${NC}"; return 1; }
-    echo -e "${GREEN}ffmpeg 安装完成！${NC}"
     echo -e "${GREEN}${BOLD}DanmakuRender V5 安装完成！${NC}${NORMAL}"
 
     rollback_needed=false
     trap - EXIT
 }
 
+# 更新 DanmakuRender V5
+update_dmr() {
+    require_installed || return 1
+    echo -e "${BLUE}正在停止运行中的进程...${NC}"
+    pgrep -f "$DMR_CMD" > /dev/null && stop_dmr
+    check_install_tools || return 1
+
+    echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
+    tmp_dir=$(mktemp -d)
+    cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
+    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
+    [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
+    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }
+    cd - > /dev/null
+    rm -rf "$tmp_dir"
+    echo -e "${GREEN}DanmakuRender V5 更新完成！${NC}"
+}
+
 # 卸载 DanmakuRender V5
 uninstall_dmr() {
     require_installed || return 1
-    read -p "确定要卸载吗？(y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$DMR_DIR" && echo -e "${GREEN}卸载完成！${NC}" || echo -e "${RED}卸载失败！${NC}"
-    else
-        echo -e "${YELLOW}取消卸载操作${NC}"
-    fi
+    rm -rf "$DMR_DIR" && echo -e "${GREEN}卸载完成！${NC}" || echo -e "${RED}卸载失败！${NC}"
 }
 
 # 启动 DanmakuRender V5
@@ -163,17 +160,17 @@ view_log() {
 # 删除回放/渲染文件
 delete_replays() {
     require_installed || return 1
-    echo -e "${YELLOW}直播回放目录内容：${NC}"
-    ls -l "$DMR_DIR/直播回放" 2>/dev/null || echo "目录不存在。"
-    echo -e "${YELLOW}直播回放（弹幕版）目录内容：${NC}"
-    ls -l "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo "目录不存在。"
-    read -p "确定要删除所有回放文件吗？(y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${CYAN}直播回放目录内容：${NC}"
+    ls -lh "$DMR_DIR/直播回放" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放${NC}"
+    echo -e "\n${CYAN}直播回放（弹幕版）目录内容：${NC}"
+    ls -lh "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放（弹幕版）${NC}"
+    
+    read -p $'\n是否要删除所有回放文件？(y/n) ' confirm
+    if [[ $confirm =~ ^[Yy]$ ]]; then
         rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
         echo -e "${GREEN}已删除所有回放文件${NC}"
     else
-        echo -e "${YELLOW}取消删除操作。${NC}"
+        echo -e "${YELLOW}已取消删除操作${NC}"
     fi
 }
 
@@ -305,8 +302,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL}  哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL}  哔哩哔哩视频追加上传"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL}  安装 微软雅黑 和 Emoji 表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  更新 DanmakuRender V5"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  卸载 DanmakuRender V5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL}  退出脚本"
         read -p "请输入选项： " choice
         case $choice in
@@ -321,8 +317,7 @@ main_menu() {
             6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
             7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
             8) install_fonts ;;
-            9) check_dependencies && install_dmr ;;
-            10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
+            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效选项！${NC}" ;;
         esac
