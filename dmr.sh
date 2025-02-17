@@ -126,10 +126,10 @@ update_dmr() {
     unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
     [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }
+    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }  # 移除--delete参数
     cd - > /dev/null
     rm -rf "$tmp_dir"
-    echo -e "${GREEN}DanmakuRender V5 更新完成！${NC}"
+    echo -e "${GREEN}更新完成！${NC}"  # 修改提示语
 }
 
 # 卸载 DanmakuRender V5
