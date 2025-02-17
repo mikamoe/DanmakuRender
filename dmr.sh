@@ -3,7 +3,7 @@
 # 配置变量
 DMR_DIR="/opt/DanmakuRender-5"
 DMR_CMD="python3 main.py"
-LOG_FILE="$DMR_DIR/nohup.out"
+LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
@@ -17,20 +17,6 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
-
-# 检查系统依赖
-check_dependencies() {
-    declare -a deps=("wget" "unzip" "curl" "tar")
-    for dep in "${deps[@]}"; do
-        if ! command -v "$dep" &>/dev/null; then
-            echo -e "${YELLOW}正在安装依赖：$dep...${NC}"
-            sudo apt-get install -y "$dep" || { 
-                echo -e "${RED}$dep 安装失败！${NC}"
-                return 1
-            }
-        fi
-    done
-}
 
 # 回滚安装：安装出错时删除安装目录
 rollback_installation() {
@@ -67,33 +53,43 @@ require_installed() {
     return 0
 }
 
-# 安装 DanmakuRender V5（含更新覆盖功能）
+# 检查系统依赖
+check_dependencies() {
+    local deps=("wget" "unzip" "curl" "tar" "python3" "git")
+    local missing=()
+    
+    echo -e "${BLUE}正在检查系统依赖...${NC}"
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            missing+=("$dep")
+        fi
+    done
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo -e "${YELLOW}缺少依赖：${missing[*]}，正在安装...${NC}"
+        sudo apt update && sudo apt install -y "${missing[@]}" || {
+            echo -e "${RED}依赖安装失败！${NC}"
+            return 1
+        }
+    fi
+    return 0
+}
+
+# 安装 DanmakuRender V5（含回滚机制）
 install_dmr() {
     local rollback_needed=true
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
 
-    # 检查系统依赖
     check_dependencies || return 1
 
-    echo -e "${BLUE}正在更新软件包列表...${NC}"
-    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
-
-    # 覆盖安装模式
-    echo -e "${BLUE}开始安装/更新 DanmakuRender V5...${NC}"
+    echo -e "${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
     wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
     unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
     [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    
-    # 保留现有目录结构进行覆盖
-    sudo mkdir -p "$DMR_DIR"
-    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { 
-        echo -e "${RED}文件覆盖失败！${NC}"
-        return 1
-    }
-    
+    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
     echo -e "${GREEN}文件下载并解压完成！${NC}"
@@ -103,8 +99,13 @@ install_dmr() {
     sudo apt install python3-venv -y || { echo -e "${RED}python3-venv 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}创建虚拟环境...${NC}"
     python3 -m venv venv || { echo -e "${RED}创建虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}激活虚拟环境...${NC}"
+    source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}安装 pip3...${NC}"
+    sudo apt-get install python3-pip -y || { echo -e "${RED}pip3 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}安装 Python 依赖...${NC}"
-    venv/bin/pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
+    pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
+    deactivate
 
     echo -e "${BLUE}正在下载 biliup...${NC}"
     mkdir -p "$BILIUP_DIR" || { echo -e "${RED}创建 tools 文件夹失败！${NC}"; return 1; }
@@ -131,13 +132,19 @@ install_dmr() {
 # 卸载 DanmakuRender V5
 uninstall_dmr() {
     require_installed || return 1
-    rm -rf "$DMR_DIR" && echo -e "${GREEN}卸载完成！${NC}" || echo -e "${RED}卸载失败！${NC}"
+    read -p "确定要卸载吗？(y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$DMR_DIR" && echo -e "${GREEN}卸载完成！${NC}" || echo -e "${RED}卸载失败！${NC}"
+    else
+        echo -e "${YELLOW}取消卸载操作${NC}"
+    fi
 }
 
 # 启动 DanmakuRender V5
 start_dmr() {
     require_installed || return 1
-    cd "$DMR_DIR" && nohup venv/bin/python3 main.py > "$LOG_FILE" 2>&1 &
+    cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
@@ -150,34 +157,23 @@ stop_dmr() {
 # 查看日志
 view_log() {
     require_installed || return 1
-    tail -f "$LOG_FILE"
+    tail -f "$DMR_DIR/$LOG_FILE"
 }
 
-# 删除回放/渲染文件（带文件列表显示）
+# 删除回放/渲染文件
 delete_replays() {
     require_installed || return 1
-    declare -a dirs=(
-        "$DMR_DIR/直播回放"
-        "$DMR_DIR/直播回放（弹幕版）"
-    )
-
-    # 列出文件
-    for dir in "${dirs[@]}"; do
-        if [ -d "$dir" ]; then
-            echo -e "${CYAN}=== 目录：$dir ===${NC}"
-            find "$dir" -maxdepth 1 -type f -printf "  - %f\n"
-        else
-            echo -e "${YELLOW}目录不存在：$dir${NC}"
-        fi
-    done
-
-    # 确认删除
-    read -p "确定要删除以上所有文件吗？[y/N] " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        rm -rf "${dirs[@]}"
+    echo -e "${YELLOW}直播回放目录内容：${NC}"
+    ls -l "$DMR_DIR/直播回放" 2>/dev/null || echo "目录不存在。"
+    echo -e "${YELLOW}直播回放（弹幕版）目录内容：${NC}"
+    ls -l "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo "目录不存在。"
+    read -p "确定要删除所有回放文件吗？(y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
         echo -e "${GREEN}已删除所有回放文件${NC}"
     else
-        echo -e "${YELLOW}已取消删除操作${NC}"
+        echo -e "${YELLOW}取消删除操作。${NC}"
     fi
 }
 
@@ -325,7 +321,7 @@ main_menu() {
             6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
             7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
             8) install_fonts ;;
-            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
+            9) check_dependencies && install_dmr ;;
             10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效选项！${NC}" ;;
