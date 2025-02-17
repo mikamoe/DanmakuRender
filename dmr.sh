@@ -70,8 +70,17 @@ install_dmr() {
     local rollback_needed=true
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
 
-    check_install_tools || return 1
+    # 安装必要工具
+    echo -e "${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
+    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
+    sudo apt install -y unzip curl wget || { echo -e "${RED}必要工具安装失败！${NC}"; return 1; }
+    echo -e "${GREEN}必要工具安装完成！${NC}"
 
+    # 更新软件包列表
+    echo -e "${BLUE}正在更新软件包列表...${NC}"
+    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
+
+    # 下载 DanmakuRender V5
     echo -e "${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
@@ -84,15 +93,21 @@ install_dmr() {
     rm -rf "$tmp_dir"
     echo -e "${GREEN}文件下载并解压完成！${NC}"
 
+    # 安装 Python 虚拟环境和依赖
     cd "$DMR_DIR" || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}安装 python3-venv...${NC}"
+    sudo apt install python3-venv -y || { echo -e "${RED}python3-venv 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}创建虚拟环境...${NC}"
     python3 -m venv venv || { echo -e "${RED}创建虚拟环境失败！${NC}"; return 1; }
     echo -e "${BLUE}激活虚拟环境...${NC}"
     source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}安装 pip3...${NC}"
+    sudo apt-get install python3-pip -y || { echo -e "${RED}pip3 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}安装 Python 依赖...${NC}"
     pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
     deactivate
 
+    # 下载并部署 biliup
     echo -e "${BLUE}正在下载 biliup...${NC}"
     mkdir -p "$BILIUP_DIR" || { echo -e "${RED}创建 tools 文件夹失败！${NC}"; return 1; }
     cd "$BILIUP_DIR" || { echo -e "${RED}进入 tools 文件夹失败！${NC}"; return 1; }
@@ -106,6 +121,10 @@ install_dmr() {
     rm -rf "$extracted_folder" || { echo -e "${RED}删除解压后的文件夹失败！${NC}"; return 1; }
     echo -e "${GREEN}biliup 部署成功！${NC}"
 
+    # 安装 ffmpeg
+    echo -e "${BLUE}正在安装 ffmpeg...${NC}"
+    sudo apt install ffmpeg -y || { echo -e "${RED}ffmpeg 安装失败！${NC}"; return 1; }
+    echo -e "${GREEN}ffmpeg 安装完成！${NC}"
     echo -e "${GREEN}${BOLD}DanmakuRender V5 安装完成！${NC}${NORMAL}"
 
     rollback_needed=false
