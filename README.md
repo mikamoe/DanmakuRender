@@ -14,7 +14,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 3. **安装 pip3 及依赖**  
    - `source venv/bin/activate` → `apt install python3-pip` → `pip3 install -r requirements.txt`
 4. **下载biliup-rs**
-  - `目前最新版本为biliupR-v0.2.2`
+   - `目前最新版本为biliupR-v0.2.2`
 5. **安装ffmpeg**  
    - `sudo apt install ffmpeg -y`
    - 所有操作完成后提示安装成功
