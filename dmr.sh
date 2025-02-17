@@ -285,6 +285,7 @@ install_fonts() {
     sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
     sudo fc-cache -fv
     sudo apt install -y fonts-noto-color-emoji fonts-symbola
+    sudo fc-cache -fv
     echo -e "${GREEN}字体安装完成！${NC}"
 }
 
@@ -302,7 +303,8 @@ main_menu() {
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL}  哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL}  哔哩哔哩视频追加上传"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL}  安装 微软雅黑 和 Emoji 表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  卸载 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  更新 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载 DanmakuRender V5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL}  退出脚本"
         read -p "请输入选项： " choice
         case $choice in
@@ -317,7 +319,8 @@ main_menu() {
             6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
             7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
             8) install_fonts ;;
-            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
+            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
+            10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效选项！${NC}" ;;
         esac
