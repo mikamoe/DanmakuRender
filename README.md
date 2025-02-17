@@ -1,13 +1,12 @@
-## 🆕 脚本
-- 安装/管理脚本（适用于**Debian/Ubuntu**）
-- 脚本支持一键安装/卸载,启动/停止录制
+## 🧸 脚本
+- 适用于**Debian/Ubuntu**
+- 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
-- 因为Linux系统可能没有微软雅黑字体，所以安装完毕需要再次运行选项8安装一下（如果需要渲染弹幕）
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](https://github.com/sillda76/DanmakuRender/blob/v5/docs/IMG_1666.jpeg)
-## 💻 逻辑
+## 💻 安装
 1. **下载并解压**  
    - 获取 `v5.zip` → 解压到 `/opt/DanmakuRender-5`
 2. **安装并创建 python 虚拟环境**  
@@ -21,10 +20,6 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
    - 所有操作完成后提示安装成功
 - 所有文件的目录为
 - /opt/DanmakuRender-5
-
-### 感谢此项目以及其他开源作者
-### 如果此fork影响到上游了，请给我发一封邮件
-##### 📮 sillda76@gmail.com
 
 #### 以下为原项目的 README.md
 ---
