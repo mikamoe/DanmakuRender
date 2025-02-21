@@ -215,7 +215,8 @@ biliup_upload() {
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
         [ ! -d "$video_dir" ] && { echo -e "${RED}目录不存在：$video_dir${NC}"; return 1; }
-        files=("$video_dir"/*)
+        # 仅列出视频文件
+        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
         [ ${#files[@]} -eq 0 ] && { echo -e "${RED}目录下没有视频文件！${NC}"; return 1; }
         echo -e "${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
@@ -225,7 +226,7 @@ biliup_upload() {
         read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
-            video_paths=("$video_dir")
+            video_paths=("${files[@]}")
         else
             video_paths=()
             for num in "${selections[@]}"; do
@@ -270,7 +271,8 @@ biliup_append() {
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
         [ ! -d "$video_dir" ] && { echo -e "${RED}目录不存在：$video_dir${NC}"; return 1; }
-        files=("$video_dir"/*)
+        # 仅列出视频文件
+        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
         [ ${#files[@]} -eq 0 ] && { echo -e "${RED}目录下没有视频文件！${NC}"; return 1; }
         echo -e "${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
@@ -280,7 +282,7 @@ biliup_append() {
         read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
-            video_paths=("$video_dir")
+            video_paths=("${files[@]}")
         else
             video_paths=()
             for num in "${selections[@]}"; do
@@ -296,6 +298,17 @@ biliup_append() {
     cd "$BILIUP_DIR" || { echo -e "${RED}进入工具目录失败！${NC}"; return 1; }
     echo -e "${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
     ./biliup append --vid "$bv" "${video_paths[@]}"
+}
+
+# 运行测试
+run_test() {
+    require_installed || return 1
+    echo -e "${BLUE}正在运行测试...${NC}"
+    cd "$DMR_DIR" || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
+    source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
+    python3 dryrun.py || { echo -e "${RED}测试运行失败！${NC}"; return 1; }
+    deactivate
+    echo -e "${GREEN}测试运行完成！${NC}"
 }
 
 # 安装 微软雅黑 和 Emoji 字体
@@ -317,13 +330,14 @@ main_menu() {
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL}  安装 DanmakuRender V5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL}  启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL}  查看实时日志"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL}  删除回放/渲染文件"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL}  更新 哔哩哔哩 Cookies"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL}  哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL}  哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL}  安装 微软雅黑 和 Emoji 表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  更新 DanmakuRender V5"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL}  运行测试"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL}  删除回放/渲染文件"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL}  更新 哔哩哔哩 Cookies"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL}  哔哩哔哩快速上传"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL}  哔哩哔哩视频追加上传"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}  安装 微软雅黑 和 Emoji 表情"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 更新 DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL} 卸载 DanmakuRender V5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL}  退出脚本"
         read -p "请输入选项： " choice
         case $choice in
@@ -333,13 +347,14 @@ main_menu() {
                 pgrep -f "$DMR_CMD" > /dev/null && stop_dmr || start_dmr
                 ;;
             3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
-            4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; delete_replays ;;
-            5) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_cookies ;;
-            6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
-            7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
-            8) install_fonts ;;
-            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
-            10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
+            4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; run_test ;;
+            5) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; delete_replays ;;
+            6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_cookies ;;
+            7) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_upload ;;
+            8) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_append ;;
+            9) install_fonts ;;
+            10) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
+            11) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效选项！${NC}" ;;
         esac
