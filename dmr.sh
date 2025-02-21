@@ -188,28 +188,14 @@ uninstall_dmr() {
 # 启动 DanmakuRender V5
 start_dmr() {
     require_installed || return 1
-    
-    # 配置检查
-    local config_ok=0
-    check_config >/dev/null && check_cookies >/dev/null && config_ok=1
-    
-    if [ $config_ok -ne 1 ]; then
-        echo -e "${YELLOW}${BOLD}[警告]${NC}${NORMAL} ${RED}检测到未正确配置的组件，继续操作可能导致运行异常！${NC}"
-        read -p "是否仍然要继续运行？(y/n) " confirm
-        if [[ ! $confirm =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消启动操作${NC}"
-            return 1
-        fi
-    fi
-
     cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DMR启动成功！PID: $!${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $!${NC}"
 }
 
 # 停止 DanmakuRender V5
 stop_dmr() {
     require_installed || return 1
-    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止DMR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止DMR失败${NC}"
+    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
 }
 
 # 查看日志（带退出功能）
