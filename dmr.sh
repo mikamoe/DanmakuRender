@@ -109,7 +109,7 @@ install_dmr() {
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
     # 下载 DanmakuRender V5
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender V5...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NORMAL} ${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
     wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
@@ -285,7 +285,6 @@ biliup_menu() {
             0) break ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
-        read -n 1 -s -r -p "按任意键继续..."
     done
 }
 
@@ -311,7 +310,7 @@ biliup_upload() {
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
         [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录不存在：$video_dir${NC}"; return 1; }
-        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
+        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-))
         [ ${#files[@]} -eq 0 ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录下没有视频文件！${NC}"; return 1; }
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
@@ -366,7 +365,7 @@ biliup_append() {
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
         [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录不存在：$video_dir${NC}"; return 1; }
-        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
+        files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-))
         [ ${#files[@]} -eq 0 ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录下没有视频文件！${NC}"; return 1; }
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
