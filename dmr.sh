@@ -27,7 +27,7 @@ rollback_installation() {
 # 检查配置文件状态
 check_config() {
     if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
-        echo -e "${GREEN}${BOLD}已配置${NC}${NORMAL}"
+        echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}"
         return 0
     else
         echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
@@ -38,7 +38,7 @@ check_config() {
 # 检查Cookies状态
 check_cookies() {
     if find "$BILIUP_DIR" -name "*.json" -print -quit | grep -q .; then
-        echo -e "${GREEN}${BOLD}已配置${NC}${NORMAL}"
+        echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}"
         return 0
     else
         echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
