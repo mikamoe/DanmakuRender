@@ -68,7 +68,7 @@ show_status() {
     
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config)"
-        echo -e "Cookies：$(check_cookies)"
+        echo -e "Cookies ：$(check_cookies)"
     fi
 }
 
