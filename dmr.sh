@@ -20,8 +20,8 @@ NORMAL=$(tput sgr0)
 
 # 回滚安装：安装出错时删除安装目录
 rollback_installation() {
-    echo -e "${YELLOW}${BOLD}安装过程中出错，正在回滚安装...${NC}${NORMAL}"
-    [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" && echo -e "${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}回滚删除安装目录失败！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚安装...${NC}"
+    [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
 }
 
 # 显示头部信息
@@ -47,7 +47,7 @@ show_status() {
 # 检查是否已安装
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
-         echo -e "${RED}${BOLD}错误：DanmakuRender V5 未安装，请先选择安装选项（1）进行安装！${NC}${NORMAL}"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender V5 未安装，请先选择安装选项（1）进行安装！${NC}"
          return 1
     fi
     return 0
@@ -55,12 +55,12 @@ require_installed() {
 
 # 检查安装必要工具
 check_install_tools() {
-    echo -e "${BLUE}正在检查系统依赖工具...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖工具...${NC}"
     declare -a required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar")
     for tool in "${required_tools[@]}"; do
         if ! command -v $tool &> /dev/null; then
-            echo -e "${YELLOW}未找到 $tool，正在安装...${NC}"
-            sudo apt install -y $tool || { echo -e "${RED}$tool 安装失败！${NC}"; return 1; }
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
+            sudo apt install -y $tool || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"; return 1; }
         fi
     done
 }
@@ -71,61 +71,61 @@ install_dmr() {
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
 
     # 安装必要工具
-    echo -e "${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
-    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
-    sudo apt install -y unzip curl wget || { echo -e "${RED}必要工具安装失败！${NC}"; return 1; }
-    echo -e "${GREEN}必要工具安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
+    sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
+    sudo apt install -y unzip curl wget || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}必要工具安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}必要工具安装完成！${NC}"
 
     # 更新软件包列表
-    echo -e "${BLUE}正在更新软件包列表...${NC}"
-    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新软件包列表...${NC}"
+    sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
     # 下载 DanmakuRender V5
-    echo -e "${BLUE}正在下载 DanmakuRender V5...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
-    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
-    unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    sudo mv "$extracted_folder" "$DMR_DIR" || { echo -e "${RED}移动文件夹失败！${NC}"; return 1; }
+    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到解压后的文件夹！${NC}"; return 1; }
+    sudo mv "$extracted_folder" "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动文件夹失败！${NC}"; return 1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
-    echo -e "${GREEN}文件下载并解压完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
 
     # 安装 Python 虚拟环境和依赖
-    cd "$DMR_DIR" || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
-    echo -e "${BLUE}安装 python3-venv...${NC}"
-    sudo apt install python3-venv -y || { echo -e "${RED}python3-venv 安装失败！${NC}"; return 1; }
-    echo -e "${BLUE}创建虚拟环境...${NC}"
-    python3 -m venv venv || { echo -e "${RED}创建虚拟环境失败！${NC}"; return 1; }
-    echo -e "${BLUE}激活虚拟环境...${NC}"
-    source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
-    echo -e "${BLUE}安装 pip3...${NC}"
-    sudo apt-get install python3-pip -y || { echo -e "${RED}pip3 安装失败！${NC}"; return 1; }
-    echo -e "${BLUE}安装 Python 依赖...${NC}"
-    pip3 install -r requirements.txt || { echo -e "${RED}Python 依赖安装失败！${NC}"; return 1; }
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
+    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}python3-venv 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 pip3...${NC}"
+    sudo apt-get install python3-pip -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip3 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 Python 依赖...${NC}"
+    pip3 install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; return 1; }
     deactivate
 
     # 下载并部署 biliup
-    echo -e "${BLUE}正在下载 biliup...${NC}"
-    mkdir -p "$BILIUP_DIR" || { echo -e "${RED}创建 tools 文件夹失败！${NC}"; return 1; }
-    cd "$BILIUP_DIR" || { echo -e "${RED}进入 tools 文件夹失败！${NC}"; return 1; }
-    curl -LO "$BILIUP_URL" || { echo -e "${RED}下载 biliup 压缩包失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup...${NC}"
+    mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 tools 文件夹失败！${NC}"; return 1; }
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入 tools 文件夹失败！${NC}"; return 1; }
+    curl -LO "$BILIUP_URL" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup 压缩包失败！${NC}"; return 1; }
     archive_name=$(basename "$BILIUP_URL")
-    tar -xJvf "$archive_name" || { echo -e "${RED}解压 biliup 压缩包失败！${NC}"; return 1; }
+    tar -xJvf "$archive_name" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup 压缩包失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的 biliup 文件夹！${NC}"; return 1; }
-    mv "$extracted_folder/biliup" . || { echo -e "${RED}移动 biliup 文件失败！${NC}"; return 1; }
-    chmod +x biliup || { echo -e "${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
-    rm -rf "$extracted_folder" || { echo -e "${RED}删除解压后的文件夹失败！${NC}"; return 1; }
-    echo -e "${GREEN}biliup 部署成功！${NC}"
+    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到解压后的 biliup 文件夹！${NC}"; return 1; }
+    mv "$extracted_folder/biliup" . || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动 biliup 文件失败！${NC}"; return 1; }
+    chmod +x biliup || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
+    rm -rf "$extracted_folder" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除解压后的文件夹失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}biliup 部署成功！${NC}"
 
     # 安装 ffmpeg
-    echo -e "${BLUE}正在安装 ffmpeg...${NC}"
-    sudo apt install ffmpeg -y || { echo -e "${RED}ffmpeg 安装失败！${NC}"; return 1; }
-    echo -e "${GREEN}ffmpeg 安装完成！${NC}"
-    echo -e "${GREEN}${BOLD}DanmakuRender V5 安装完成！${NC}${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
+    sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}ffmpeg 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender V5 安装完成！${NC}${NORMAL}"
 
     rollback_needed=false
     trap - EXIT
@@ -134,46 +134,46 @@ install_dmr() {
 # 更新 DanmakuRender V5
 update_dmr() {
     require_installed || return 1
-    echo -e "${BLUE}正在停止运行中的进程...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在停止运行中的进程...${NC}"
     pgrep -f "$DMR_CMD" > /dev/null && stop_dmr
     check_install_tools || return 1
 
-    echo -e "${BLUE}正在更新 DanmakuRender V5...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新 DanmakuRender V5...${NC}"
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}进入临时目录失败！${NC}"; return 1; }
-    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}下载失败！${NC}"; return 1; }
-    unzip DanmakuRender-5.zip || { echo -e "${RED}解压失败！${NC}"; return 1; }
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压失败！${NC}"; return 1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}文件覆盖失败！${NC}"; return 1; }  # 移除--delete参数
+    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到解压后的文件夹！${NC}"; return 1; }
+    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"; return 1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
-    echo -e "${GREEN}更新完成！${NC}"  # 修改提示语
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新完成！${NC}"
 }
 
 # 卸载 DanmakuRender V5
 uninstall_dmr() {
     require_installed || return 1
-    rm -rf "$DMR_DIR" && echo -e "${GREEN}卸载完成！${NC}" || echo -e "${RED}卸载失败！${NC}"
+    rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}卸载完成！${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！${NC}"
 }
 
 # 启动 DanmakuRender V5
 start_dmr() {
     require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    echo -e "${GREEN}DMR启动成功！PID: $!${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DMR启动成功！PID: $!${NC}"
 }
 
 # 停止 DanmakuRender V5
 stop_dmr() {
     require_installed || return 1
-    pkill -f "$DMR_CMD" && echo -e "${GREEN}已停止DMR${NC}" || echo -e "${RED}停止DMR失败${NC}"
+    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止DMR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止DMR失败${NC}"
 }
 
 # 查看日志（带退出功能）
 view_log() {
     require_installed || return 1
-    echo -e "${YELLOW}按 q 键退出日志查看${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
     tail -f "$DMR_DIR/$LOG_FILE" & pid=$!
     while true; do
         if read -t 1 -n 1; then
@@ -191,29 +191,29 @@ view_log() {
 # 删除回放/渲染文件
 delete_replays() {
     require_installed || return 1
-    echo -e "${CYAN}直播回放目录内容：${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放目录内容：${NC}"
     ls -lh "$DMR_DIR/直播回放" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放${NC}"
-    echo -e "\n${CYAN}直播回放（弹幕版）目录内容：${NC}"
+    echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放（弹幕版）目录内容：${NC}"
     ls -lh "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放（弹幕版）${NC}"
     
     read -p $'\n是否要删除所有回放文件？(y/n) ' confirm
     if [[ $confirm =~ ^[Yy]$ ]]; then
         rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
-        echo -e "${GREEN}已删除所有回放文件${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除所有回放文件${NC}"
     else
-        echo -e "${YELLOW}已取消删除操作${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消删除操作${NC}"
     fi
 }
 
 # 运行测试
 run_test() {
     require_installed || return 1
-    echo -e "${BLUE}正在运行测试...${NC}"
-    cd "$DMR_DIR" || { echo -e "${RED}进入目录失败！${NC}"; return 1; }
-    source venv/bin/activate || { echo -e "${RED}激活虚拟环境失败！${NC}"; return 1; }
-    python3 dryrun.py || { echo -e "${RED}测试运行失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在运行测试...${NC}"
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; return 1; }
+    python3 dryrun.py || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}测试运行失败！${NC}"; return 1; }
     deactivate
-    echo -e "${GREEN}测试运行完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}测试运行完成！${NC}"
 }
 
 # 安装 微软雅黑 和 Emoji 字体
@@ -223,7 +223,7 @@ install_fonts() {
     sudo fc-cache -fv
     sudo apt install -y fonts-noto-color-emoji fonts-symbola
     sudo fc-cache -fv
-    echo -e "${GREEN}字体安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
 }
 
 # biliup-rs 工具菜单
@@ -241,7 +241,7 @@ biliup_menu() {
             2) biliup_upload ;;
             3) biliup_append ;;
             0) break ;;
-            *) echo -e "${RED}无效选项！${NC}" ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
         read -n 1 -s -r -p "按任意键继续..."
     done
@@ -256,7 +256,7 @@ update_cookies() {
 # 哔哩哔哩快速上传（支持多选）
 biliup_upload() {
     require_installed || return 1
-    echo -e "${CYAN}${BOLD}请选择视频所在目录类型：${NC}${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
@@ -265,14 +265,13 @@ biliup_upload() {
         1) video_dir="/opt/DanmakuRender-5/直播回放" ;;
         2) video_dir="/opt/DanmakuRender-5/直播回放（弹幕版）" ;;
         3) read -p "请输入视频所在目录的绝对路径: " video_dir ;;
-        *) echo -e "${RED}无效选项！${NC}"; return 1 ;;
+        *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"; return 1 ;;
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
-        [ ! -d "$video_dir" ] && { echo -e "${RED}目录不存在：$video_dir${NC}"; return 1; }
-        # 仅列出视频文件
+        [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录不存在：$video_dir${NC}"; return 1; }
         files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
-        [ ${#files[@]} -eq 0 ] && { echo -e "${RED}目录下没有视频文件！${NC}"; return 1; }
-        echo -e "${CYAN}目录下的视频文件：${NC}"
+        [ ${#files[@]} -eq 0 ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录下没有视频文件！${NC}"; return 1; }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
@@ -287,7 +286,7 @@ biliup_upload() {
                 if [[ "$num" -ge 1 && "$num" -le "${#files[@]}" ]]; then
                     video_paths+=("${files[$((num-1))]}")
                 else
-                    echo -e "${RED}无效选项：$num${NC}"
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项：$num${NC}"
                     return 1
                 fi
             done
@@ -299,8 +298,8 @@ biliup_upload() {
     tid=${tid:-65}
     read -p "请输入视频标签（默认直播回放,录播）: " tags
     tags=${tags:-"直播回放,录播"}
-    cd "$BILIUP_DIR" || { echo -e "${RED}进入工具目录失败！${NC}"; return 1; }
-    echo -e "${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
@@ -309,10 +308,10 @@ biliup_append() {
     require_installed || return 1
     while true; do
         read -p "请输入视频BV号: " bv
-        [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}无效的BV号，请确保以BV开头！${NC}"
+        [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效的BV号，请确保以BV开头！${NC}"
     done
     video_paths=()
-    echo -e "${CYAN}${BOLD}请选择视频所在目录类型：${NC}${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
@@ -321,14 +320,13 @@ biliup_append() {
         1) video_dir="/opt/DanmakuRender-5/直播回放" ;;
         2) video_dir="/opt/DanmakuRender-5/直播回放（弹幕版）" ;;
         3) read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths ;;
-        *) echo -e "${RED}无效选项！${NC}"; return 1 ;;
+        *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"; return 1 ;;
     esac
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
-        [ ! -d "$video_dir" ] && { echo -e "${RED}目录不存在：$video_dir${NC}"; return 1; }
-        # 仅列出视频文件
+        [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录不存在：$video_dir${NC}"; return 1; }
         files=($(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \)))
-        [ ${#files[@]} -eq 0 ] && { echo -e "${RED}目录下没有视频文件！${NC}"; return 1; }
-        echo -e "${CYAN}目录下的视频文件：${NC}"
+        [ ${#files[@]} -eq 0 ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}目录下没有视频文件！${NC}"; return 1; }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
         for i in "${!files[@]}"; do
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
@@ -343,14 +341,14 @@ biliup_append() {
                 if [[ "$num" -ge 1 && "$num" -le "${#files[@]}" ]]; then
                     video_paths+=("${files[$((num-1))]}")
                 else
-                    echo -e "${RED}无效选项：$num${NC}"
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项：$num${NC}"
                     return 1
                 fi
             done
         fi
     fi
-    cd "$BILIUP_DIR" || { echo -e "${RED}进入工具目录失败！${NC}"; return 1; }
-    echo -e "${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
@@ -385,7 +383,7 @@ main_menu() {
             8) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
             9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
-            *) echo -e "${RED}无效选项！${NC}" ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
         read -n 1 -s -r -p "按任意键继续..."
     done
