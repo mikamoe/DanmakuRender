@@ -195,7 +195,7 @@ start_dmr() {
 # 停止 DanmakuRender V5
 stop_dmr() {
     require_installed || return 1
-    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
+    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
 }
 
 # 查看日志（带退出功能）
