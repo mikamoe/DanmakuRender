@@ -24,13 +24,35 @@ rollback_installation() {
     [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
 }
 
+# 检查配置文件状态
+check_config() {
+    if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
+        echo -e "${GREEN}${BOLD}已配置${NC}${NORMAL}"
+        return 0
+    else
+        echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
+        return 1
+    fi
+}
+
+# 检查Cookies状态
+check_cookies() {
+    if find "$BILIUP_DIR" -name "*.json" -print -quit | grep -q .; then
+        echo -e "${GREEN}${BOLD}已配置${NC}${NORMAL}"
+        return 0
+    else
+        echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
+        return 1
+    fi
+}
+
 # 显示头部信息
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${CYAN} ${BOLD}https://github.com/sillda76/DanmakuRender${NORMAL}        ${NC}"
     echo -e "${CYAN}==============================${NC}"
+    echo -e "${CYAN}项目地址：https://github.com/sillda76/DanmakuRender${NC}\n"
 }
 
 # 显示当前状态（安装及运行情况）
@@ -42,6 +64,11 @@ show_status() {
          echo -e "${GREEN}${BOLD}当前状态：正在运行 (PID: $pid)${NC}${NORMAL}"
     else
          echo -e "${RED}${BOLD}当前状态：未运行${NC}${NORMAL}"
+    fi
+    
+    if [ -d "$DMR_DIR" ]; then
+        echo -e "配置文件：$(check_config)"
+        echo -e "Cookies：$(check_cookies)"
     fi
 }
 
@@ -161,6 +188,20 @@ uninstall_dmr() {
 # 启动 DanmakuRender V5
 start_dmr() {
     require_installed || return 1
+    
+    # 配置检查
+    local config_ok=0
+    check_config >/dev/null && check_cookies >/dev/null && config_ok=1
+    
+    if [ $config_ok -ne 1 ]; then
+        echo -e "${YELLOW}${BOLD}[警告]${NC}${NORMAL} ${RED}检测到未正确配置的组件，继续操作可能导致运行异常！${NC}"
+        read -p "是否仍然要继续运行？(y/n) " confirm
+        if [[ ! $confirm =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消启动操作${NC}"
+            return 1
+        fi
+    fi
+
     cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DMR启动成功！PID: $!${NC}"
 }
