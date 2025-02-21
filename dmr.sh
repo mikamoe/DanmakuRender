@@ -27,10 +27,8 @@ rollback_installation() {
 # 检查配置文件状态
 check_config() {
     if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
-        echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}"
         return 0
     else
-        echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
         return 1
     fi
 }
@@ -38,10 +36,8 @@ check_config() {
 # 检查Cookies状态
 check_cookies() {
     if find "$BILIUP_DIR" -name "*.json" -print -quit | grep -q .; then
-        echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}"
         return 0
     else
-        echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}"
         return 1
     fi
 }
@@ -67,8 +63,8 @@ show_status() {
     fi
     
     if [ -d "$DMR_DIR" ]; then
-        echo -e "配置文件：$(check_config)"
-        echo -e "Cookies ：$(check_cookies)"
+        echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
+        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
     fi
 }
 
@@ -440,6 +436,22 @@ main_menu() {
             1) install_dmr ;;
             2)
                 require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
+                
+                # 新增配置检查
+                config_error=""
+                cookies_error=""
+                check_config || config_error="配置文件未正确配置"
+                check_cookies || cookies_error="Cookies未正确配置"
+                
+                if [[ -n "$config_error" || -n "$cookies_error" ]]; then
+                    echo -ne "${RED}${BOLD}[ERROR]${NC}${NORMAL} "
+                    [[ -n "$config_error" ]] && echo -ne "${RED}$config_error "
+                    [[ -n "$cookies_error" ]] && echo -ne "${RED}$cookies_error"
+                    echo -e "${NC}"
+                    read -n 1 -s -r -p "按任意键返回菜单..."
+                    continue
+                fi
+
                 pgrep -f "$DMR_CMD" > /dev/null && stop_dmr || start_dmr
                 ;;
             3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
