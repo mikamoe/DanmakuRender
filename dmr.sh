@@ -282,9 +282,14 @@ biliup_menu() {
             1) update_cookies ;;
             2) biliup_upload ;;
             3) biliup_append ;;
-            0) break ;;
+            0) return 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
+        if [ "$sub_choice" == "0" ]; then
+            return 0
+        else
+            read -n 1 -s -r -p "按任意键继续..."
+        fi
     done
 }
 
@@ -317,7 +322,24 @@ biliup_upload() {
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
         echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-        read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
+        echo "0 ) 返回上一级菜单"
+        while true; do
+            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
+            if [[ " ${selections[@]} " =~ " 0 " ]]; then
+                return
+            fi
+            valid=true
+            for num in "${selections[@]}"; do
+                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
+                    echo -e "${RED}无效选项：$num${NC}"
+                    valid=false
+                    break
+                fi
+            done
+            if $valid; then
+                break
+            fi
+        done
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
             video_paths=("${files[@]}")
@@ -372,7 +394,24 @@ biliup_append() {
             printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
         done
         echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-        read -p "请输入要上传的视频选项（数字，用空格分隔）： " -a selections
+        echo "0 ) 返回上一级菜单"
+        while true; do
+            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
+            if [[ " ${selections[@]} " =~ " 0 " ]]; then
+                return
+            fi
+            valid=true
+            for num in "${selections[@]}"; do
+                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
+                    echo -e "${RED}无效选项：$num${NC}"
+                    valid=false
+                    break
+                fi
+            done
+            if $valid; then
+                break
+            fi
+        done
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
             video_paths=("${files[@]}")
@@ -395,6 +434,7 @@ biliup_append() {
 
 # 主菜单
 main_menu() {
+    local skip_read=false
     while true; do
         show_header
         show_status
@@ -419,14 +459,23 @@ main_menu() {
             3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
             4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; run_test ;;
             5) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; delete_replays ;;
-            6) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; biliup_menu ;;
+            6) 
+                require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
+                if biliup_menu; then
+                    skip_read=true
+                fi
+                ;;
             7) install_fonts ;;
             8) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
             9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
             0) exit 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
-        read -n 1 -s -r -p "按任意键继续..."
+        if [ "$skip_read" = true ]; then
+            skip_read=false
+        else
+            read -n 1 -s -r -p "按任意键继续..."
+        fi
     done
 }
 
