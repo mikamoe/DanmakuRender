@@ -29,6 +29,7 @@ show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
+    echo -e "${CYAN} ${BOLD}https://github.com/sillda76/DanmakuRender${NORMAL}        ${NC}"
     echo -e "${CYAN}==============================${NC}"
 }
 
