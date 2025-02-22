@@ -18,6 +18,15 @@ NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
+# 获取Python版本信息
+get_python_version() {
+    if command -v python3 &> /dev/null; then
+        echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
+    else
+        echo "not_installed"
+    fi
+}
+
 # 回滚安装：安装出错时删除安装目录
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚安装...${NC}"
@@ -48,6 +57,12 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
     echo -e "${CYAN}==============================${NC}"
+    python_version=$(get_python_version)
+    if [[ "$python_version" == "not_installed" ]]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
+    else
+        echo -e "${CYAN}Python 版本：${python_version}${NC}"
+    fi
     echo -e "${CYAN}项目地址：https://github.com/sillda76/DanmakuRender${NC}\n"
 }
 
@@ -94,6 +109,50 @@ install_dmr() {
     local rollback_needed=true
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
 
+    # 已安装时的处理逻辑
+    if [ -d "$DMR_DIR" ]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 已经安装！${NC}"
+        read -p "是否要重新安装Python依赖？(y/n) " reinstall_choice
+        if [[ ! $reinstall_choice =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消重新安装${NC}"
+            return 0
+        fi
+        
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装Python依赖...${NC}"
+        cd "$DMR_DIR" || { 
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; 
+            return 1; 
+        }
+        
+        # 删除旧虚拟环境
+        [ -d "venv" ] && rm -rf venv
+        
+        # 创建新虚拟环境
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建新的虚拟环境...${NC}"
+        python3 -m venv venv || { 
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; 
+            return 1; 
+        }
+        
+        # 安装依赖
+        source venv/bin/activate || { 
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; 
+            return 1; 
+        }
+        pip install --quiet --upgrade pip || { 
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; 
+            return 1; 
+        }
+        pip install -r requirements.txt || { 
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; 
+            return 1; 
+        }
+        deactivate
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python依赖重新安装完成！${NC}"
+        return 0
+    fi
+
+    # 全新安装流程
     # 安装必要工具
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
@@ -117,7 +176,7 @@ install_dmr() {
     rm -rf "$tmp_dir"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
 
-        # 安装 Python 虚拟环境和依赖
+    # 安装 Python 虚拟环境和依赖
     cd "$DMR_DIR" || { 
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; 
         return 1; 
@@ -141,7 +200,7 @@ install_dmr() {
         return 1; 
     }
 
-    # 移除冗余的 pip3 系统安装步骤，直接使用虚拟环境内的 pip
+    # 升级 pip 确保最新
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip 确保最新...${NC}"
     pip install --quiet --upgrade pip || { 
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; 
