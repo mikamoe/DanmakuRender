@@ -117,18 +117,43 @@ install_dmr() {
     rm -rf "$tmp_dir"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
 
-    # 安装 Python 虚拟环境和依赖
-    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; return 1; }
+        # 安装 Python 虚拟环境和依赖
+    cd "$DMR_DIR" || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; 
+        return 1; 
+    }
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
-    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}python3-venv 安装失败！${NC}"; return 1; }
+    sudo apt install python3-venv -y || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}python3-venv 安装失败！${NC}"; 
+        return 1; 
+    }
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
-    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; return 1; }
+    python3 -m venv venv || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; 
+        return 1; 
+    }
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 pip3...${NC}"
-    sudo apt-get install python3-pip -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip3 安装失败！${NC}"; return 1; }
+    source venv/bin/activate || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; 
+        return 1; 
+    }
+
+    # 移除冗余的 pip3 系统安装步骤，直接使用虚拟环境内的 pip
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip 确保最新...${NC}"
+    pip install --quiet --upgrade pip || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; 
+        return 1; 
+    }
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 Python 依赖...${NC}"
-    pip3 install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; return 1; }
+    pip install -r requirements.txt || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; 
+        return 1; 
+    }
+
     deactivate
 
     # 下载并部署 biliup
