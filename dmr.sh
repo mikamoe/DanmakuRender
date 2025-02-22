@@ -61,7 +61,7 @@ show_header() {
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
-        echo -e "${CYAN}Python 版本：${python_version}${NC}"
+        echo -e "${CYAN}${BOLD}Python版本：${python_version}${NC}"
     fi
     echo -e "${CYAN}项目地址：https://github.com/sillda76/DanmakuRender${NC}\n"
 }
@@ -269,7 +269,9 @@ uninstall_dmr() {
 start_dmr() {
     require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $!${NC}"
+    local pid=$!
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $pid${NC}"
+    return 0
 }
 
 # 停止 DanmakuRender V5
@@ -521,22 +523,23 @@ main_menu() {
             2)
                 require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
                 
-                # 新增配置检查
+                # 配置检查（只检查配置文件）
                 config_error=""
-                cookies_error=""
                 check_config || config_error="配置文件未正确配置"
-                check_cookies || cookies_error="Cookies未正确配置"
                 
-                if [[ -n "$config_error" || -n "$cookies_error" ]]; then
-                    echo -ne "${RED}${BOLD}[ERROR]${NC}${NORMAL} "
-                    [[ -n "$config_error" ]] && echo -ne "${RED}$config_error "
-                    [[ -n "$cookies_error" ]] && echo -ne "${RED}$cookies_error"
-                    echo -e "${NC}"
+                if [[ -n "$config_error" ]]; then
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$config_error${NC}"
                     read -n 1 -s -r -p "按任意键返回菜单..."
                     continue
                 fi
 
-                pgrep -f "$DMR_CMD" > /dev/null && stop_dmr || start_dmr
+                if pgrep -f "$DMR_CMD" > /dev/null; then
+                    stop_dmr
+                else
+                    if start_dmr; then
+                        view_log
+                    fi
+                fi
                 ;;
             3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
             4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; run_test ;;
