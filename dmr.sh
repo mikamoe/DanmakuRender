@@ -61,7 +61,7 @@ show_header() {
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
-        echo -e "${CYAN}${BOLD}Python版本：${python_version}${NC}"
+        echo -e "${CYAN}Python 版本：${python_version}${NC}"
     fi
     echo -e "${CYAN}项目地址：https://github.com/sillda76/DanmakuRender${NC}\n"
 }
@@ -328,6 +328,7 @@ run_test() {
 
 # 安装 微软雅黑 和 Emoji 字体
 install_fonts() {
+    require_installed || return 1
     sudo mkdir -p /usr/share/fonts/truetype/microsoft
     sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
     sudo fc-cache -fv
@@ -521,38 +522,79 @@ main_menu() {
         case $choice in
             1) install_dmr ;;
             2)
-                require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
-                
-                # 配置检查（只检查配置文件）
-                config_error=""
-                check_config || config_error="配置文件未正确配置"
-                
-                if [[ -n "$config_error" ]]; then
-                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$config_error${NC}"
-                    read -n 1 -s -r -p "按任意键返回菜单..."
-                    continue
-                fi
-
-                if pgrep -f "$DMR_CMD" > /dev/null; then
-                    stop_dmr
-                else
-                    if start_dmr; then
-                        view_log
+                if require_installed; then
+                    # 配置检查（只检查配置文件）
+                    config_error=""
+                    check_config || config_error="配置文件未正确配置"
+                    
+                    if [[ -n "$config_error" ]]; then
+                        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$config_error${NC}"
+                        read -n 1 -s -r -p "按任意键返回菜单..."
+                        continue
                     fi
+
+                    if pgrep -f "$DMR_CMD" > /dev/null; then
+                        stop_dmr
+                    else
+                        if start_dmr; then
+                            view_log
+                        fi
+                    fi
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
                 fi
                 ;;
-            3) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; view_log ;;
-            4) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; run_test ;;
-            5) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; delete_replays ;;
+            3)
+                if require_installed; then
+                    view_log
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
+            4)
+                if require_installed; then
+                    run_test
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
+            5)
+                if require_installed; then
+                    delete_replays
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
             6) 
-                require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }
-                if biliup_menu; then
-                    skip_read=true
+                if require_installed; then
+                    if biliup_menu; then
+                        skip_read=true
+                    fi
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
                 fi
                 ;;
-            7) install_fonts ;;
-            8) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; update_dmr ;;
-            9) require_installed || { read -n 1 -s -r -p "按任意键继续..."; continue; }; uninstall_dmr ;;
+            7)
+                if require_installed; then
+                    install_fonts
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
+            8)
+                if require_installed; then
+                    update_dmr
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
+            9)
+                if require_installed; then
+                    uninstall_dmr
+                else
+                    read -n 1 -s -r -p "按任意键继续..."
+                fi
+                ;;
             0) exit 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
