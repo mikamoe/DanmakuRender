@@ -16,6 +16,7 @@ GITHUB_BRANCH="v5"
 
 # 获取时间变量
 commit_time="获取中..."
+release_version="获取中..."
 release_time="获取中..."
 install_date="N/A"
 
@@ -88,12 +89,15 @@ fetch_github_times() {
         commit_time="获取失败"
     fi
 
-    # 获取最新Release时间
-    local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+    # 获取最新Release信息
+    local release_info=$(curl -sf "https://api.github.com/repos/$owner/$repo/releases/latest")
     if [[ -n "$release_info" ]]; then
+        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
+        release_version="$raw_version"
         local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
-        release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+        release_time=$(get_bj_time "$raw_time")
     else
+        release_version="获取失败"
         release_time="获取失败"
     fi
 }
@@ -112,7 +116,8 @@ show_header() {
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
     echo -e "${CYAN}最新提交日期：${commit_time}${NC}"
-    echo -e "${CYAN}最新Release：${release_time}${NC}"
+    echo -e "${CYAN}最新Release：${release_version}${NC}"
+    echo -e "${CYAN}更新日期：${release_time}${NC}"
     echo -e "${CYAN}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
     echo -e "${CYAN}==============================${NC}"
     python_version=$(get_python_version)
