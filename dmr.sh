@@ -89,18 +89,20 @@ fetch_github_times() {
         commit_time="获取失败"
     fi
 
-    # 获取最新Release信息
-    local release_info=$(curl -sf "https://api.github.com/repos/$owner/$repo/releases/latest")
-    if [[ -n "$release_info" ]]; then
-        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
-        release_version="$raw_version"
-        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
-        release_time=$(get_bj_time "$raw_time")
-    else
-        release_version="获取失败"
-        release_time="获取失败"
-    fi
-}
+# 获取最新Release信息
+local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+if [[ -n "$release_info" ]]; then
+    # 提取版本号
+    local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
+    release_version="$raw_version"
+
+    # 提取发布时间并转换为北京时间
+    local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
+    release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+else
+    release_version="获取失败"
+    release_time="获取失败"
+fi
 
 # 获取安装日期
 get_install_date() {
