@@ -89,7 +89,8 @@ fetch_github_times() {
         commit_time="获取失败"
     fi
 
-# 获取最新Release信息
+    # 获取最新Release信息
+    # 获取最新Release信息
 local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
 if [[ -n "$release_info" ]]; then
     # 提取版本号
@@ -103,6 +104,7 @@ else
     release_version="获取失败"
     release_time="获取失败"
 fi
+}
 
 # 获取安装日期
 get_install_date() {
