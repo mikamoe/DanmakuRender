@@ -69,7 +69,7 @@ show_header() {
 # 显示当前状态（安装及运行情况）
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender V5 未安装${NC}${NORMAL}"
+         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
     elif pgrep -f "$DMR_CMD" > /dev/null; then
          pid=$(pgrep -f "$DMR_CMD" | head -n 1)
          echo -e "${GREEN}${BOLD}当前状态：正在运行 (PID: $pid)${NC}${NORMAL}"
@@ -86,7 +86,7 @@ show_status() {
 # 检查是否已安装
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender V5 未安装，请先选择安装选项（1）进行安装！${NC}"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装，请先选择安装选项（1）进行安装！${NC}"
          return 1
     fi
     return 0
@@ -104,7 +104,7 @@ check_install_tools() {
     done
 }
 
-# 安装 DanmakuRender V5（含回滚机制）
+# 安装 DanmakuRender v5（含回滚机制）
 install_dmr() {
     local rollback_needed=true
     trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
@@ -163,8 +163,8 @@ install_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新软件包列表...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
-    # 下载 DanmakuRender V5
-    echo -e "${BLUE}${BOLD}[INFO]${NORMAL} ${BLUE}正在下载 DanmakuRender V5...${NC}"
+    # 下载 DanmakuRender v5
+    echo -e "${BLUE}${BOLD}[INFO]${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
     wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
@@ -233,13 +233,13 @@ install_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
     sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}ffmpeg 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender V5 安装完成！${NC}${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}${NORMAL}"
 
     rollback_needed=false
     trap - EXIT
 }
 
-# 更新 DanmakuRender V5
+# 更新 DanmakuRender v5
 update_dmr() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在停止运行中的进程...${NC}"
@@ -259,13 +259,13 @@ update_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新完成！${NC}"
 }
 
-# 卸载 DanmakuRender V5
+# 卸载 DanmakuRender v5
 uninstall_dmr() {
     require_installed || return 1
     rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}卸载完成！${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！${NC}"
 }
 
-# 启动 DanmakuRender V5
+# 启动 DanmakuRender v5
 start_dmr() {
     require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
@@ -274,7 +274,7 @@ start_dmr() {
     return 0
 }
 
-# 停止 DanmakuRender V5
+# 停止 DanmakuRender v5
 stop_dmr() {
     require_installed || return 1
     pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
@@ -341,7 +341,7 @@ install_fonts() {
 biliup_menu() {
     while true; do
         show_header
-        echo -e "${CYAN}=== biliup-rs 工具 ===${NC}"
+        echo -e "${CYAN}=== biliup-rs ===${NC}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 更新哔哩哔哩 Cookies"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
@@ -508,15 +508,15 @@ main_menu() {
         show_header
         show_status
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 运行测试"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} biliup-rs工具"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 更新DanmakuRender V5"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 卸载DanmakuRender V5"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         read -p "请输入选项： " choice
         case $choice in
