@@ -572,6 +572,16 @@ biliup_append() {
 
 # 主菜单
 main_menu() {
+    # 预检查依赖
+    check_dependencies || {
+        echo -e "${RED}${BOLD}[ERROR]${NC} 依赖检查失败，脚本终止"
+        exit 1
+    }
+    
+    # 获取动态信息
+    fetch_github_times
+    get_install_date
+    
     local skip_read=false
     while true; do
         show_header
@@ -587,92 +597,101 @@ main_menu() {
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
+        
         read -p "请输入选项： " choice
         case $choice in
-            1) install_dmr ;;
+            1) 
+                install_dmr
+                skip_read=false
+                ;;
             2)
                 if require_installed; then
-                    # 配置检查（只检查配置文件）
                     config_error=""
                     check_config || config_error="配置文件未正确配置"
                     
                     if [[ -n "$config_error" ]]; then
                         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$config_error${NC}"
-                        read -n 1 -s -r -p "按任意键返回菜单..."
-                        continue
-                    fi
-
-                    if pgrep -f "$DMR_CMD" > /dev/null; then
-                        stop_dmr
                     else
-                        if start_dmr; then
-                            view_log
+                        if pgrep -f "$DMR_CMD" > /dev/null; then
+                            stop_dmr
+                        else
+                            if start_dmr; then
+                                view_log
+                                skip_read=true
+                            fi
                         fi
                     fi
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             3)
                 if require_installed; then
                     view_log
+                    skip_read=true
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             4)
                 if require_installed; then
                     run_test
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             5)
                 if require_installed; then
                     delete_replays
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             6) 
                 if require_installed; then
-                    if biliup_menu; then
-                        skip_read=true
-                    fi
+                    biliup_menu
+                    skip_read=true
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             7)
-                if require_installed; then
-                    install_fonts
-                else
-                    read -n 1 -s -r -p "按任意键继续..."
-                fi
+                install_fonts
+                skip_read=false
                 ;;
             8)
                 if require_installed; then
                     update_dmr
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             9)
                 if require_installed; then
                     uninstall_dmr
                 else
-                    read -n 1 -s -r -p "按任意键继续..."
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
+                skip_read=false
                 ;;
             0) exit 0 ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
+            *) 
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
+                continue
+                ;;
         esac
-        if [ "$skip_read" = true ]; then
-            skip_read=false
-        else
+        
+        if [ "$skip_read" = false ]; then
             read -n 1 -s -r -p "按任意键继续..."
         fi
     done
 }
 
+# 初始化执行
 main_menu
