@@ -111,7 +111,7 @@ show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${CYAN}最新提交时间：${commit_time}${NC}"
+    echo -e "${CYAN}最新提交日期：${commit_time}${NC}"
     echo -e "${CYAN}最新Release：${release_time}${NC}"
     echo -e "${CYAN}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
     echo -e "${CYAN}==============================${NC}"
