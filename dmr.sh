@@ -13,16 +13,16 @@ INSTALL_DATE_FILE="$DMR_DIR/install_date"
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
-# biliup-rs
-BILIUP_OWNER="biliup"
-BILIUP_REPO="biliup-rs"
-BILIUP_BRANCH="master"
 
 # 获取时间变量
 commit_time="获取中..."
 release_version="获取中..."
 release_time="获取中..."
 install_date="N/A"
+
+# biliup-rs 项目信息
+BILIUP_OWNER="biliup"
+BILIUP_REPO="biliup-rs"
 biliup_release_version="获取中..."
 biliup_release_time="获取中..."
 
@@ -96,34 +96,35 @@ fetch_github_times() {
     fi
 
     # 获取最新Release信息
-local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
-if [[ -n "$release_info" ]]; then
-    # 提取版本号
-    local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
-    release_version="$raw_version"
+    local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+    if [[ -n "$release_info" ]]; then
+        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
+        release_version="$raw_version"
 
-    # 提取发布时间并转换为北京时间
-    local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
-    release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
-else
-    release_version="获取失败"
-    release_time="获取失败"
-fi
+        # 提取发布时间并转换为北京时间
+        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
+        release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+    else
+        release_version="获取失败"
+        release_time="获取失败"
+    fi
 }
 
-# 获取 biliup-rs 最新 Release 信息
-    local biliup_release_info=$(curl -sf "https://api.github.com/repos/$BILIUP_OWNER/$BILIUP_REPO/releases/latest")
-    if [[ -n "$biliup_release_info" ]]; then
-        biliup_release_version=$(jq -r '.tag_name // empty' <<< "$biliup_release_info")
-        local raw_time=$(jq -r '.published_at // empty' <<< "$biliup_release_info")
+# 获取biliup-rs的最新Release信息
+fetch_biliup_release_info() {
+    local release_info=$(curl -sf "https://api.github.com/repos/$BILIUP_OWNER/$BILIUP_REPO/releases/latest")
+    if [[ -n "$release_info" ]]; then
+        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
+        biliup_release_version="$raw_version"
+
+        # 提取发布时间并转换为北京时间
+        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
         biliup_release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
     else
         biliup_release_version="获取失败"
         biliup_release_time="获取失败"
     fi
 }
-
-# 获取安装日期
 
 # 获取安装日期
 get_install_date() {
@@ -309,8 +310,6 @@ install_dmr() {
     }
 
     deactivate
-    # 写入安装日期时间戳
-    echo $(date +%s) | sudo tee "$INSTALL_DATE_FILE" > /dev/null
 
     # 下载并部署 biliup
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup...${NC}"
@@ -331,6 +330,10 @@ install_dmr() {
     sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}ffmpeg 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}${NORMAL}"
+
+    # 记录安装日期
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}记录安装日期...${NC}"
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"; return 1; }
 
     rollback_needed=false
     trap - EXIT
@@ -436,6 +439,7 @@ install_fonts() {
 
 # biliup-rs 工具菜单
 biliup_menu() {
+    fetch_biliup_release_info
     while true; do
         show_header
         echo -e "${CYAN}=== biliup-rs ===${NC}"
