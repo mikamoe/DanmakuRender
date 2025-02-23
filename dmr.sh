@@ -111,18 +111,16 @@ show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${CYAN}-------------------------------${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
         echo -e "${CYAN}Python 版本：${python_version}${NC}"
     fi
-    echo -e "${CYAN}-------------------------------${NC}"
     echo -e "${CYAN}最新提交时间：${commit_time}${NC}"
     echo -e "${CYAN}最新Release：${release_time}${NC}"
     echo -e "${CYAN}==============================${NC}"
-    echo -e "${CYAN}项目原地址：https://github.com/SmallPeaches/DanmakuRender${NC}\n"
+    echo -e "${CYAN}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}\n"
 }
 
 # 显示当前状态（添加安装日期和更新提示）
