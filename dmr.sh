@@ -121,6 +121,7 @@ show_header() {
     else
         echo -e "${CYAN}当前Python 版本：${python_version}${NC}"
     fi
+    
 }
 
 # 显示当前状态（添加安装日期和更新提示）
