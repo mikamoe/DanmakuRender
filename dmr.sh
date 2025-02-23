@@ -13,12 +13,18 @@ INSTALL_DATE_FILE="$DMR_DIR/install_date"
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
+# biliup-rs
+BILIUP_OWNER="biliup"
+BILIUP_REPO="biliup-rs"
+BILIUP_BRANCH="master"
 
 # 获取时间变量
 commit_time="获取中..."
 release_version="获取中..."
 release_time="获取中..."
 install_date="N/A"
+biliup_release_version="获取中..."
+biliup_release_time="获取中..."
 
 # 颜色与字体样式
 RED='\033[0;31m'
@@ -90,7 +96,6 @@ fetch_github_times() {
     fi
 
     # 获取最新Release信息
-    # 获取最新Release信息
 local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
 if [[ -n "$release_info" ]]; then
     # 提取版本号
@@ -105,6 +110,20 @@ else
     release_time="获取失败"
 fi
 }
+
+# 获取 biliup-rs 最新 Release 信息
+    local biliup_release_info=$(curl -sf "https://api.github.com/repos/$BILIUP_OWNER/$BILIUP_REPO/releases/latest")
+    if [[ -n "$biliup_release_info" ]]; then
+        biliup_release_version=$(jq -r '.tag_name // empty' <<< "$biliup_release_info")
+        local raw_time=$(jq -r '.published_at // empty' <<< "$biliup_release_info")
+        biliup_release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+    else
+        biliup_release_version="获取失败"
+        biliup_release_time="获取失败"
+    fi
+}
+
+# 获取安装日期
 
 # 获取安装日期
 get_install_date() {
@@ -290,6 +309,8 @@ install_dmr() {
     }
 
     deactivate
+    # 写入安装日期时间戳
+    echo $(date +%s) | sudo tee "$INSTALL_DATE_FILE" > /dev/null
 
     # 下载并部署 biliup
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup...${NC}"
@@ -418,6 +439,8 @@ biliup_menu() {
     while true; do
         show_header
         echo -e "${CYAN}=== biliup-rs ===${NC}"
+        echo -e "${CYAN}最新Release：${biliup_release_version}${NC}"
+        echo -e "${CYAN}更新日期：${biliup_release_time}${NC}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 更新哔哩哔哩 Cookies"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
