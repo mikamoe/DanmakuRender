@@ -7,6 +7,17 @@ LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
+INSTALL_DATE_FILE="$DMR_DIR/install_date"
+
+# GitHub项目信息
+GITHUB_OWNER="SmallPeaches"
+GITHUB_REPO="DanmakuRender"
+GITHUB_BRANCH="v5"
+
+# 获取时间变量
+commit_time="获取中..."
+release_time="获取中..."
+install_date="N/A"
 
 # 颜色与字体样式
 RED='\033[0;31m'
@@ -17,6 +28,21 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
+
+# 检查系统依赖
+check_dependencies() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖...${NC}"
+    declare -a required_tools=("jq" "curl")
+    for tool in "${required_tools[@]}"; do
+        if ! command -v $tool &>/dev/null; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
+            sudo apt install -y $tool || { 
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}";
+                return 1;
+            }
+        fi
+    done
+}
 
 # 获取Python版本信息
 get_python_version() {
@@ -51,22 +77,55 @@ check_cookies() {
     fi
 }
 
+# 获取GitHub时间信息
+fetch_github_times() {
+    # 获取分支提交时间
+    local branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
+    if [[ -n "$branch_info" ]]; then
+        local raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
+        commit_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+    else
+        commit_time="获取失败"
+    fi
+
+    # 获取最新Release时间
+    local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+    if [[ -n "$release_info" ]]; then
+        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
+        release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+    else
+        release_time="获取失败"
+    fi
+}
+
+# 获取安装日期
+get_install_date() {
+    if [ -f "$INSTALL_DATE_FILE" ]; then
+        local timestamp=$(sudo cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        install_date=$(TZ=Asia/Shanghai date -d "@$timestamp" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "N/A")
+    fi
+}
+
 # 显示头部信息
 show_header() {
     clear
     echo -e "${CYAN}==============================${NC}"
     echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${CYAN}==============================${NC}"
+    echo -e "${CYAN}-------------------------------${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
         echo -e "${CYAN}Python 版本：${python_version}${NC}"
     fi
-    echo -e "${CYAN}项目地址：https://github.com/sillda76/DanmakuRender${NC}\n"
+    echo -e "${CYAN}-------------------------------${NC}"
+    echo -e "${CYAN}最新提交时间：${commit_time}${NC}"
+    echo -e "${CYAN}最新Release：${release_time}${NC}"
+    echo -e "${CYAN}==============================${NC}"
+    echo -e "${CYAN}项目原地址：https://github.com/SmallPeaches/DanmakuRender${NC}\n"
 }
 
-# 显示当前状态（安装及运行情况）
+# 显示当前状态（添加安装日期和更新提示）
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
          echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
@@ -80,6 +139,16 @@ show_status() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
         echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
+        echo -e "安装日期：${CYAN}${install_date}${NC}"
+        
+        # 更新提示逻辑
+        if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+            local last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
+            local commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
+            if [ $commit_timestamp -gt $last_update ]; then
+                echo -e "${YELLOW}${BOLD}提示：v5分支有最新更新，请选择选项9进行更新！${NC}"
+            fi
+        fi
     fi
 }
 
