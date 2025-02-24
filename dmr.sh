@@ -139,7 +139,7 @@ get_install_date() {
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
-    echo -e "${PINK}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
     echo -e "${PINK}最新提交日期 ${BOLD}${commit_time}${NC}"
     echo -e "${PINK}最新Release  ${BOLD}${release_version}${NC}"
     echo -e "${PINK}更新日期  ${BOLD}${release_time}${NC}"
@@ -667,7 +667,7 @@ main_menu() {
     while true; do
         show_header
         show_status
-        echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+        echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
