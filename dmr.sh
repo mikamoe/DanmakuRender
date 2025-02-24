@@ -139,17 +139,17 @@ get_install_date() {
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
-    echo -e "${PINK}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${PINK}最新提交日期：${BOLD}${commit_time}${NC}"
-    echo -e "${PINK}最新Release：${BOLD}${release_version}${NC}"
-    echo -e "${PINK}更新日期：${BOLD}${release_time}${NC}"
-    echo -e "${PINK}项目原地址：https://github.com/SmallPeaches/DanmakuRender${NC}"
-    echo -e "${PINK}==============================${NC}"
+    echo -e "${PINK}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
+    echo -e "${PINK}最新提交日期 ${BOLD}${commit_time}${NC}"
+    echo -e "${PINK}最新Release  ${BOLD}${release_version}${NC}"
+    echo -e "${PINK}更新日期  ${BOLD}${release_time}${NC}"
+    echo -e "${PINK}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
+    echo -e "${PINK}------------------------------${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
-        echo -e "${PINK}当前Python 版本：${BOLD}${python_version}${NC}\n"
+        echo -e "${PINK}当前Python版本：${BOLD}${python_version}${NC}\n"
     fi  
 }
 
