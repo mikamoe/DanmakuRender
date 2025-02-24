@@ -751,7 +751,11 @@ main_menu() {
                 skip_read=false
                 ;;
             8)
-                install_fonts
+                if require_installed; then
+                    install_fonts
+                else
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                fi
                 skip_read=false
                 ;;
             9)
@@ -770,10 +774,12 @@ main_menu() {
                 fi
                 skip_read=false
                 ;;
-            0) exit 0 ;;
+            0) 
+                exit 0 
+                ;;
             *) 
                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
-                continue
+                skip_read=false
                 ;;
         esac
         
