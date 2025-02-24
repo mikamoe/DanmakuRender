@@ -704,7 +704,7 @@ main_menu() {
                         fi
                     fi
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -713,7 +713,7 @@ main_menu() {
                     view_log
                     skip_read=true
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -721,7 +721,7 @@ main_menu() {
                 if require_installed; then
                     manual_render
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -729,7 +729,7 @@ main_menu() {
                 if require_installed; then
                     run_test
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -737,7 +737,7 @@ main_menu() {
                 if require_installed; then
                     delete_replays
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -746,7 +746,7 @@ main_menu() {
                     biliup_menu
                     skip_read=true
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -754,7 +754,7 @@ main_menu() {
                 if require_installed; then
                     install_fonts
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -762,7 +762,7 @@ main_menu() {
                 if require_installed; then
                     update_dmr
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
@@ -770,7 +770,7 @@ main_menu() {
                 if require_installed; then
                     uninstall_dmr
                 else
-                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
