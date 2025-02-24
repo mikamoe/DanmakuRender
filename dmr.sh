@@ -672,12 +672,12 @@ main_menu() {
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 手动渲染视频"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行测试"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行一次测试"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         
         read -p "请输入选项： " choice
