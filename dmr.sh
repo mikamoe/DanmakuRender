@@ -32,6 +32,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+PINK='\033[1;35m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
@@ -129,7 +130,7 @@ fetch_biliup_release_info() {
 # 获取安装日期
 get_install_date() {
     if [ -f "$INSTALL_DATE_FILE" ]; then
-        local timestamp=$(sudo cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        local timestamp=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         install_date=$(TZ=Asia/Shanghai date -d "@$timestamp" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "N/A")
     fi
 }
@@ -137,18 +138,18 @@ get_install_date() {
 # 显示头部信息
 show_header() {
     clear
-    echo -e "${CYAN}==============================${NC}"
-    echo -e "${CYAN}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
-    echo -e "${CYAN}最新提交日期：${commit_time}${NC}"
-    echo -e "${CYAN}最新Release：${release_version}${NC}"
-    echo -e "${CYAN}更新日期：${release_time}${NC}"
-    echo -e "${CYAN}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
-    echo -e "${CYAN}==============================${NC}"
+    echo -e "${PINK}==============================${NC}"
+    echo -e "${PINK}        ${BOLD}DanmakuRender${NORMAL}        ${NC}"
+    echo -e "${PINK}最新提交日期：${BOLD}${commit_time}${NC}"
+    echo -e "${PINK}最新Release：${BOLD}${release_version}${NC}"
+    echo -e "${PINK}更新日期：${BOLD}${release_time}${NC}"
+    echo -e "${PINK}项目原地址：https://github.com/SmallPeaches/DanmakuRender${NC}"
+    echo -e "${PINK}==============================${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
-        echo -e "${CYAN}当前Python 版本：${python_version}${NC}\n"
+        echo -e "${PINK}当前Python 版本：${BOLD}${python_version}${NC}\n"
     fi  
 }
 
@@ -166,7 +167,7 @@ show_status() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
         echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
-        echo -e "安装日期：${CYAN}${install_date}${NC}"
+        echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         
         # 更新提示逻辑
         if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
@@ -260,7 +261,7 @@ install_dmr() {
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
     # 下载 DanmakuRender v5
-    echo -e "${BLUE}${BOLD}[INFO]${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
     wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
@@ -334,29 +335,66 @@ install_dmr() {
     # 记录安装日期
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}记录安装日期...${NC}"
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"; return 1; }
+    get_install_date
 
     rollback_needed=false
     trap - EXIT
 }
 
-# 更新 DanmakuRender v5
+# 更新 DanmakuRender v5（新流程）
 update_dmr() {
     require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在停止运行中的进程...${NC}"
-    pgrep -f "$DMR_CMD" > /dev/null && stop_dmr
+    read -p "是否进行更新？(1 更新, 0 返回菜单): " update_choice
+    if [[ "$update_choice" != "1" ]]; then
+         return 0
+    fi
+
     check_install_tools || return 1
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新 DanmakuRender V5...${NC}"
+    if pgrep -f "$DMR_CMD" > /dev/null; then
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
+         stop_dmr
+    fi
+
+    backup_dir="${DMR_DIR}_backup_$(date +%s)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
+    sudo cp -r "$DMR_DIR" "$backup_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 备份失败！"; return 1; }
+
+    update_fail=0
+
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
-    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载失败！${NC}"; return 1; }
-    unzip DanmakuRender-5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压失败！${NC}"; return 1; }
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载 DanmakuRender v5 更新包..."
+    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载失败！"; update_fail=1; }
+    unzip DanmakuRender-5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压失败！"; update_fail=1; }
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到解压后的文件夹！${NC}"; return 1; }
-    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"; return 1; }
+    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"; update_fail=1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
+    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"; update_fail=1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新完成！${NC}"
+
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; update_fail=1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在重新安装 Python 依赖..."
+    [ -d "venv" ] && rm -rf venv
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"; update_fail=1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; update_fail=1; }
+    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"; update_fail=1; }
+    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"; update_fail=1; }
+    deactivate
+
+    if [ "$update_fail" -eq 1 ]; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新失败，正在恢复备份..."
+         sudo rm -rf "$DMR_DIR"
+         sudo mv "$backup_dir" "$DMR_DIR"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
+         return 1
+    else
+         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
+         sudo rm -rf "$backup_dir"
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"; return 1; }
+         get_install_date
+    fi
 }
 
 # 卸载 DanmakuRender v5
@@ -426,6 +464,15 @@ run_test() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}测试运行完成！${NC}"
 }
 
+# 手动渲染视频
+manual_render() {
+    require_installed || return 1
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
+    python3 render_only.py || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 渲染失败！"; return 1; }
+    deactivate
+}
+
 # 安装 微软雅黑 和 Emoji 字体
 install_fonts() {
     require_installed || return 1
@@ -442,9 +489,9 @@ biliup_menu() {
     fetch_biliup_release_info
     while true; do
         show_header
-        echo -e "${CYAN}=== biliup-rs ===${NC}"
-        echo -e "${CYAN}最新Release：${biliup_release_version}${NC}"
-        echo -e "${CYAN}更新日期：${biliup_release_time}${NC}"
+        echo -e "${PINK}=== biliup-rs ===${NC}"
+        echo -e "${PINK}最新Release：${BOLD}${biliup_release_version}${NC}"
+        echo -e "${PINK}更新日期：${BOLD}${biliup_release_time}${NC}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 更新哔哩哔哩 Cookies"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
@@ -624,12 +671,13 @@ main_menu() {
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 运行测试"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 删除回放/渲染视频文件"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} biliup-rs工具"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 手动渲染视频"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行测试"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} 卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         
         read -p "请输入选项： " choice
@@ -671,7 +719,7 @@ main_menu() {
                 ;;
             4)
                 if require_installed; then
-                    run_test
+                    manual_render
                 else
                     echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
@@ -679,13 +727,21 @@ main_menu() {
                 ;;
             5)
                 if require_installed; then
+                    run_test
+                else
+                    echo -e "${RED}请先安装DanmakuRender!${NC}"
+                fi
+                skip_read=false
+                ;;
+            6)
+                if require_installed; then
                     delete_replays
                 else
                     echo -e "${RED}请先安装DanmakuRender!${NC}"
                 fi
                 skip_read=false
                 ;;
-            6) 
+            7) 
                 if require_installed; then
                     biliup_menu
                     skip_read=true
@@ -694,11 +750,11 @@ main_menu() {
                 fi
                 skip_read=false
                 ;;
-            7)
+            8)
                 install_fonts
                 skip_read=false
                 ;;
-            8)
+            9)
                 if require_installed; then
                     update_dmr
                 else
@@ -706,7 +762,7 @@ main_menu() {
                 fi
                 skip_read=false
                 ;;
-            9)
+            10)
                 if require_installed; then
                     uninstall_dmr
                 else
