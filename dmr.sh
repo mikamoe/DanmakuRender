@@ -31,8 +31,10 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+LIGHT_BLUE='\033[1;34m'
 CYAN='\033[0;36m'
 PINK='\033[1;35m'
+PURPLE='\033[0;35m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
@@ -140,16 +142,15 @@ show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
     echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
-    echo -e "${PINK}最新提交日期 ${BOLD}${commit_time}${NC}"
-    echo -e "${PINK}最新Release  ${BOLD}${release_version}${NC}"
-    echo -e "${PINK}更新日期  ${BOLD}${release_time}${NC}"
-    echo -e "${PINK}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
-    echo -e "${PINK}------------------------------${NC}"
+    echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
+    echo -e "${PINK}最新Release版本${NC}  ${BOLD}${release_version}"
+    echo -e "${PINK}更新日期${NC}   ${BOLD}${release_time}"
+    echo -e "${PURPLE}${BOLD}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
     else
-        echo -e "${PINK}当前Python版本：${BOLD}${python_version}${NC}\n"
+        echo -e "${YELLOW}${BOLD}当前Python版本：${BOLD}${python_version}${NC}\n"
     fi  
 }
 
@@ -166,7 +167,7 @@ show_status() {
     
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
-        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
+        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置 请检查/tools目录！${NC}${NORMAL}")"
         echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         
         # 更新提示逻辑
@@ -248,8 +249,7 @@ install_dmr() {
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python依赖重新安装完成！${NC}"
         return 0
     fi
-
-    # 全新安装流程
+    
     # 安装必要工具
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
@@ -312,7 +312,7 @@ install_dmr() {
 
     deactivate
 
-    # 下载并部署 biliup
+    # 下载 biliup
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup...${NC}"
     mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 tools 文件夹失败！${NC}"; return 1; }
     cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入 tools 文件夹失败！${NC}"; return 1; }
@@ -324,7 +324,7 @@ install_dmr() {
     mv "$extracted_folder/biliup" . || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动 biliup 文件失败！${NC}"; return 1; }
     chmod +x biliup || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
     rm -rf "$extracted_folder" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除解压后的文件夹失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}biliup 部署成功！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}biliup-rs 下载成功！文件路径：./tools${NC}"
 
     # 安装 ffmpeg
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
@@ -341,7 +341,7 @@ install_dmr() {
     trap - EXIT
 }
 
-# 更新 DanmakuRender v5（新流程）
+# 更新 DanmakuRender v5
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(1 更新, 0 返回菜单): " update_choice
@@ -667,7 +667,7 @@ main_menu() {
     while true; do
         show_header
         show_status
-        echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+        echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
@@ -676,7 +676,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         
