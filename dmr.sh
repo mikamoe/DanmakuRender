@@ -1,32 +1,24 @@
 #!/bin/bash
-
-# 配置变量
+# ===================== 配置变量 =====================
 DMR_DIR="/opt/DanmakuRender-5"
 DMR_CMD="python3 main.py"
 LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
-BILIUP_URL="https://github.com/biliup/biliup-rs/releases/download/v0.2.2/biliupR-v0.2.2-x86_64-linux.tar.xz"
 INSTALL_DATE_FILE="$DMR_DIR/install_date"
 
-# GitHub项目信息
+# GitHub 项目信息
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
 
-# 获取时间变量
-commit_time="获取中..."
-release_version="获取中..."
-release_time="获取中..."
-install_date="N/A"
-
-# biliup-rs 项目信息
+# biliup-rs 项目信息（用于动态获取最新版本）
 BILIUP_OWNER="biliup"
 BILIUP_REPO="biliup-rs"
-biliup_release_version="获取中..."
-biliup_release_time="获取中..."
+# 定义 biliup-rs 发布基础 URL（安装时动态构造下载地址）
+BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
 
-# 颜色与字体样式
+# ANSI 颜色和样式
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -39,31 +31,32 @@ NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
-# 检查系统依赖
+# ===================== 系统检查及辅助函数 =====================
+# 检查基本依赖工具（jq、curl）
 check_dependencies() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖...${NC}"
-    declare -a required_tools=("jq" "curl")
+    local required_tools=("jq" "curl")
     for tool in "${required_tools[@]}"; do
-        if ! command -v $tool &>/dev/null; then
+        if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
-            sudo apt install -y $tool || { 
-                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}";
-                return 1;
+            sudo apt install -y "$tool" || { 
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
+                return 1
             }
         fi
     done
 }
 
-# 获取Python版本信息
+# 获取 Python3 版本
 get_python_version() {
-    if command -v python3 &> /dev/null; then
+    if command -v python3 &>/dev/null; then
         echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
     else
         echo "not_installed"
     fi
 }
 
-# 回滚安装：安装出错时删除安装目录
+# 回滚安装（安装出错时删除安装目录）
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚安装...${NC}"
     [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
@@ -78,7 +71,7 @@ check_config() {
     fi
 }
 
-# 检查Cookies状态
+# 检查 Cookies 文件状态
 check_cookies() {
     if find "$BILIUP_DIR" -name "*.json" -print -quit | grep -q .; then
         return 0
@@ -87,25 +80,24 @@ check_cookies() {
     fi
 }
 
-# 获取GitHub时间信息
+# 获取 GitHub 的最新提交和 Release 时间（转换为北京时间）
 fetch_github_times() {
-    # 获取分支提交时间
-    local branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
+    local branch_info
+    branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
     if [[ -n "$branch_info" ]]; then
-        local raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
+        local raw_time
+        raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
     else
         commit_time="获取失败"
     fi
 
-    # 获取最新Release信息
-    local release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
+    local release_info
+    release_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
     if [[ -n "$release_info" ]]; then
-        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
-        release_version="$raw_version"
-
-        # 提取发布时间并转换为北京时间
-        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
+        release_version=$(jq -r '.tag_name // empty' <<< "$release_info")
+        local raw_time
+        raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
         release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
     else
         release_version="获取失败"
@@ -113,91 +105,24 @@ fetch_github_times() {
     fi
 }
 
-# 获取biliup-rs的最新Release信息
-fetch_biliup_release_info() {
-    local release_info=$(curl -sf "https://api.github.com/repos/$BILIUP_OWNER/$BILIUP_REPO/releases/latest")
-    if [[ -n "$release_info" ]]; then
-        local raw_version=$(jq -r '.tag_name // empty' <<< "$release_info")
-        biliup_release_version="$raw_version"
-
-        # 提取发布时间并转换为北京时间
-        local raw_time=$(jq -r '.published_at // empty' <<< "$release_info")
-        biliup_release_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
-    else
-        biliup_release_version="获取失败"
-        biliup_release_time="获取失败"
-    fi
-}
-
-# 获取安装日期
+# 获取安装/更新日期
 get_install_date() {
     if [ -f "$INSTALL_DATE_FILE" ]; then
-        local timestamp=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        local timestamp
+        timestamp=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         install_date=$(TZ=Asia/Shanghai date -d "@$timestamp" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "N/A")
     fi
 }
 
-# 显示头部信息
-show_header() {
-    clear
-    echo -e "${PINK}==============================${NC}"
-    echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
-    echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
-    echo -e "${PINK}最新Release版本${NC}  ${BOLD}${release_version}"
-    echo -e "${PINK}更新日期${NC}   ${BOLD}${release_time}"
-    echo -e "${PURPLE}${BOLD}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
-    python_version=$(get_python_version)
-    if [[ "$python_version" == "not_installed" ]]; then
-        echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
-    else
-        echo -e "${YELLOW}${BOLD}当前Python版本：${BOLD}${python_version}${NC}\n"
-    fi  
-}
-
-# 显示当前状态（添加安装日期和更新提示）
-show_status() {
-    if [ ! -d "$DMR_DIR" ]; then
-         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
-    elif pgrep -f "$DMR_CMD" > /dev/null; then
-         pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-         echo -e "${GREEN}${BOLD}当前状态：正在运行 (PID: $pid)${NC}${NORMAL}"
-    else
-         echo -e "${RED}${BOLD}当前状态：未运行${NC}${NORMAL}"
-    fi
-    
-    if [ -d "$DMR_DIR" ]; then
-        echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
-        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置 请检查/tools目录！${NC}${NORMAL}")"
-        echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
-        
-        # 更新提示逻辑
-        if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
-            local last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
-            local commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
-            if [ $commit_timestamp -gt $last_update ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有最新更新，请选择选项9进行更新！${NC}"
-            fi
-        fi
-    fi
-}
-
-# 检查是否已安装
-require_installed() {
-    if [ ! -d "$DMR_DIR" ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装，请先选择安装选项（1）进行安装！${NC}"
-         return 1
-    fi
-    return 0
-}
-
-# 检查安装必要工具
+# ===================== 安装与更新 DanmakuRender v5 相关函数 =====================
+# 检查安装必要工具（wget、unzip、python3-venv、python3-pip、ffmpeg、curl、tar）
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖工具...${NC}"
-    declare -a required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar")
+    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar")
     for tool in "${required_tools[@]}"; do
-        if ! command -v $tool &> /dev/null; then
+        if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
-            sudo apt install -y $tool || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"; return 1; }
+            sudo apt install -y "$tool" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"; return 1; }
         fi
     done
 }
@@ -205,9 +130,8 @@ check_install_tools() {
 # 安装 DanmakuRender v5（含回滚机制）
 install_dmr() {
     local rollback_needed=true
-    trap 'if [ "$rollback_needed" = true ]; then rollback_installation; fi' EXIT
+    trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
-    # 已安装时的处理逻辑
     if [ -d "$DMR_DIR" ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 已经安装！${NC}"
         read -p "是否要重新安装Python依赖？(y/n) " reinstall_choice
@@ -215,52 +139,25 @@ install_dmr() {
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消重新安装${NC}"
             return 0
         fi
-        
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装Python依赖...${NC}"
-        cd "$DMR_DIR" || { 
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; 
-            return 1; 
-        }
-        
-        # 删除旧虚拟环境
+        cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; return 1; }
         [ -d "venv" ] && rm -rf venv
-        
-        # 创建新虚拟环境
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建新的虚拟环境...${NC}"
-        python3 -m venv venv || { 
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; 
-            return 1; 
-        }
-        
-        # 安装依赖
-        source venv/bin/activate || { 
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; 
-            return 1; 
-        }
-        pip install --quiet --upgrade pip || { 
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; 
-            return 1; 
-        }
-        pip install -r requirements.txt || { 
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; 
-            return 1; 
-        }
+        python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; return 1; }
+        source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; return 1; }
+        pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; return 1; }
+        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; return 1; }
         deactivate
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python依赖重新安装完成！${NC}"
         return 0
     fi
-    
-    # 安装必要工具
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具（unzip、curl、wget）...${NC}"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
     sudo apt install -y unzip curl wget || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}必要工具安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}必要工具安装完成！${NC}"
-
-    # 更新软件包列表
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新软件包列表...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
-    # 下载 DanmakuRender v5
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
     tmp_dir=$(mktemp -d)
     cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入临时目录失败！${NC}"; return 1; }
@@ -273,66 +170,28 @@ install_dmr() {
     rm -rf "$tmp_dir"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
 
-    # 安装 Python 虚拟环境和依赖
-    cd "$DMR_DIR" || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; 
-        return 1; 
-    }
-
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入目录失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
-    sudo apt install python3-venv -y || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}python3-venv 安装失败！${NC}"; 
-        return 1; 
-    }
-
+    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}python3-venv 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
-    python3 -m venv venv || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; 
-        return 1; 
-    }
-
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建虚拟环境失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-    source venv/bin/activate || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; 
-        return 1; 
-    }
-
-    # 升级 pip 确保最新
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip 确保最新...${NC}"
-    pip install --quiet --upgrade pip || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; 
-        return 1; 
-    }
-
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; return 1; }
+    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}pip 升级失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 Python 依赖...${NC}"
-    pip install -r requirements.txt || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; 
-        return 1; 
-    }
-
+    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; return 1; }
     deactivate
 
-    # 下载 biliup
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup...${NC}"
-    mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 tools 文件夹失败！${NC}"; return 1; }
-    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入 tools 文件夹失败！${NC}"; return 1; }
-    curl -LO "$BILIUP_URL" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup 压缩包失败！${NC}"; return 1; }
-    archive_name=$(basename "$BILIUP_URL")
-    tar -xJvf "$archive_name" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup 压缩包失败！${NC}"; return 1; }
-    extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到解压后的 biliup 文件夹！${NC}"; return 1; }
-    mv "$extracted_folder/biliup" . || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动 biliup 文件失败！${NC}"; return 1; }
-    chmod +x biliup || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 biliup 可执行权限失败！${NC}"; return 1; }
-    rm -rf "$extracted_folder" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除解压后的文件夹失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}biliup-rs 下载成功！文件路径：./tools${NC}"
-
-    # 安装 ffmpeg
+    # ---------------- 安装 ffmpeg ----------------
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
     sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}ffmpeg 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
+    
+    # ---------------- 安装 biliup-rs ----------------
+    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}biliup-rs 安装失败！${NC}"; return 1; }
+    
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}${NORMAL}"
 
-    # 记录安装日期
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}记录安装日期...${NC}"
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"; return 1; }
     get_install_date
@@ -418,7 +277,7 @@ stop_dmr() {
     pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
 }
 
-# 查看日志（带退出功能）
+# 查看日志（支持退出）
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
@@ -434,23 +293,6 @@ view_log() {
             break
         fi
     done
-}
-
-# 删除回放/渲染文件
-delete_replays() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放目录内容：${NC}"
-    ls -lh "$DMR_DIR/直播回放" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放${NC}"
-    echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放（弹幕版）目录内容：${NC}"
-    ls -lh "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放（弹幕版）${NC}"
-    
-    read -p $'\n是否要删除所有回放文件？(y/n) ' confirm
-    if [[ $confirm =~ ^[Yy]$ ]]; then
-        rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除所有回放文件${NC}"
-    else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消删除操作${NC}"
-    fi
 }
 
 # 运行测试
@@ -473,7 +315,23 @@ manual_render() {
     deactivate
 }
 
-# 安装 微软雅黑 和 Emoji 字体
+# 删除回放/渲染文件
+delete_replays() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放目录内容：${NC}"
+    ls -lh "$DMR_DIR/直播回放" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放${NC}"
+    echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放（弹幕版）目录内容：${NC}"
+    ls -lh "$DMR_DIR/直播回放（弹幕版）" 2>/dev/null || echo -e "${YELLOW}目录不存在：直播回放（弹幕版）${NC}"
+    read -p $'\n是否要删除所有回放文件？(y/n) ' confirm
+    if [[ $confirm =~ ^[Yy]$ ]]; then
+        rm -rf "$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除所有回放文件${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消删除操作${NC}"
+    fi
+}
+
+# 安装字体（微软雅黑和 Emoji）
 install_fonts() {
     require_installed || return 1
     sudo mkdir -p /usr/share/fonts/truetype/microsoft
@@ -484,41 +342,77 @@ install_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
 }
 
-# biliup-rs 工具菜单
-biliup_menu() {
-    fetch_biliup_release_info
-    while true; do
-        show_header
-        echo -e "${PINK}=== biliup-rs ===${NC}"
-        echo -e "${PINK}最新Release：${BOLD}${biliup_release_version}${NC}"
-        echo -e "${PINK}更新日期：${BOLD}${biliup_release_time}${NC}"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 更新哔哩哔哩 Cookies"
-        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
-        read -p "请输入选项： " sub_choice
-        case $sub_choice in
-            1) update_cookies ;;
-            2) biliup_upload ;;
-            3) biliup_append ;;
-            0) return 0 ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
-        esac
-        if [ "$sub_choice" == "0" ]; then
-            return 0
-        else
-            read -n 1 -s -r -p "按任意键继续..."
-        fi
-    done
+# ===================== biliup-rs 工具相关函数 =====================
+# 安装 biliup-rs（动态获取最新版本、检测架构、下载、解压并移动 biliup 文件）
+install_biliup_rs() {
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}获取 biliup-rs 最新版本信息...${NC}"
+    latest_info=$(curl -sf "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+    if [ -z "$latest_info" ]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}获取 biliup-rs 最新版本信息失败！${NC}"
+        return 1
+    fi
+    latest_version=$(echo "$latest_info" | jq -r '.tag_name')
+    if [ -z "$latest_version" ]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}解析 biliup-rs 版本失败！${NC}"
+        return 1
+    fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}最新 biliup-rs 版本：${latest_version}${NC}"
+    
+    arch=$(uname -m)
+    case "$arch" in
+        aarch64)
+            asset="aarch64-linux.tar.xz"
+            ;;
+        arm*|aarch32)
+            asset="arm-linux.tar.xz"
+            ;;
+        x86_64)
+            if ldd --version 2>&1 | grep -qi musl; then
+                asset="x86_64-linux-musl.tar.xz"
+            else
+                asset="x86_64-linux.tar.xz"
+            fi
+            ;;
+        *)
+            echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}不支持的架构：$arch${NC}"
+            return 1
+            ;;
+    esac
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}检测到系统架构：$arch，选择资源文件：${asset}${NC}"
+    
+    asset_file="biliupR-${latest_version}-${asset}"
+    download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}下载 URL：${download_url}${NC}"
+    
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在下载 biliup-rs...${NC}"
+    curl -LO "$download_url" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}下载 biliup-rs 失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在解压 ${asset_file}...${NC}"
+    tar -xJvf "$asset_file" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}解压 biliup-rs 失败！${NC}"; return 1; }
+    
+    extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
+    if [ -z "$extracted_folder" ]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}未找到解压后的文件夹！${NC}"
+        return 1
+    fi
+    if [ ! -f "$extracted_folder/biliup" ]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}未在解压文件夹中找到 biliup 文件！${NC}"
+        return 1
+    fi
+    mv "$extracted_folder/biliup" . || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}移动 biliup 文件失败！${NC}"; return 1; }
+    rm -rf "$extracted_folder" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除解压文件夹失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${GREEN}安装 biliup-rs 完成！${NC}"
 }
 
-# 更新哔哩哔哩 Cookies
-update_cookies() {
-    require_installed || return 1
-    cd "$BILIUP_DIR" && ./biliup login
+# 更新 biliup-rs（删除旧文件后重新安装）
+update_biliup_rs() {
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在更新 biliup-rs...${NC}"
+    rm -f "$BILIUP_DIR/biliup" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除旧的 biliup 文件失败！${NC}"; return 1; }
+    install_biliup_rs
 }
 
-# 哔哩哔哩快速上传（支持多选）
+# 哔哩哔哩视频快速上传
 biliup_upload() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
@@ -555,9 +449,7 @@ biliup_upload() {
                     break
                 fi
             done
-            if $valid; then
-                break
-            fi
+            $valid && break
         done
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
@@ -585,7 +477,7 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 哔哩哔哩视频追加上传（支持多选）
+# 哔哩哔哩视频追加上传
 biliup_append() {
     require_installed || return 1
     while true; do
@@ -627,9 +519,7 @@ biliup_append() {
                     break
                 fi
             done
-            if $valid; then
-                break
-            fi
+            $valid && break
         done
         all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
@@ -651,15 +541,63 @@ biliup_append() {
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
+# ===================== 主菜单及状态显示 =====================
+# 显示头部信息
+show_header() {
+    clear
+    echo -e "${PINK}==============================${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
+    echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
+    echo -e "${PINK}最新Release版本${NC}  ${BOLD}${release_version}"
+    echo -e "${PINK}更新日期${NC}   ${BOLD}${release_time}"
+    echo -e "${PURPLE}${BOLD}项目原地址 https://github.com/SmallPeaches/DanmakuRender${NC}"
+    python_version=$(get_python_version)
+    if [[ "$python_version" == "not_installed" ]]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
+    else
+        echo -e "${YELLOW}${BOLD}当前Python版本：${BOLD}${python_version}${NC}\n"
+    fi  
+}
+
+# 显示当前状态及更新提示
+show_status() {
+    if [ ! -d "$DMR_DIR" ]; then
+         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
+    elif pgrep -f "$DMR_CMD" > /dev/null; then
+         pid=$(pgrep -f "$DMR_CMD" | head -n 1)
+         echo -e "${GREEN}${BOLD}当前状态：正在运行 (PID: $pid)${NC}${NORMAL}"
+    else
+         echo -e "${RED}${BOLD}当前状态：未运行${NC}${NORMAL}"
+    fi
+    
+    if [ -d "$DMR_DIR" ]; then
+        echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
+        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置 请检查/tools目录！${NC}${NORMAL}")"
+        echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
+        if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+            local last_update
+            last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
+            local commit_timestamp
+            commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
+            if [ $commit_timestamp -gt $last_update ]; then
+                echo -e "${YELLOW}${BOLD}提示：v5分支有最新更新，请选择选项9进行更新！${NC}"
+            fi
+        fi
+    fi
+}
+
+# 检查是否已安装 DanmakuRender v5
+require_installed() {
+    if [ ! -d "$DMR_DIR" ]; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装，请先选择安装选项（1）进行安装！${NC}"
+         return 1
+    fi
+    return 0
+}
+
 # 主菜单
 main_menu() {
-    # 预检查依赖
-    check_dependencies || {
-        echo -e "${RED}${BOLD}[ERROR]${NC} 依赖检查失败，脚本终止"
-        exit 1
-    }
-    
-    # 获取动态信息
+    check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC} 依赖检查失败，脚本终止"; exit 1; }
     fetch_github_times
     get_install_date
     
@@ -688,12 +626,7 @@ main_menu() {
                 ;;
             2)
                 if require_installed; then
-                    config_error=""
-                    check_config || config_error="配置文件未正确配置"
-                    
-                    if [[ -n "$config_error" ]]; then
-                        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$config_error${NC}"
-                    else
+                    if check_config; then
                         if pgrep -f "$DMR_CMD" > /dev/null; then
                             stop_dmr
                         else
@@ -702,6 +635,8 @@ main_menu() {
                                 skip_read=true
                             fi
                         fi
+                    else
+                        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件未正确配置${NC}"
                     fi
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
@@ -741,7 +676,7 @@ main_menu() {
                 fi
                 skip_read=false
                 ;;
-            7) 
+            7)
                 if require_installed; then
                     biliup_menu
                     skip_read=true
@@ -789,5 +724,28 @@ main_menu() {
     done
 }
 
-# 初始化执行
+# biliup-rs 工具子菜单（移除安装选项，仅保留上传、追加及更新功能）
+biliup_menu() {
+    while true; do
+        show_header
+        echo -e "${PINK}=== biliup-rs ===${NC}"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
+        echo -e "${BLUE}${BOLD}99.${NC}${NORMAL} 更新 biliup-rs"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        read -p "请输入选项： " sub_choice
+        case $sub_choice in
+            2) biliup_upload ;;
+            3) biliup_append ;;
+            99) update_biliup_rs ;;
+            0) return 0 ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
+        esac
+        if [ "$sub_choice" != "0" ]; then
+            read -n 1 -s -r -p "按任意键继续..."
+        fi
+    done
+}
+
+# ===================== 脚本入口 =====================
 main_menu
