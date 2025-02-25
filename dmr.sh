@@ -34,7 +34,7 @@ NORMAL=$(tput sgr0)
 # ===================== 系统检查及辅助函数 =====================
 # 检查基本依赖工具（jq、curl）
 check_dependencies() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查脚本所需依赖...${NC}"
     local required_tools=("jq" "curl")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
@@ -546,11 +546,11 @@ biliup_append() {
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
-    echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}        ${NC}"
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
-    echo -e "${PINK}最新Release版本${NC}  ${BOLD}${release_version}"
-    echo -e "${PINK}更新日期${NC}   ${BOLD}${release_time}"
-    echo -e "${PURPLE}${BOLD}项目原地址 https://github.com/SmallPeaches/DanmakuRender${NC}"
+    echo -e "${PINK}最新版本${NC}  ${BOLD}${release_version}"
+    echo -e "${PINK}更新日期${NC}  ${BOLD}${release_time}"
+    echo -e "${PURPLE}${BOLD}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
@@ -580,7 +580,7 @@ show_status() {
             local commit_timestamp
             commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
             if [ $commit_timestamp -gt $last_update ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有最新更新，请选择选项9进行更新！${NC}"
+                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项9进行更新！${NC}"
             fi
         fi
     fi
