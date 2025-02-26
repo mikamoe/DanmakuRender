@@ -19,7 +19,7 @@ BILIUP_REPO="biliup-rs"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
 
 # ANSI 颜色和样式
-RED='\033[0;31m'
+RED='\033[0;31m' 
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
@@ -40,7 +40,7 @@ check_dependencies() {
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
             sudo apt install -y "$tool" || { 
-                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
                 return 1
             }
         fi
@@ -80,7 +80,7 @@ check_cookies() {
     fi
 }
 
-# 获取 GitHub 的最新提交和 Release 时间（转换为北京时间）
+# 获取 GitHub 的最新提交和 Release 时间（转换为北京时间）以及最新提交说明
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
@@ -88,8 +88,10 @@ fetch_github_times() {
         local raw_time
         raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "获取失败")
+        commit_message=$(jq -r '.commit.commit.message // empty' <<< "$branch_info")
     else
         commit_time="获取失败"
+        commit_message=""
     fi
 
     local release_info
@@ -132,6 +134,7 @@ install_dmr() {
     local rollback_needed=true
     trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
+    # 如果已安装，则只询问是否重新安装Python依赖，不再询问字体
     if [ -d "$DMR_DIR" ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 已经安装！${NC}"
         read -p "是否要重新安装Python依赖？(y/n) " reinstall_choice
@@ -152,6 +155,7 @@ install_dmr() {
         return 0
     fi
 
+    # 如果是第一次安装，先进行正常安装流程
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具...${NC}"
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
     sudo apt install -y unzip curl wget || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}必要工具安装失败！${NC}"; return 1; }
@@ -198,13 +202,27 @@ install_dmr() {
 
     rollback_needed=false
     trap - EXIT
+
+    # =========================
+    # 仅在首次安装完成后询问字体
+    # =========================
+    read -p "安装完成，是否安装字体？(y/n): " font_ans
+    if [[ "$font_ans" =~ ^[Yy]$ ]]; then
+        read -p "请选择安装字体类型: 8 为微软雅黑和Emoji, 9 为阿里巴巴普惠体和Emoji, 0 取消: " font_choice
+        case $font_choice in
+            8) install_fonts ;;
+            9) install_alibaba_fonts ;;
+            0) echo -e "${BLUE}${BOLD}[INFO]${NC} 取消安装字体" ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC} 无效选项" ;;
+        esac
+    fi
 }
 
-# 更新 DanmakuRender v5
+# 更新 DanmakuRender v5（新逻辑：备份主目录，直接覆盖文件并重新安装 Python 依赖）
 update_dmr() {
     require_installed || return 1
-    read -p "是否进行更新？(1 更新, 0 返回菜单): " update_choice
-    if [[ "$update_choice" != "1" ]]; then
+    read -p "是否进行更新？(y/n): " update_choice
+    if [[ ! "$update_choice" =~ ^[Yy]$ ]]; then
          return 0
     fi
 
@@ -229,7 +247,7 @@ update_dmr() {
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
     [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"; update_fail=1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-    sudo rsync -a --delete "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"; update_fail=1; }
+    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"; update_fail=1; }
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
@@ -251,8 +269,6 @@ update_dmr() {
     else
          echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
          sudo rm -rf "$backup_dir"
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"; return 1; }
-         get_install_date
     fi
 }
 
@@ -331,14 +347,71 @@ delete_replays() {
     fi
 }
 
-# 安装字体（微软雅黑和 Emoji）
+# 安装字体（安装微软雅黑和Emoji）
 install_fonts() {
     require_installed || return 1
-    sudo mkdir -p /usr/share/fonts/truetype/microsoft
-    sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/
-    sudo fc-cache -fv
-    sudo apt install -y fonts-noto-color-emoji fonts-symbola
-    sudo fc-cache -fv
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑和Emoji字体...${NC}"
+    
+    # 安装微软雅黑字体
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑字体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/microsoft || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"; return 1; }
+    sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制微软雅黑字体失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装微软雅黑字体！${NC}"
+    
+    # 显示已安装的微软雅黑字体
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的微软雅黑字体...${NC}"
+    fc-list | grep "Microsoft YaHei" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到微软雅黑字体！${NC}"; return 1; }
+    
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    
+    # 安装Emoji字体包
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"; return 1; }
+
+    # 显示已安装的Emoji字体包
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
+    echo -e "${GREEN}1. fonts-noto${NC}"
+    echo -e "${GREEN}2. fonts-noto-extra${NC}"
+    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
+    echo -e "${GREEN}4. fonts-symbola${NC}"
+    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
+    
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
+}
+
+# 安装阿里巴巴普惠体字体和Emoji表情
+install_alibaba_fonts() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体和Emoji字体...${NC}"
+    
+    # 安装阿里巴巴普惠体字体
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/AlibabaPuHuiTi || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"; return 1; }
+    sudo cp "$DMR_DIR/fonts/AlibabaPuHuiTi-3-65-Medium.ttf" /usr/share/fonts/truetype/AlibabaPuHuiTi || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制阿里巴巴普惠体字体失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装阿里巴巴普惠体！${NC}"
+    
+    # 显示已安装的阿里巴巴普惠体字体
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的阿里巴巴普惠体...${NC}"
+    fc-list | grep "Alibaba PuHuiTi 3.0" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到阿里巴巴普惠体字体！${NC}"; return 1; }
+    
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    
+    # 安装Emoji字体包
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"; return 1; }
+
+    # 显示已安装的Emoji字体包
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
+    echo -e "${GREEN}1. fonts-noto${NC}"
+    echo -e "${GREEN}2. fonts-noto-extra${NC}"
+    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
+    echo -e "${GREEN}4. fonts-symbola${NC}"
+    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
+    
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
 }
 
@@ -546,11 +619,25 @@ biliup_append() {
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}        ${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
     echo -e "${PINK}最新版本${NC}  ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC}  ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
+    
+    # 如果上一次安装/更新日期早于最新提交日期，则显示最新提交信息
+    if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+        last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
+        commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
+        if [ "$commit_timestamp" -gt "$last_update" ]; then
+            echo -e "${YELLOW}${BOLD}v5分支有最新变动${NC}"
+            echo -e "${YELLOW}${BOLD}提交日期：${NC}${commit_time}"
+            if [ -n "$commit_message" ]; then
+                echo -e "${YELLOW}${BOLD}提交说明：${NC}${commit_message}"
+            fi
+        fi
+    fi
+
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
         echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
@@ -580,7 +667,7 @@ show_status() {
             local commit_timestamp
             commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
             if [ $commit_timestamp -gt $last_update ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项9进行更新！${NC}"
+                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项10进行更新！${NC}"
             fi
         fi
     fi
@@ -614,8 +701,9 @@ main_menu() {
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 安装阿里巴巴普惠体和Emoji表情"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         
         read -p "请输入选项： " choice
@@ -695,13 +783,21 @@ main_menu() {
                 ;;
             9)
                 if require_installed; then
-                    update_dmr
+                    install_alibaba_fonts
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
             10)
+                if require_installed; then
+                    update_dmr
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
+                skip_read=false
+                ;;
+            11)
                 if require_installed; then
                     uninstall_dmr
                 else
@@ -724,20 +820,29 @@ main_menu() {
     done
 }
 
-# biliup-rs 工具子菜单（移除安装选项，仅保留上传、追加及更新功能）
+# biliup-rs 工具子菜单
 biliup_menu() {
     while true; do
         show_header
         echo -e "${PINK}=== biliup-rs ===${NC}"
-        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}99.${NC}${NORMAL} 更新 biliup-rs"
+        echo -e "${CYAN}当前 biliup-rs 版本信息：${NC}"
+        cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"; return 1; }
+        ./biliup -V
+        echo ""
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 哔哩哔哩快速上传"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩视频追加上传"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 biliup-rs"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
         read -p "请输入选项： " sub_choice
         case $sub_choice in
-            2) biliup_upload ;;
-            3) biliup_append ;;
-            99) update_biliup_rs ;;
+            1) biliup_upload ;;
+            2) biliup_append ;;
+            3)
+                cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"; return 1; }
+                ./biliup login
+                ;;
+            9) update_biliup_rs ;;
             0) return 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}" ;;
         esac
