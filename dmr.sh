@@ -621,8 +621,33 @@ biliup_append() {
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
-# ===================== 主菜单及状态显示 =====================
-# 显示头部信息
+# ===================== 字体安装子菜单 =====================
+font_menu() {
+    while true; do
+        echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和Emoji字体"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 安装阿里巴巴普惠体和Emoji字体"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        read -p "请输入选项： " font_choice
+        case $font_choice in
+            1)
+                install_fonts
+                ;;
+            2)
+                install_alibaba_fonts
+                ;;
+            0)
+                break
+                ;;
+            *)
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
+                ;;
+        esac
+        read -n 1 -s -r -p "按任意键继续..."
+    done
+}
+
+# ===================== 显示头部信息及状态 =====================
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
@@ -653,7 +678,6 @@ show_header() {
     fi  
 }
 
-# 显示当前状态及更新提示
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
          echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
@@ -674,7 +698,7 @@ show_status() {
             local commit_timestamp
             commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
             if [ $commit_timestamp -gt $last_update ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项10进行更新！${NC}"
+                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项9进行更新！${NC}"
             fi
         fi
     fi
@@ -689,7 +713,7 @@ require_installed() {
     return 0
 }
 
-# 主菜单
+# ===================== 主菜单 =====================
 main_menu() {
     check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC} 依赖检查失败，脚本终止"; exit 1; }
     fetch_github_times
@@ -707,10 +731,9 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行一次测试"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-r工具"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 安装微软雅黑和Emoji表情"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 安装阿里巴巴普惠体和Emoji表情"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD} 卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         
         read -p "请输入选项： " choice
@@ -782,7 +805,7 @@ main_menu() {
                 ;;
             8)
                 if require_installed; then
-                    install_fonts
+                    font_menu
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
@@ -790,21 +813,13 @@ main_menu() {
                 ;;
             9)
                 if require_installed; then
-                    install_alibaba_fonts
-                else
-                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
-                fi
-                skip_read=false
-                ;;
-            10)
-                if require_installed; then
                     update_dmr
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
                 skip_read=false
                 ;;
-            11)
+            10)
                 if require_installed; then
                     uninstall_dmr
                 else
