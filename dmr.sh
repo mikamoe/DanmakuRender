@@ -628,7 +628,7 @@ show_header() {
     echo -e "${PINK}==============================${NC}"
     echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}        ${NC}"
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
-    echo -e "${PINK}最新版本${NC}  ${BOLD}${release_version}"
+    echo -e "${PINK}版本号  ${NC}  ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC}  ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址https://github.com/SmallPeaches/DanmakuRender${NC}"
     
@@ -699,7 +699,7 @@ main_menu() {
     while true; do
         show_header
         show_status
-        echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+        echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志"
