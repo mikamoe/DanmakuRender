@@ -35,6 +35,8 @@ PURPLE='\033[0;35m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
+# 新增 WARN 标签，用于警告信息
+WARN="${YELLOW}[WARN]${NC}"
 
 # ------------------------- 系统依赖与辅助函数 -------------------------
 
@@ -44,7 +46,7 @@ check_dependencies() {
     local required_tools=("jq" "curl")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
-            echo -e "${BLUE}${BOLD}[INFO]${NC} ${YELLOW}$tool 未找到，正在安装...${NC}"
+            echo -e "${WARN} ${tool} 未找到，正在安装...${NC}"
             sudo apt install -y "$tool" || { 
                 echo -e "${BLUE}${BOLD}[INFO]${NC} ${RED}$tool 安装失败！${NC}"
                 return 1
@@ -444,8 +446,6 @@ update_biliup_rs() {
     install_biliup_rs
 }
 
-# ------------------------- 哔哩哔哩视频上传相关 -------------------------
-
 # 哔哩哔哩视频快速上传功能
 biliup_upload() {
     require_installed || return 1
@@ -774,11 +774,11 @@ biliup_menu() {
         cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}无法进入工具目录！${NC}"; return 1; }
         ./biliup -V
         echo ""
-        echo -e "${BLUE}${BOLD}[INFO]${NC} ${NORMAL} 哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}[INFO]${NC} ${NORMAL} 哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}[INFO]${NC} ${NORMAL} 更新哔哩哔哩 Cookies"
-        echo -e "${BLUE}${BOLD}[INFO]${NC} ${NORMAL} 更新 biliup‑rs"
-        echo -e "${BLUE}${BOLD}[INFO]${NC} ${NORMAL} 返回主菜单"
+        echo "1. 哔哩哔哩快速上传"
+        echo "2. 哔哩哔哩视频追加上传"
+        echo "3. 更新哔哩哔哩 Cookies"
+        echo "9. 更新 biliup‑rs"
+        echo "0. 返回主菜单"
         read -p "请输入选项： " sub_choice
         case $sub_choice in
             1) biliup_upload ;;
