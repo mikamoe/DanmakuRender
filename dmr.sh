@@ -699,7 +699,8 @@ main_menu() {
     while true; do
         show_header
         show_status
-        echo -e "\n${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
+        echo -e "\n${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 查看实时日志(按Q退出查看)"
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 手动渲染视频"
