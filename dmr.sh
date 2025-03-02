@@ -281,16 +281,23 @@ uninstall_dmr() {
 # 启动 DanmakuRender v5
 start_dmr() {
     require_installed || return 1
-    cd "$DMR_DIR" && source venv/bin/activate && nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
+    cd "$DMR_DIR" && source venv/bin/activate
+    nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     local pid=$!
+    echo $pid > "$DMR_DIR/dmr.pid"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $pid${NC}"
-    return 0
 }
 
 # 停止 DanmakuRender v5
 stop_dmr() {
     require_installed || return 1
-    pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止失败${NC}"
+    if [ -f "$DMR_DIR/dmr.pid" ]; then
+        local pid=$(cat "$DMR_DIR/dmr.pid")
+        kill $pid && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止进程 $pid ${NC}" 
+        rm "$DMR_DIR/dmr.pid"
+    else
+        pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" 
+    fi
 }
 
 # 查看日志（支持退出）
