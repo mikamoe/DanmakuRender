@@ -557,13 +557,36 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 哔哩哔哩视频追加上传
+# 哔哩哔哩视频追加上传（优化：记录上一次输入的BV号，并提示是否使用）
 biliup_append() {
     require_installed || return 1
-    while true; do
-        read -p "请输入视频BV号: " bv
-        [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效的BV号，请确保以BV开头！${NC}"
-    done
+    local last_bv_file="$BILIUP_DIR/last_bv.txt"
+    if [ -f "$last_bv_file" ]; then
+        last_bv=$(cat "$last_bv_file")
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检测到上一次使用的视频BV号：${last_bv}"
+        echo "1) 使用上一次的BV号"
+        echo "2) 重新输入BV号"
+        read -p "请选择选项 (1/2): " choice_bv
+        if [ "$choice_bv" = "1" ]; then
+            bv="$last_bv"
+        elif [ "$choice_bv" = "2" ]; then
+            while true; do
+                read -p "请输入视频BV号: " bv
+                [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效的BV号，请确保以BV开头！${NC}"
+            done
+            echo "$bv" > "$last_bv_file"
+        else
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
+            return 1
+        fi
+    else
+        while true; do
+            read -p "请输入视频BV号: " bv
+            [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效的BV号，请确保以BV开头！${NC}"
+        done
+        echo "$bv" > "$last_bv_file"
+    fi
+
     video_paths=()
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
