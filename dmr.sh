@@ -19,7 +19,7 @@ BILIUP_REPO="biliup-rs"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
 
 # ANSI 颜色和样式
-RED='\033[0;31m' 
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
@@ -39,7 +39,7 @@ check_dependencies() {
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
-            sudo apt install -y "$tool" || { 
+            sudo apt install -y "$tool" || {
                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
                 return 1
             }
@@ -116,6 +116,23 @@ get_install_date() {
     fi
 }
 
+# ===================== biliup-rs 更新检查 =====================
+check_biliup_update() {
+    if [ -f "$BILIUP_DIR/biliup" ]; then
+        current_biliup_version=$("$BILIUP_DIR/biliup" -V 2>/dev/null | head -n 1)
+        latest_info=$(curl -sf "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+        if [ -n "$latest_info" ]; then
+            latest_version=$(echo "$latest_info" | jq -r '.tag_name')
+            latest_date=$(echo "$latest_info" | jq -r '.published_at' | xargs -I{} TZ=Asia/Shanghai date -d "{}" +"%Y-%m-%d %H:%M:%S")
+            if [ "$current_biliup_version" != "$latest_version" ]; then
+                echo -e "${YELLOW}${BOLD}检测到biliup-rs有更新 请进入选项7进行更新${NC}"
+                echo -e "${YELLOW}${BOLD}更新日期：${NC}${latest_date}"
+                echo -e "${YELLOW}${BOLD}版本号：${NC}${latest_version}"
+            fi
+        fi
+    fi
+}
+
 # ===================== 安装与更新 DanmakuRender v5 相关函数 =====================
 # 检查安装必要工具（wget、unzip、python3-venv、python3-pip、ffmpeg、curl、tar）
 check_install_tools() {
@@ -160,7 +177,6 @@ install_dmr() {
     sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
     sudo apt install -y unzip curl wget || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}必要工具安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}必要工具安装完成！${NC}"
-    sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！${NC}"; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
     tmp_dir=$(mktemp -d)
@@ -218,7 +234,7 @@ install_dmr() {
     fi
 }
 
-# 更新 DanmakuRender v5（新逻辑：备份主目录，直接覆盖文件并重新安装 Python 依赖）
+# 更新 DanmakuRender v5（选项9优化后的更新流程）
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -226,7 +242,8 @@ update_dmr() {
          return 0
     fi
 
-    check_install_tools || return 1
+    # 更新前执行 apt 更新并安装 rsync
+    sudo apt update && sudo apt install rsync -y
 
     if pgrep -f "$DMR_CMD" > /dev/null; then
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
@@ -235,33 +252,78 @@ update_dmr() {
 
     backup_dir="${DMR_DIR}_backup_$(date +%s)"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
-    sudo cp -r "$DMR_DIR" "$backup_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 备份失败！"; return 1; }
+    if ! sudo cp -r "$DMR_DIR" "$backup_dir"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 备份失败！"
+         return 1
+    fi
 
     update_fail=0
 
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
+    if ! cd "$tmp_dir"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"
+         update_fail=1
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载 DanmakuRender v5 更新包..."
-    wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载失败！"; update_fail=1; }
-    unzip DanmakuRender-5.zip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压失败！"; update_fail=1; }
+    if ! wget -O DanmakuRender-5.zip https://github.com/sillda76/DanmakuRender/archive/refs/heads/v5.zip; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载更新包失败！"
+         update_fail=1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在解压更新包..."
+    if ! unzip DanmakuRender-5.zip; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压更新包失败！"
+         update_fail=1
+    fi
+
     extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"; update_fail=1; }
+    if [ -z "$extracted_folder" ]; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"
+         update_fail=1
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-    sudo rsync -a "$extracted_folder/" "$DMR_DIR/" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"; update_fail=1; }
+    if ! sudo rsync -a "$extracted_folder/" "$DMR_DIR/"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
+         update_fail=1
+    fi
+
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
     cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; update_fail=1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在重新安装 Python 依赖..."
-    [ -d "venv" ] && rm -rf venv
-    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"; update_fail=1; }
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; update_fail=1; }
-    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"; update_fail=1; }
-    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"; update_fail=1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在删除旧虚拟环境..."
+    if [ -d "venv" ]; then
+         if ! rm -rf venv; then
+             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除旧虚拟环境失败！"
+             update_fail=1
+         fi
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在创建新的虚拟环境..."
+    if ! python3 -m venv venv; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"
+         update_fail=1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在激活虚拟环境并安装 Python 依赖..."
+    if ! source venv/bin/activate; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"
+         update_fail=1
+    fi
+    if ! pip install --quiet --upgrade pip; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"
+         update_fail=1
+    fi
+    if ! pip install -r requirements.txt; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"
+         update_fail=1
+    fi
     deactivate
 
     if [ "$update_fail" -eq 1 ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新失败，正在恢复备份..."
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
          sudo rm -rf "$DMR_DIR"
          sudo mv "$backup_dir" "$DMR_DIR"
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
@@ -293,10 +355,10 @@ stop_dmr() {
     require_installed || return 1
     if [ -f "$DMR_DIR/dmr.pid" ]; then
         local pid=$(cat "$DMR_DIR/dmr.pid")
-        kill $pid && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止进程 $pid ${NC}" 
+        kill $pid && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止进程 $pid ${NC}"
         rm "$DMR_DIR/dmr.pid"
     else
-        pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}" 
+        pkill -f "$DMR_CMD" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已停止 ${NC}"
     fi
 }
 
@@ -557,7 +619,7 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 哔哩哔哩视频追加上传（优化：记录上一次输入的BV号，并提示是否使用）
+# 哔哩哔哩视频追加上传（记录上一次输入的BV号，并提示是否使用）
 biliup_append() {
     require_installed || return 1
     local last_bv_file="$BILIUP_DIR/last_bv.txt"
@@ -754,6 +816,8 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行一次测试"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-r工具"
+        # 在选项7下方增加 biliup-rs 更新提示
+        check_biliup_update
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
@@ -761,7 +825,7 @@ main_menu() {
         
         read -p "请输入选项： " choice
         case $choice in
-            1) 
+            1)
                 install_dmr
                 skip_read=false
                 ;;
@@ -850,15 +914,15 @@ main_menu() {
                 fi
                 skip_read=false
                 ;;
-            0) 
-                exit 0 
+            0)
+                exit 0
                 ;;
-            *) 
+            *)
                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
                 skip_read=false
                 ;;
         esac
-        
+
         if [ "$skip_read" = false ]; then
             read -n 1 -s -r -p "按任意键继续..."
         fi
