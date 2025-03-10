@@ -5,7 +5,7 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
-![脚本图片](docs/IMG_1666.jpeg)
+![脚本图片](docs/IMG_2529.jpeg)
 
 #### 以下为原项目的 README.md
 ---
