@@ -1020,7 +1020,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} 手动渲染视频"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行一次测试"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-r工具"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
 
         # 在选项7下方增加 biliup-rs 更新提示
         check_biliup_update
