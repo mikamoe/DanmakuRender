@@ -7,7 +7,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ```
 ![脚本图片](docs/IMG_2530.jpeg)
 
-###[biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
+### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
 ---
