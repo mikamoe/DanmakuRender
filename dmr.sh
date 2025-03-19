@@ -32,7 +32,6 @@ BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
 
 # ===================== 日志输出函数 =====================
-# 输出 INFO 与 ERROR 信息后，将光标定位到终端最下方
 log_info() {
     echo -e "$1"
     tput cup $(($(tput lines)-1)) 0
@@ -42,8 +41,7 @@ log_error() {
     tput cup $(($(tput lines)-1)) 0
 }
 
-# ===================== 系统检查及辅助函数 =====================
-# 检查基本依赖工具（jq、curl）
+# ===================== 工具与系统辅助函数 =====================
 check_dependencies() {
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies......${NC}"
     local required_tools=("jq" "curl")
@@ -58,7 +56,6 @@ check_dependencies() {
     done
 }
 
-# 获取 Python3 版本
 get_python_version() {
     if command -v python3 &>/dev/null; then
         echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
@@ -67,7 +64,6 @@ get_python_version() {
     fi
 }
 
-# 回滚安装（安装出错时删除安装目录）
 rollback_installation() {
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚安装...${NC}"
     [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" \
@@ -75,25 +71,6 @@ rollback_installation() {
        || log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
 }
 
-# 检查配置文件状态
-check_config() {
-    if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# 检查 Cookies 文件状态
-check_cookies() {
-    if find "$BILIUP_DIR" -name "*.json" -print -quit | grep -q .; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# 安全转换时间为北京时间；若失败则回退为原时间字符串或“获取失败”
 convert_to_beijing_time() {
     local raw_time="$1"
     if [ -z "$raw_time" ]; then
@@ -114,7 +91,7 @@ convert_to_beijing_time() {
     fi
 }
 
-# 获取 GitHub 的最新提交和 Release 时间（转换为北京时间）以及最新提交说明
+# ===================== GitHub 信息获取函数 =====================
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
@@ -141,12 +118,20 @@ fetch_github_times() {
     fi
 }
 
-# 获取安装/更新日期
 get_install_date() {
     if [ -f "$INSTALL_DATE_FILE" ]; then
         local timestamp
         timestamp=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         install_date=$(convert_to_beijing_time "$(date -d "@$timestamp" --rfc-3339=seconds 2>/dev/null)")
+    fi
+}
+
+# ===================== 配置检查函数 =====================
+check_config() {
+    if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
+        return 0
+    else
+        return 1
     fi
 }
 
@@ -186,19 +171,163 @@ check_biliup_update() {
     fi
 }
 
-# ===================== 安装与更新 DanmakuRender v5 相关函数 =====================
-check_install_tools() {
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查系统依赖工具...${NC}"
-    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz")
-    for tool in "${required_tools[@]}"; do
-        if ! command -v "$tool" &>/dev/null; then
-            log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
-            sudo apt install -y "$tool" || {
-                log_error "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
-                return 1
-            }
-        fi
-    done
+# ===================== 安装相关函数 =====================
+install_biliup_rs() {
+    cd "$BILIUP_DIR" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}获取 biliup-rs 最新版本信息...${NC}"
+    local latest_info
+    latest_info=$(curl -sf "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+    if [ -z "$latest_info" ]; then
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}获取 biliup-rs 最新版本信息失败！${NC}"
+        return 1
+    fi
+    local latest_version
+    latest_version=$(echo "$latest_info" | jq -r '.tag_name')
+    if [ -z "$latest_version" ]; then
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}解析 biliup-rs 版本失败！${NC}"
+        return 1
+    fi
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}最新 biliup-rs 版本：${latest_version}${NC}"
+    local arch
+    arch=$(uname -m)
+    local asset
+    case "$arch" in
+        aarch64)
+            asset="aarch64-linux.tar.xz"
+            ;;
+        arm*|aarch32)
+            asset="arm-linux.tar.xz"
+            ;;
+        x86_64)
+            if ldd --version 2>&1 | grep -qi musl; then
+                asset="x86_64-linux-musl.tar.xz"
+            else
+                asset="x86_64-linux.tar.xz"
+            fi
+            ;;
+        *)
+            log_error "${RED}${BOLD}[ERROR]${NC} ${RED}不支持的架构：$arch${NC}"
+            return 1
+            ;;
+    esac
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}检测到系统架构：$arch，选择资源文件：${asset}${NC}"
+    local asset_file="biliupR-${latest_version}-${asset}"
+    local download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}下载 URL：${download_url}${NC}"
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在下载 biliup-rs...${NC}"
+    curl -LO "$download_url" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}下载 biliup-rs 失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在解压 ${asset_file}...${NC}"
+    tar -xJvf "$asset_file" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}解压 biliup-rs 失败！${NC}"
+        return 1
+    }
+    local extracted_folder
+    extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
+    if [ -z "$extracted_folder" ]; then
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}未找到解压后的文件夹！${NC}"
+        return 1
+    fi
+    if [ ! -f "$extracted_folder/biliup" ]; then
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}未在解压文件夹中找到 biliup 文件！${NC}"
+        return 1
+    fi
+    mv "$extracted_folder/biliup" . || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}移动 biliup 文件失败！${NC}"
+        return 1
+    }
+    rm -rf "$extracted_folder" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}删除解压文件夹失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${GREEN}安装 biliup-rs 完成！${NC}"
+}
+
+install_fonts() {
+    require_installed || return 1
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑和Emoji字体...${NC}"
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑字体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/microsoft || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"
+        return 1
+    }
+    sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/ || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制微软雅黑字体失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装微软雅黑字体！${NC}"
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的微软雅黑字体...${NC}"
+    fc-list | grep "Microsoft YaHei" || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到微软雅黑字体！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
+    echo -e "${GREEN}1. fonts-noto${NC}"
+    echo -e "${GREEN}2. fonts-noto-extra${NC}"
+    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
+    echo -e "${GREEN}4. fonts-symbola${NC}"
+    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
+}
+
+install_alibaba_fonts() {
+    require_installed || return 1
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体和Emoji字体...${NC}"
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/AlibabaPuHuiTi || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"
+        return 1
+    }
+    sudo cp "$DMR_DIR/fonts/AlibabaPuHuiTi-3-65-Medium.ttf" /usr/share/fonts/truetype/AlibabaPuHuiTi || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制阿里巴巴普惠体字体失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装阿里巴巴普惠体！${NC}"
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的阿里巴巴普惠体...${NC}"
+    fc-list | grep "Alibaba PuHuiTi 3.0" || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到阿里巴巴普惠体字体！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
+    echo -e "${GREEN}1. fonts-noto${NC}"
+    echo -e "${GREEN}2. fonts-noto-extra${NC}"
+    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
+    echo -e "${GREEN}4. fonts-symbola${NC}"
+    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || {
+        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
 }
 
 install_dmr() {
@@ -285,6 +414,7 @@ install_dmr() {
     fi
 }
 
+# ===================== 更新与卸载相关函数 =====================
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -383,7 +513,19 @@ update_dmr() {
     fi
 }
 
-# 卸载 DanmakuRender v5
+update_biliup_rs() {
+    cd "$BILIUP_DIR" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
+        return 1
+    }
+    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在更新 biliup-rs...${NC}"
+    rm -f "$BILIUP_DIR/biliup" || {
+        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}删除旧的 biliup 文件失败！${NC}"
+        return 1
+    }
+    install_biliup_rs
+}
+
 uninstall_dmr() {
     require_installed || return 1
     read -p "确认卸载 DanmakuRender v5？请确保已保存配置文件（如有需要） (y/n): " confirm_uninstall
@@ -396,7 +538,7 @@ uninstall_dmr() {
       || log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！${NC}"
 }
 
-# 启动 DanmakuRender v5
+# ===================== 进程管理与日志查看 =====================
 start_dmr() {
     require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate
@@ -406,7 +548,6 @@ start_dmr() {
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $pid${NC}"
 }
 
-# 停止 DanmakuRender v5
 stop_dmr() {
     require_installed || return 1
     if [ -f "$DMR_DIR/dmr.pid" ]; then
@@ -421,7 +562,6 @@ stop_dmr() {
     fi
 }
 
-# 查看日志（支持退出）
 view_log() {
     require_installed || return 1
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
@@ -439,7 +579,6 @@ view_log() {
     done
 }
 
-# 运行测试
 run_test() {
     require_installed || return 1
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在运行测试...${NC}"
@@ -459,7 +598,6 @@ run_test() {
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}测试运行完成！${NC}"
 }
 
-# 手动渲染视频
 manual_render() {
     require_installed || return 1
     cd "$DMR_DIR" || {
@@ -477,7 +615,6 @@ manual_render() {
     deactivate
 }
 
-# 删除回放/渲染文件
 delete_replays() {
     require_installed || return 1
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放目录内容：${NC}"
@@ -493,181 +630,7 @@ delete_replays() {
     fi
 }
 
-# 安装字体（安装微软雅黑和Emoji）
-install_fonts() {
-    require_installed || return 1
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑和Emoji字体...${NC}"
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装微软雅黑字体...${NC}"
-    sudo mkdir -p /usr/share/fonts/truetype/microsoft || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"
-        return 1
-    }
-    sudo cp "$DMR_DIR/fonts/msyh.ttf" /usr/share/fonts/truetype/microsoft/ || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制微软雅黑字体失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装微软雅黑字体！${NC}"
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的微软雅黑字体...${NC}"
-    fc-list | grep "Microsoft YaHei" || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到微软雅黑字体！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
-    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
-    echo -e "${GREEN}1. fonts-noto${NC}"
-    echo -e "${GREEN}2. fonts-noto-extra${NC}"
-    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
-    echo -e "${GREEN}4. fonts-symbola${NC}"
-    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
-}
-
-# 安装阿里巴巴普惠体字体和Emoji表情
-install_alibaba_fonts() {
-    require_installed || return 1
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体和Emoji字体...${NC}"
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装阿里巴巴普惠体...${NC}"
-    sudo mkdir -p /usr/share/fonts/truetype/AlibabaPuHuiTi || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录失败！${NC}"
-        return 1
-    }
-    sudo cp "$DMR_DIR/fonts/AlibabaPuHuiTi-3-65-Medium.ttf" /usr/share/fonts/truetype/AlibabaPuHuiTi || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}复制阿里巴巴普惠体字体失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装阿里巴巴普惠体！${NC}"
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}显示安装的阿里巴巴普惠体...${NC}"
-    fc-list | grep "Alibaba PuHuiTi 3.0" || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}没有找到阿里巴巴普惠体字体！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装Emoji字体包...${NC}"
-    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装Emoji字体包失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装以下Emoji字体包：${NC}"
-    echo -e "${GREEN}1. fonts-noto${NC}"
-    echo -e "${GREEN}2. fonts-noto-extra${NC}"
-    echo -e "${GREEN}3. fonts-noto-cjk${NC}"
-    echo -e "${GREEN}4. fonts-symbola${NC}"
-    echo -e "${GREEN}5. fonts-noto-color-emoji${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || {
-        log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体安装完成！${NC}"
-}
-
-# ===================== biliup-rs 工具相关函数 =====================
-install_biliup_rs() {
-    cd "$BILIUP_DIR" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}获取 biliup-rs 最新版本信息...${NC}"
-    local latest_info
-    latest_info=$(curl -sf "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
-    if [ -z "$latest_info" ]; then
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}获取 biliup-rs 最新版本信息失败！${NC}"
-        return 1
-    fi
-    local latest_version
-    latest_version=$(echo "$latest_info" | jq -r '.tag_name')
-    if [ -z "$latest_version" ]; then
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}解析 biliup-rs 版本失败！${NC}"
-        return 1
-    fi
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}最新 biliup-rs 版本：${latest_version}${NC}"
-    local arch
-    arch=$(uname -m)
-    local asset
-    case "$arch" in
-        aarch64)
-            asset="aarch64-linux.tar.xz"
-            ;;
-        arm*|aarch32)
-            asset="arm-linux.tar.xz"
-            ;;
-        x86_64)
-            if ldd --version 2>&1 | grep -qi musl; then
-                asset="x86_64-linux-musl.tar.xz"
-            else
-                asset="x86_64-linux.tar.xz"
-            fi
-            ;;
-        *)
-            log_error "${RED}${BOLD}[ERROR]${NC} ${RED}不支持的架构：$arch${NC}"
-            return 1
-            ;;
-    esac
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}检测到系统架构：$arch，选择资源文件：${asset}${NC}"
-    local asset_file="biliupR-${latest_version}-${asset}"
-    local download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}下载 URL：${download_url}${NC}"
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在下载 biliup-rs...${NC}"
-    curl -LO "$download_url" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}下载 biliup-rs 失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在解压 ${asset_file}...${NC}"
-    tar -xJvf "$asset_file" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}解压 biliup-rs 失败！${NC}"
-        return 1
-    }
-    local extracted_folder
-    extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
-    if [ -z "$extracted_folder" ]; then
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}未找到解压后的文件夹！${NC}"
-        return 1
-    fi
-    if [ ! -f "$extracted_folder/biliup" ]; then
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}未在解压文件夹中找到 biliup 文件！${NC}"
-        return 1
-    fi
-    mv "$extracted_folder/biliup" . || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}移动 biliup 文件失败！${NC}"
-        return 1
-    }
-    rm -rf "$extracted_folder" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}删除解压文件夹失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${GREEN}安装 biliup-rs 完成！${NC}"
-}
-
-update_biliup_rs() {
-    cd "$BILIUP_DIR" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
-        return 1
-    }
-    log_info "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在更新 biliup-rs...${NC}"
-    rm -f "$BILIUP_DIR/biliup" || {
-        log_error "${RED}${BOLD}[ERROR]${NC} ${RED}删除旧的 biliup 文件失败！${NC}"
-        return 1
-    }
-    install_biliup_rs
-}
-
-# 哔哩哔哩视频快速上传
+# ===================== 哔哩哔哩视频上传工具 =====================
 biliup_upload() {
     require_installed || return 1
     log_info "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
@@ -752,7 +715,6 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 哔哩哔哩视频追加上传
 biliup_append() {
     require_installed || return 1
     local last_bv_file="$BILIUP_DIR/last_bv.txt"
@@ -869,7 +831,7 @@ biliup_append() {
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
-# ===================== 字体安装子菜单 =====================
+# ===================== 子菜单 =====================
 font_menu() {
     while true; do
         echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
@@ -895,7 +857,46 @@ font_menu() {
     done
 }
 
-# ===================== 显示头部信息及状态 =====================
+biliup_menu() {
+    while true; do
+        show_header
+        echo -e "${PINK}=== biliup-rs ===${NC}"
+        echo -e "${CYAN}当前 biliup-rs 版本信息：${NC}"
+        cd "$BILIUP_DIR" || {
+            log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"
+            return 1
+        }
+        ./biliup -V
+        echo ""
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 哔哩哔哩快速上传"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩视频追加上传"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 biliup-rs"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        read -p "请输入选项： " sub_choice
+        case $sub_choice in
+            1) biliup_upload ;;
+            2) biliup_append ;;
+            3)
+                cd "$BILIUP_DIR" || {
+                    log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"
+                    return 1
+                }
+                ./biliup login
+                ;;
+            9) update_biliup_rs ;;
+            0) return 0 ;;
+            *)
+                log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
+                ;;
+        esac
+        if [ "$sub_choice" != "0" ]; then
+            read -n 1 -s -r -p "按任意键继续..."
+        fi
+    done
+}
+
+# ===================== 状态显示函数 =====================
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
@@ -938,7 +939,6 @@ show_status() {
     fi
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
-        echo -e "Cookies ：$(check_cookies && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置 请检查/tools目录！${NC}${NORMAL}")"
         echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
             local last_update
@@ -977,7 +977,6 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} 运行一次测试"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
-        check_biliup_update
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
@@ -1082,46 +1081,6 @@ main_menu() {
                 ;;
         esac
         if [ "$skip_read" = false ]; then
-            read -n 1 -s -r -p "按任意键继续..."
-        fi
-    done
-}
-
-# biliup-rs 工具子菜单
-biliup_menu() {
-    while true; do
-        show_header
-        echo -e "${PINK}=== biliup-rs ===${NC}"
-        echo -e "${CYAN}当前 biliup-rs 版本信息：${NC}"
-        cd "$BILIUP_DIR" || {
-            log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"
-            return 1
-        }
-        ./biliup -V
-        echo ""
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 哔哩哔哩快速上传"
-        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩视频追加上传"
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 biliup-rs"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
-        read -p "请输入选项： " sub_choice
-        case $sub_choice in
-            1) biliup_upload ;;
-            2) biliup_append ;;
-            3)
-                cd "$BILIUP_DIR" || {
-                    log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法进入工具目录${NC}"
-                    return 1
-                }
-                ./biliup login
-                ;;
-            9) update_biliup_rs ;;
-            0) return 0 ;;
-            *)
-                log_error "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无效选项！${NC}"
-                ;;
-        esac
-        if [ "$sub_choice" != "0" ]; then
             read -n 1 -s -r -p "按任意键继续..."
         fi
     done
