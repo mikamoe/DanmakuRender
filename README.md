@@ -37,7 +37,9 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 
 ### 安装与使用文档      
 [**安装文档**](docs/installation.md)       
-[**使用文档**](docs/usage.md)
+[**使用文档**](docs/usage.md)     
+
+[**服务器录播示例**](https://github.com/SmallPeaches/DanmakuRender/discussions/368)
 
 ### 可选参数
 程序运行时可以指定以下参数
