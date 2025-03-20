@@ -354,6 +354,9 @@ update_dmr() {
          sudo rm -rf "$backup_dir"
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
          date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"
+         # 刷新状态：重新获取 GitHub 信息和更新日期
+         fetch_github_times
+         get_install_date
     fi
 }
 
@@ -959,6 +962,9 @@ main_menu() {
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
                 fi
+                # 刷新状态：更新后重新获取 GitHub 信息和安装日期
+                fetch_github_times
+                get_install_date
                 skip_read=false
                 ;;
             10)
