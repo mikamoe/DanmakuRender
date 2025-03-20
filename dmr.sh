@@ -260,6 +260,16 @@ update_dmr() {
          return 0
     fi
 
+    # 提示并删除直播回放相关目录
+    echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录，请确保重要文件已备份。${NC}"
+    read -p "是否删除这两个目录？(y/n): " delete_choice
+    if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
+        [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}[INFO] 已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
+        [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}[INFO] 已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
+    else
+        echo -e "${YELLOW}未删除直播回放目录，更新过程将继续。${NC}"
+    fi
+
     sudo apt update && sudo apt install rsync -y
 
     if pgrep -f "$DMR_CMD" > /dev/null; then
@@ -342,6 +352,8 @@ update_dmr() {
     else
          echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
          sudo rm -rf "$backup_dir"
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"
     fi
 }
 
