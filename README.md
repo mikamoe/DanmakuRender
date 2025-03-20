@@ -1,4 +1,4 @@
-## 🦁Script
+# 🦁Script
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
@@ -6,6 +6,10 @@
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](docs/IMG_2530.jpeg)
+## 2025-03-20）
+- 修正错误处理
+- 删除主菜单 Cookies 显示
+- 重构代码结构
 
 ##### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
 
