@@ -8,7 +8,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ![脚本图片](docs/IMG_2530.jpeg)
 ### 2025-03-23）
 - 修改下载链接，更换为上游仓库
-- 修改字体下载逻辑，依旧从本fork仓库下载
+- 修改字体下载逻辑，依旧从Fork仓库下载
 - 优化安装逻辑，修正其余错误
 
 ### 2025-03-20）
