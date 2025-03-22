@@ -827,7 +827,8 @@ show_header() {
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
     echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
-    echo -e "${PURPLE}${BOLD}项目原地址：${DMR_GITHUB_BASE}${NC}"
+    echo -e "${PURPLE}${BOLD}项目原地址${DMR_GITHUB_BASE}${NC}"
+    echo -e "${BLUE}${BOLD} ${DMR_GITHUB_BASE}${NC}"
     if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
         local last_update
         last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
