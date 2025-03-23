@@ -1,4 +1,4 @@
-## 🦁Script
+## DanmakuRender脚本
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
