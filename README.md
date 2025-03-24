@@ -1,4 +1,5 @@
 ## DanmakuRender脚本
+- 使用Claude+ChatGPT~~AI真好用~~
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
