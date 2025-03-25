@@ -271,7 +271,6 @@ update_dmr() {
          return 0
     fi
 
-    # 提示用户注意更新前备份数据，询问是否删除直播回放目录
     echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录，请确保重要文件已备份。${NC}"
     read -p "是否删除这两个目录？(y/n): " delete_choice
     if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
@@ -283,13 +282,11 @@ update_dmr() {
 
     sudo apt update && sudo apt install rsync -y
 
-    # 如果服务正在运行则先停止
     if pgrep -f "$DMR_CMD" > /dev/null; then
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
          stop_dmr
     fi
 
-    # 备份当前安装目录
     backup_dir="${DMR_DIR}_backup_$(date +%s)"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
     if ! sudo cp -r "$DMR_DIR" "$backup_dir"; then
@@ -331,7 +328,6 @@ update_dmr() {
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
-    # 删除旧虚拟环境，重新创建并安装依赖
     cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; update_fail=1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在删除旧虚拟环境..."
     [ -d "venv" ] && rm -rf venv || true
@@ -379,7 +375,6 @@ install_dmr() {
     # 设置安装错误时自动回滚
     trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
-    # 如果已经安装，则提供重新安装 Python 依赖选项
     if [ -d "$DMR_DIR" ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 已经安装！${NC}"
         read -p "是否要重新安装Python依赖？(y/n) " reinstall_choice
@@ -452,10 +447,18 @@ install_dmr() {
     rollback_needed=false
     trap - EXIT
 
-    # 安装完成后询问是否安装字体
+    # 修改此处：仅执行一次字体安装，不进入循环子菜单
     read -p "安装完成，是否安装字体？(y/n): " font_ans
     if [[ "$font_ans" =~ ^[Yy]$ ]]; then
-        font_menu
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}请选择字体方案：${NC}"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和 Emoji 字体"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 安装阿里巴巴普惠体和 Emoji 字体"
+        read -p "请输入选项 (1/2): " font_choice
+        case $font_choice in
+            1) install_fonts ;;
+            2) install_alibaba_fonts ;;
+            *) echo -e "${YELLOW}未选择有效选项，跳过字体安装${NC}" ;;
+        esac
     fi
 }
 
@@ -585,8 +588,10 @@ install_alibaba_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Emoji 字体安装完成！${NC}"
 }
 
-# 字体安装子菜单，方便用户选择需要安装的字体方案
+# 字体安装子菜单：循环显示菜单供用户选择安装字体方案
+# 增加 oneshot 参数，若为 true 则安装一次后返回主菜单
 font_menu() {
+    local oneshot=${1:-false}
     while true; do
         echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和 Emoji 字体"
@@ -599,6 +604,9 @@ font_menu() {
             0) break ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ;;
         esac
+        if [ "$oneshot" = true ]; then
+            break
+        fi
         read -n 1 -s -r -p "按任意键继续..."
     done
 }
