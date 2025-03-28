@@ -825,6 +825,24 @@ biliup_menu() {
     done
 }
 
+# ===================== 新增：安装 JavaScript 解释器和 JS 引擎 =====================
+install_js_engine() {
+    read -p "是否进行安装 JavaScript 解释器和 JS 引擎？(y/n): " js_ans
+    if [[ "$js_ans" =~ ^[Yy]$ ]]; then
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 Node.js 和 npm...${NC}"
+         sudo apt install -y nodejs npm || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Node.js 和 npm 安装失败！"; return 1; }
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}切换到主目录并激活虚拟环境...${NC}"
+         cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
+         source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
+         pip install quickjs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} quickjs 安装失败！"; deactivate; return 1; }
+         deactivate
+         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}JavaScript解释器和 JS 引擎安装完成！${NC}"
+    else
+         echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消安装。${NC}"
+    fi
+    read -n 1 -s -r -p "按任意键返回菜单..."
+}
+
 # ===================== 状态及主菜单 =====================
 
 # 显示头部信息：清屏后显示版本、提交、更新日期、项目地址及 Python 版本信息
@@ -878,7 +896,7 @@ show_status() {
             local commit_timestamp
             commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
             if [ "$commit_timestamp" -gt "$last_update" ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项9进行更新！${NC}"
+                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项10进行更新！${NC}"
             fi
         fi
     fi
@@ -912,8 +930,9 @@ main_menu() {
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} 删除回放/渲染视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs工具"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 安装JavaScript解释器和JS引擎"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         read -p "请输入选项： " choice
         case $choice in
@@ -986,6 +1005,14 @@ main_menu() {
                 ;;
             9)
                 if require_installed; then
+                    install_js_engine
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
+                skip_read=false
+                ;;
+            10)
+                if require_installed; then
                     update_dmr
                 else
                     echo -e "${RED}请先安装DanmakuRender v5!${NC}"
@@ -994,7 +1021,7 @@ main_menu() {
                 get_install_date
                 skip_read=false
                 ;;
-            10)
+            11)
                 if require_installed; then
                     uninstall_dmr
                 else
