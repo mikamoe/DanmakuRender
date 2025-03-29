@@ -501,9 +501,11 @@ install_dmr() {
     read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
          install_js_engine
-         read -n 1 -s -r -p "安装完成，按任意键继续..."
-         echo ""
     fi
+
+    # 统一保留一个按键提示
+    read -n 1 -s -r -p "按任意键继续..."
+    echo ""
 
     rollback_needed=false
     trap - EXIT
@@ -798,20 +800,14 @@ biliup_menu() {
 
 # ===================== 新增：安装 JavaScript 解释器和 JS 引擎 =====================
 install_js_engine() {
-    read -p "是否进行安装 JavaScript 解释器和 JS 引擎？(y/n): " js_ans
-    if [[ "$js_ans" =~ ^[Yy]$ ]]; then
-         print_info "正在安装 Node.js 和 npm..."
-         sudo apt install -y nodejs npm || { print_error "Node.js 和 npm 安装失败！"; return 1; }
-         print_info "切换到主目录并激活虚拟环境..."
-         cd "$DMR_DIR" || { print_error "进入目录失败！"; return 1; }
-         source venv/bin/activate || { print_error "激活虚拟环境失败！"; return 1; }
-         pip install quickjs || { print_error "quickjs 安装失败！"; deactivate; return 1; }
-         deactivate
-         print_info "JavaScript解释器和 JS 引擎安装完成！"
-    else
-         print_info "已取消安装。"
-    fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
+    print_info "正在安装 Node.js 和 npm..."
+    sudo apt install -y nodejs npm || { print_error "Node.js 和 npm 安装失败！"; return 1; }
+    print_info "切换到主目录并激活虚拟环境..."
+    cd "$DMR_DIR" || { print_error "进入目录失败！"; return 1; }
+    source venv/bin/activate || { print_error "激活虚拟环境失败！"; return 1; }
+    pip install quickjs || { print_error "quickjs 安装失败！"; deactivate; return 1; }
+    deactivate
+    print_info "JavaScript解释器和 JS 引擎安装完成！"
 }
 
 # ===================== 状态及主菜单 =====================
@@ -976,7 +972,11 @@ main_menu() {
                 ;;
             9)
                 if require_installed; then
-                    install_js_engine
+                    read -p "是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_ans
+                    if [[ "$js_ans" =~ ^[Yy]$ ]]; then
+                        install_js_engine
+                        read -n 1 -s -r -p "按任意键继续..."
+                    fi
                 else
                     print_error "请先安装DanmakuRender v5!"
                 fi
