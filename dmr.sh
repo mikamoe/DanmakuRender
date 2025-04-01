@@ -254,7 +254,7 @@ update_biliup_rs() {
     install_biliup_rs
 }
 
-# 更新 DanmakuRender v5：备份当前安装、使用 git 更新代码、重建虚拟环境及安装依赖
+# 更新 DanmakuRender v5：备份当前安装、下载新版本、覆盖文件、重建虚拟环境及安装依赖
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -265,8 +265,8 @@ update_dmr() {
     echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录，请确保重要文件已备份。${NC}"
     read -p "是否删除这两个目录？(y/n): " delete_choice
     if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
-        [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && print_info "已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
-        [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && print_info "已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
+        [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}[INFO] 已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
+        [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}[INFO] 已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
     else
         echo -e "${YELLOW}未删除直播回放目录，更新过程将继续。${NC}"
     fi
@@ -274,140 +274,163 @@ update_dmr() {
     sudo apt update && sudo apt install rsync -y
 
     if pgrep -f "$DMR_CMD" > /dev/null; then
-         print_info "正在停止运行中的进程..."
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
          stop_dmr
     fi
 
-    # 备份configs目录，保证用户自定义配置不被更新覆盖
-    update_fail=0
-    if [ -d "$DMR_DIR/configs" ]; then
-         configs_backup=$(mktemp -d)
-         print_info "正在备份configs目录到 ${YELLOW}$configs_backup${NC} ..."
-         if ! sudo cp -r "$DMR_DIR/configs" "$configs_backup"; then
-              print_error "configs目录备份失败！"
-              update_fail=1
-         fi
-    fi
-
     backup_dir="${DMR_DIR}_backup_$(date +%s)"
-    print_info "正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
     if ! sudo cp -r "$DMR_DIR" "$backup_dir"; then
-         print_error "备份失败！"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 备份失败！"
          return 1
     fi
 
-    cd "$DMR_DIR" || { print_error "进入目录失败！"; update_fail=1; }
-    print_info "正在更新代码..."
-    git fetch origin || { print_error "git fetch 失败！"; update_fail=1; }
-    git reset --hard origin/$GITHUB_BRANCH || { print_error "git reset 失败！"; update_fail=1; }
-
-    # 恢复configs目录，避免更新过程中丢失用户配置
-    if [ -n "$configs_backup" ] && [ -d "$configs_backup/configs" ]; then
-         print_info "正在恢复configs目录..."
-         sudo rm -rf "$DMR_DIR/configs"
-         sudo mv "$configs_backup/configs" "$DMR_DIR/"
-    fi
-
-    print_info "正在删除旧虚拟环境..."
-    [ -d "venv" ] && rm -rf venv || true
-
-    print_info "正在创建新的虚拟环境..."
-    if ! python3 -m venv venv; then
-         print_error "创建虚拟环境失败！"
+    update_fail=0
+    tmp_dir=$(mktemp -d)
+    if ! cd "$tmp_dir"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"
          update_fail=1
     fi
 
-    print_info "正在激活虚拟环境并安装 Python 依赖..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载 DanmakuRender v5 更新包..."
+    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载更新包失败！"
+         update_fail=1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在解压更新包..."
+    if ! unzip DanmakuRender-5.zip; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压更新包失败！"
+         update_fail=1
+    fi
+
+    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
+    if [ -z "$extracted_folder" ]; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"
+         update_fail=1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
+    if ! sudo rsync -a "$extracted_folder/" "$DMR_DIR/"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
+         update_fail=1
+    fi
+
+    cd - > /dev/null
+    rm -rf "$tmp_dir"
+
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; update_fail=1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在删除旧虚拟环境..."
+    [ -d "venv" ] && rm -rf venv || true
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在创建新的虚拟环境..."
+    if ! python3 -m venv venv; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"
+         update_fail=1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在激活虚拟环境并安装 Python 依赖..."
     if ! source venv/bin/activate; then
-         print_error "激活虚拟环境失败！"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"
          update_fail=1
     fi
     if ! pip install --quiet --upgrade pip; then
-         print_error "pip 升级失败！"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"
          update_fail=1
     fi
     if ! pip install -r requirements.txt; then
-         print_error "Python 依赖安装失败！"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"
          update_fail=1
     fi
     deactivate
 
     if [ "$update_fail" -eq 1 ]; then
-         print_error "更新过程中出现错误，正在恢复备份..."
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
          sudo rm -rf "$DMR_DIR"
          sudo mv "$backup_dir" "$DMR_DIR"
-         print_error "恢复备份完成！"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
          return 1
     else
-         print_info "更新成功！"
+         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
          sudo rm -rf "$backup_dir"
-         print_info "正在记录更新日期..."
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || print_error "记录更新日期失败！"
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"
          fetch_github_times
          get_install_date
     fi
 }
 
-# 安装 DanmakuRender v5：使用 git clone 下载、设置虚拟环境、安装依赖及其他工具
+# 安装 DanmakuRender v5：下载、解压、设置虚拟环境、安装依赖及其他工具
 install_dmr() {
     local rollback_needed=true
     # 设置安装错误时自动回滚
     trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
     if [ -d "$DMR_DIR" ]; then
-        print_info "DanmakuRender V5 已经安装！"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 已经安装！${NC}"
         read -p "是否要重新安装Python依赖？(y/n) " reinstall_choice
         if [[ ! $reinstall_choice =~ ^[Yy]$ ]]; then
-            print_info "已取消重新安装"
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消重新安装${NC}"
             return 0
         fi
-        print_info "正在重新安装Python依赖..."
-        cd "$DMR_DIR" || { print_error "进入目录失败！"; return 1; }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装Python依赖...${NC}"
+        cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
         [ -d "venv" ] && rm -rf venv
-        print_info "创建新的虚拟环境..."
-        python3 -m venv venv || { print_error "创建虚拟环境失败！"; return 1; }
-        source venv/bin/activate || { print_error "激活虚拟环境失败！"; return 1; }
-        pip install --quiet --upgrade pip || { print_error "pip 升级失败！"; return 1; }
-        pip install -r requirements.txt || { print_error "Python 依赖安装失败！"; return 1; }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建新的虚拟环境...${NC}"
+        python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"; return 1; }
+        source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
+        pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"; return 1; }
+        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"; return 1; }
         deactivate
-        print_info "Python依赖重新安装完成！"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python依赖重新安装完成！${NC}"
         return 0
     fi
 
-    print_info "正在安装必要工具..."
-    sudo apt update || { print_error "apt update 失败！"; return 1; }
-    sudo apt install -y unzip curl wget xz-utils git || { print_error "必要工具安装失败！"; return 1; }
-    print_info "必要工具安装完成！"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装必要工具...${NC}"
+    sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} apt update 失败！${NC}"; return 1; }
+    sudo apt install -y unzip curl wget xz-utils || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 必要工具安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}必要工具安装完成！${NC}"
 
-    print_info "正在使用 git 克隆 DanmakuRender v5..."
-    if ! git clone --depth 1 --branch "$GITHUB_BRANCH" "$DMR_GITHUB_BASE.git" "$DMR_DIR"; then
-         print_error "Git clone 失败！"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
+    tmp_dir=$(mktemp -d)
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！${NC}"; return 1; }
+    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载失败！${NC}"
          return 1
     fi
-    print_info "代码克隆完成！"
+    if ! unzip DanmakuRender-5.zip; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压失败！${NC}"
+         return 1
+    fi
+    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
+    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！${NC}"; return 1; }
+    sudo mv "$extracted_folder" "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动文件夹失败！${NC}"; return 1; }
+    cd - > /dev/null
+    rm -rf "$tmp_dir"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
 
-    cd "$DMR_DIR" || { print_error "进入目录失败！"; return 1; }
-    print_info "安装 python3-venv..."
-    sudo apt install python3-venv -y || { print_error "python3-venv 安装失败！"; return 1; }
-    print_info "创建虚拟环境..."
-    python3 -m venv venv || { print_error "创建虚拟环境失败！"; return 1; }
-    print_info "激活虚拟环境..."
-    source venv/bin/activate || { print_error "激活虚拟环境失败！"; return 1; }
-    pip install --quiet --upgrade pip || { print_error "pip 升级失败！"; return 1; }
-    print_info "安装 Python 依赖..."
-    pip install -r requirements.txt || { print_error "Python 依赖安装失败！"; return 1; }
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
+    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} python3-venv 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！${NC}"; return 1; }
+    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 Python 依赖...${NC}"
+    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！${NC}"; return 1; }
     deactivate
 
-    print_info "正在安装 ffmpeg..."
-    sudo apt install ffmpeg -y || { print_error "ffmpeg 安装失败！"; return 1; }
-    print_info "ffmpeg 安装完成！"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
+    sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ffmpeg 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
 
-    install_biliup_rs || { print_error "biliup-rs 安装失败！"; return 1; }
+    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！${NC}"; return 1; }
 
-    print_info "DanmakuRender v5 安装完成！"
-    print_info "记录安装日期..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}记录安装日期...${NC}"
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
-        print_error "记录安装日期失败！"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"
         return 1
     }
     get_install_date
@@ -416,11 +439,9 @@ install_dmr() {
     read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
          install_js_engine
+         read -n 1 -s -r -p "安装完成，按任意键继续..."
+         echo ""
     fi
-
-    # 统一保留一个按键提示
-    read -n 1 -s -r -p "按任意键继续..."
-    echo ""
 
     rollback_needed=false
     trap - EXIT
