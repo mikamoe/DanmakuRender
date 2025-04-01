@@ -35,69 +35,6 @@ PURPLE='\033[0;35m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
-
-# ===================== 公共函数 =====================
-print_info() {
-    # 参数1：信息内容
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} $1"
-}
-
-print_error() {
-    # 参数1：错误信息内容
-    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} $1"
-}
-
-# 从目录中搜索视频文件，并由用户选择要处理的文件
-# 参数1：搜索目录
-# 参数2：返回的数组变量名（通过 indirect assignment 传递选中的文件列表）
-select_video_files() {
-    local search_dir="$1"
-    local __resultvar="$2"
-    # 搜索常见格式视频文件
-    mapfile -t files < <(find "$search_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
-    if [ ${#files[@]} -eq 0 ]; then
-         print_error "目录下没有视频文件！"
-         return 1
-    fi
-    print_info "${CYAN}目录下的视频文件：${NC}"
-    for i in "${!files[@]}"; do
-         printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
-    done
-    echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-    echo "0 ) 返回上一级菜单"
-    local selections
-    while true; do
-         read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
-         if [[ " ${selections[@]} " =~ " 0 " ]]; then
-             return 1
-         fi
-         local valid=true
-         for num in "${selections[@]}"; do
-             if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
-                 print_error "无效选项：$num"
-                 valid=false
-                 break
-             fi
-         done
-         $valid && break
-    done
-    local all_option=$(( ${#files[@]} + 1 ))
-    local video_paths=()
-    if [[ " ${selections[@]} " =~ " $all_option " ]]; then
-         video_paths=("${files[@]}")
-    else
-         for num in "${selections[@]}"; do
-              if (( num >= 1 && num <= ${#files[@]} )); then
-                  video_paths+=("${files[$((num-1))]}")
-              else
-                  print_error "无效选项：$num"
-                  return 1
-              fi
-         done
-    fi
-    eval "$__resultvar=(\"\${video_paths[@]}\")"
-}
-
 # ===================== 辅助函数 =====================
 
 # 检查必备工具：jq、curl 以及 git
@@ -634,11 +571,10 @@ font_menu() {
 }
 
 # ===================== biliup‑rs 相关函数 =====================
-
 # 哔哩哔哩快速上传：用户选择视频目录及文件后调用 biliup 工具上传
 biliup_upload() {
     require_installed || return 1
-    print_info "${CYAN}请选择视频所在目录类型：${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
@@ -650,18 +586,55 @@ biliup_upload() {
         3)
             read -p "请输入视频所在目录的绝对路径: " video_dir
             ;;
-        *) print_error "无效选项！" ; return 1 ;;
+        *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ; return 1 ;;
     esac
 
+    local files=()
     local video_paths=()
+
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
-        [ ! -d "$video_dir" ] && { print_error "目录不存在：$video_dir"; return 1; }
-        if ! select_video_files "$video_dir" video_paths; then
+        [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir${NC}"; return 1; }
+        mapfile -t files < <(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
+        if [ ${#files[@]} -eq 0 ]; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录下没有视频文件！${NC}"
             return 1
         fi
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
+        for i in "${!files[@]}"; do
+            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
+        done
+        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
+        echo "0 ) 返回上一级菜单"
+        while true; do
+            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
+            if [[ " ${selections[@]} " =~ " 0 " ]]; then
+                return
+            fi
+            local valid=true
+            for num in "${selections[@]}"; do
+                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
+                    echo -e "${RED}无效选项：$num${NC}"
+                    valid=false
+                    break
+                fi
+            done
+            $valid && break
+        done
+        local all_option=$(( ${#files[@]} + 1 ))
+        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
+            video_paths=("${files[@]}")
+        else
+            for num in "${selections[@]}"; do
+                if (( num >= 1 && num <= ${#files[@]} )); then
+                    video_paths+=("${files[$((num-1))]}")
+                else
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项：$num"
+                    return 1
+                fi
+            done
+        fi
     else
-        print_info "请输入视频路径（支持多个，含空格请用引号包裹）："
-        read -r -p "示例: \"/path/视频1.mp4\" \"/path/视频2.mp4\": " -a video_paths
+        read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
     fi
 
     read -p "请输入tid号（默认65）: " tid
@@ -669,19 +642,9 @@ biliup_upload() {
     read -p "请输入视频标签（默认直播回放,录播）: " tags
     tags=${tags:-"直播回放,录播"}
 
-    cd "$BILIUP_DIR" || { print_error "进入工具目录失败！"; return 1; }
-    
-    # 构建参数数组
-    local cmd_args=()
-    cmd_args+=(upload)
-    cmd_args+=(--tid "$tid")
-    cmd_args+=(--tag "$tags")
-    for path in "${video_paths[@]}"; do
-        cmd_args+=("$path")
-    done
-
-    print_info "执行命令：./biliup ${cmd_args[*]}"
-    ./biliup "${cmd_args[@]}"
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
+    ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
 # 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
@@ -692,7 +655,7 @@ biliup_append() {
     if [ -f "$last_bv_file" ]; then
         local last_bv
         last_bv=$(cat "$last_bv_file")
-        print_info "检测到上一次使用的视频BV号：${last_bv}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检测到上一次使用的视频BV号：${last_bv}"
         echo "1) 使用上一次的BV号"
         echo "2) 重新输入BV号"
         read -p "请选择选项 (1/2): " choice_bv
@@ -701,67 +664,94 @@ biliup_append() {
         elif [ "$choice_bv" = "2" ]; then
             while true; do
                 read -p "请输入视频BV号: " bv
-                [[ "$bv" =~ ^BV ]] && break || print_error "无效的BV号，请确保以BV开头！"
+                [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
             done
             echo "$bv" > "$last_bv_file"
         else
-            print_error "无效选项！"
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
             return 1
         fi
     else
         while true; do
             read -p "请输入视频BV号: " bv
-            [[ "$bv" =~ ^BV ]] && break || print_error "无效的BV号，请确保以BV开头！"
+            [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
         done
         echo "$bv" > "$last_bv_file"
     fi
 
     local video_paths=()
-    print_info "${CYAN}请选择视频所在目录类型：${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
     read -p "请输入选项 (1/2/3): " type_choice
 
+    local files=()
     case $type_choice in
         1)
             local video_dir="$DMR_DIR/直播回放"
-            [ ! -d "$video_dir" ] && { print_error "目录不存在：$video_dir"; return 1; }
-            if ! select_video_files "$video_dir" video_paths; then
-                return 1
-            fi
+            [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir${NC}"; return 1; }
+            mapfile -t files < <(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
             ;;
         2)
             local video_dir2="$DMR_DIR/直播回放（弹幕版）"
-            [ ! -d "$video_dir2" ] && { print_error "目录不存在：$video_dir2"; return 1; }
-            if ! select_video_files "$video_dir2" video_paths; then
-                return 1
-            fi
+            [ ! -d "$video_dir2" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir2${NC}"; return 1; }
+            mapfile -t files < <(find "$video_dir2" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
             ;;
         3)
-            print_info "请输入视频路径（支持多个，含空格请用引号包裹）："
-            read -r -p "示例: \"/path/视频1.mp4\" \"/path/视频2.mp4\": " -a video_paths
+            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
             ;;
         *)
-            print_error "无效选项！"
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
             return 1
             ;;
     esac
 
-    cd "$BILIUP_DIR" || { print_error "进入工具目录失败！"; return 1; }
-    
-    # 构建参数数组
-    local cmd_args=()
-    cmd_args+=(append)
-    cmd_args+=(--vid "$bv")
-    for path in "${video_paths[@]}"; do
-        cmd_args+=("$path")
-    done
+    if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
+        if [ ${#files[@]} -eq 0 ]; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录下没有视频文件！${NC}"
+            return 1
+        fi
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
+        for i in "${!files[@]}"; do
+            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
+        done
+        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
+        echo "0 ) 返回上一级菜单"
+        while true; do
+            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
+            if [[ " ${selections[@]} " =~ " 0 " ]]; then
+                return
+            fi
+            local valid=true
+            for num in "${selections[@]}"; do
+                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
+                    echo -e "${RED}无效选项：$num${NC}"
+                    valid=false
+                    break
+                fi
+            done
+            $valid && break
+        done
+        local all_option=$(( ${#files[@]} + 1 ))
+        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
+            video_paths=("${files[@]}")
+        else
+            for num in "${selections[@]}"; do
+                if (( num >= 1 && num <= ${#files[@]} )); then
+                    video_paths+=("${files[$((num-1))]}")
+                else
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项：$num"
+                    return 1
+                fi
+            done
+        fi
+    fi
 
-    print_info "执行命令：./biliup ${cmd_args[*]}"
-    ./biliup "${cmd_args[@]}"
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
+    ./biliup append --vid "$bv" "${video_paths[@]}"
 }
-
 
 # biliup‑rs 工具子菜单：展示版本信息及相关上传、登录、更新选项
 biliup_menu() {
