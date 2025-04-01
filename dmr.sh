@@ -426,8 +426,9 @@ install_dmr() {
          install_js_engine
     fi
 
-    echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DanmakuRender v5 安装完成！${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 您可以进入选项8安装字体。"
+    echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}"
+    # 优化提示：让用户更清晰地知道如何安装字体
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 如需安装字体，请在主菜单中选择选项 8。"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录安装日期..."
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"
@@ -439,7 +440,7 @@ install_dmr() {
     trap - EXIT
 }
 
-# 卸载 DanmakuRender v5：卸载前询问
+# 卸载 DanmakuRender v5：询问后先停止进程再卸载
 uninstall_dmr() {
     require_installed || return 1
     read -p "确定要卸载 DanmakuRender v5 吗？(y/N): " confirm
@@ -447,6 +448,10 @@ uninstall_dmr() {
          echo -e "${YELLOW}取消卸载。${NC}"
          return 1
     fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}先停止运行中的进程...${NC}"
+    stop_dmr
+
     rm -rf "$DMR_DIR" \
       && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}卸载完成！${NC}" \
       || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！${NC}"
@@ -542,7 +547,8 @@ install_fonts() {
         return 1
     fi
     sudo mv /tmp/msyh.ttf /usr/share/fonts/truetype/microsoft/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动微软雅黑字体失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装微软雅黑字体！${NC}"
+    # 这里加粗“已安装微软雅黑字体！”
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装微软雅黑字体！${NC}"
     fc-list | grep "Microsoft YaHei" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到微软雅黑字体！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
     sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
@@ -561,7 +567,8 @@ install_alibaba_fonts() {
         return 1
     fi
     sudo mv /tmp/AlibabaPuHuiTi.ttf /usr/share/fonts/truetype/AlibabaPuHuiTi/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动阿里巴巴普惠体失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已安装阿里巴巴普惠体！${NC}"
+    # 这里加粗“已安装阿里巴巴普惠体！”
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装阿里巴巴普惠体！${NC}"
     fc-list | grep "Alibaba PuHuiTi" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到阿里巴巴普惠体！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
     sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
@@ -772,112 +779,6 @@ biliup_append() {
     fi
 
     cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
-    ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
-}
-
-# 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
-biliup_append() {
-    require_installed || return 1
-    local last_bv_file="$BILIUP_DIR/last_bv.txt"
-    local bv
-    if [ -f "$last_bv_file" ]; then
-        local last_bv
-        last_bv=$(cat "$last_bv_file")
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检测到上一次使用的视频BV号：${last_bv}"
-        echo "1) 使用上一次的BV号"
-        echo "2) 重新输入BV号"
-        read -p "请选择选项 (1/2): " choice_bv
-        if [ "$choice_bv" = "1" ]; then
-            bv="$last_bv"
-        elif [ "$choice_bv" = "2" ]; then
-            while true; do
-                read -p "请输入视频BV号: " bv
-                [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
-            done
-            echo "$bv" > "$last_bv_file"
-        else
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
-            return 1
-        fi
-    else
-        while true; do
-            read -p "请输入视频BV号: " bv
-            [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
-        done
-        echo "$bv" > "$last_bv_file"
-    fi
-
-    local video_paths=()
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
-    echo "1. 直播回放"
-    echo "2. 直播回放弹幕版"
-    echo "3. 其他路径"
-    read -p "请输入选项 (1/2/3): " type_choice
-
-    local files=()
-    case $type_choice in
-        1)
-            local video_dir="$DMR_DIR/直播回放"
-            [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir${NC}"; return 1; }
-            mapfile -t files < <(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
-            ;;
-        2)
-            local video_dir2="$DMR_DIR/直播回放（弹幕版）"
-            [ ! -d "$video_dir2" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir2${NC}"; return 1; }
-            mapfile -t files < <(find "$video_dir2" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
-            ;;
-        3)
-            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
-            ;;
-        *)
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
-            return 1
-            ;;
-    esac
-
-    if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
-        if [ ${#files[@]} -eq 0 ]; then
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录下没有视频文件！${NC}"
-            return 1
-        fi
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
-        for i in "${!files[@]}"; do
-            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
-        done
-        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
-        echo "0 ) 返回上一级菜单"
-        while true; do
-            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
-            if [[ " ${selections[@]} " =~ " 0 " ]]; then
-                return
-            fi
-            local valid=true
-            for num in "${selections[@]}"; do
-                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
-                    echo -e "${RED}无效选项：$num${NC}"
-                    valid=false
-                    break
-                fi
-            done
-            $valid && break
-        done
-        local all_option=$(( ${#files[@]} + 1 ))
-        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
-            video_paths=("${files[@]}")
-        else
-            for num in "${selections[@]}"; do
-                if (( num >= 1 && num <= ${#files[@]} )); then
-                    video_paths+=("${files[$((num-1))]}")
-                else
-                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项：$num"
-                    return 1
-                fi
-            done
-        fi
-    fi
-
-    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
@@ -927,7 +828,7 @@ install_js_engine() {
     else
          echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消安装。${NC}"
     fi
-    read -n 1 -s -r -p "按任意键返回菜单..."
+    # 此处去掉原本的“按任意键返回菜单”提示
 }
 
 # ===================== 状态及主菜单 =====================
@@ -942,7 +843,6 @@ show_header() {
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址${NC}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    # 删除了提示 v5分支有更新 的文字
     local python_version
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
