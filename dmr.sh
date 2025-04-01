@@ -12,16 +12,12 @@ INSTALL_DATE_FILE="$DMR_DIR/install_date"
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
+DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
 
 # biliup‑rs 项目信息（用于动态获取最新版本）
 BILIUP_OWNER="biliup"
 BILIUP_REPO="biliup-rs"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
-
-# 下载链接配置：用于安装和更新 DanmakuRender v5
-DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
-# 此链接始终下载 v5 分支的 zip 包
-DMR_DOWNLOAD_LINK="${DMR_GITHUB_BASE}/archive/refs/heads/v5.zip"
 
 # 字体下载链接配置（使用 GitHub raw 链接）
 FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
@@ -104,10 +100,10 @@ select_video_files() {
 
 # ===================== 辅助函数 =====================
 
-# 检查必备工具：jq 和 curl
+# 检查必备工具：jq、curl 以及 git
 check_dependencies() {
     print_info "Checking dependencies..."
-    local required_tools=("jq" "curl")
+    local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             print_info "未找到 $tool，正在安装..."
@@ -316,7 +312,7 @@ update_biliup_rs() {
     install_biliup_rs
 }
 
-# 更新 DanmakuRender v5：备份当前安装、下载新版本、覆盖文件、重建虚拟环境及安装依赖
+# 更新 DanmakuRender v5：备份当前安装、使用 git 更新代码、重建虚拟环境及安装依赖
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -340,6 +336,17 @@ update_dmr() {
          stop_dmr
     fi
 
+    # 备份configs目录，保证用户自定义配置不被更新覆盖
+    update_fail=0
+    if [ -d "$DMR_DIR/configs" ]; then
+         configs_backup=$(mktemp -d)
+         print_info "正在备份configs目录到 ${YELLOW}$configs_backup${NC} ..."
+         if ! sudo cp -r "$DMR_DIR/configs" "$configs_backup"; then
+              print_error "configs目录备份失败！"
+              update_fail=1
+         fi
+    fi
+
     backup_dir="${DMR_DIR}_backup_$(date +%s)"
     print_info "正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
     if ! sudo cp -r "$DMR_DIR" "$backup_dir"; then
@@ -347,41 +354,18 @@ update_dmr() {
          return 1
     fi
 
-    update_fail=0
-    tmp_dir=$(mktemp -d)
-    if ! cd "$tmp_dir"; then
-         print_error "进入临时目录失败！"
-         update_fail=1
-    fi
-
-    print_info "正在下载 DanmakuRender v5 更新包..."
-    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
-         print_error "下载更新包失败！"
-         update_fail=1
-    fi
-
-    print_info "正在解压更新包..."
-    if ! unzip DanmakuRender-5.zip; then
-         print_error "解压更新包失败！"
-         update_fail=1
-    fi
-
-    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    if [ -z "$extracted_folder" ]; then
-         print_error "未找到解压后的文件夹！"
-         update_fail=1
-    fi
-
-    print_info "正在覆盖主目录文件..."
-    if ! sudo rsync -a "$extracted_folder/" "$DMR_DIR/"; then
-         print_error "文件覆盖失败！"
-         update_fail=1
-    fi
-
-    cd - > /dev/null
-    rm -rf "$tmp_dir"
-
     cd "$DMR_DIR" || { print_error "进入目录失败！"; update_fail=1; }
+    print_info "正在更新代码..."
+    git fetch origin || { print_error "git fetch 失败！"; update_fail=1; }
+    git reset --hard origin/$GITHUB_BRANCH || { print_error "git reset 失败！"; update_fail=1; }
+
+    # 恢复configs目录，避免更新过程中丢失用户配置
+    if [ -n "$configs_backup" ] && [ -d "$configs_backup/configs" ]; then
+         print_info "正在恢复configs目录..."
+         sudo rm -rf "$DMR_DIR/configs"
+         sudo mv "$configs_backup/configs" "$DMR_DIR/"
+    fi
+
     print_info "正在删除旧虚拟环境..."
     [ -d "venv" ] && rm -rf venv || true
 
@@ -422,7 +406,7 @@ update_dmr() {
     fi
 }
 
-# 安装 DanmakuRender v5：下载、解压、设置虚拟环境、安装依赖及其他工具
+# 安装 DanmakuRender v5：使用 git clone 下载、设置虚拟环境、安装依赖及其他工具
 install_dmr() {
     local rollback_needed=true
     # 设置安装错误时自动回滚
@@ -450,26 +434,15 @@ install_dmr() {
 
     print_info "正在安装必要工具..."
     sudo apt update || { print_error "apt update 失败！"; return 1; }
-    sudo apt install -y unzip curl wget xz-utils || { print_error "必要工具安装失败！"; return 1; }
+    sudo apt install -y unzip curl wget xz-utils git || { print_error "必要工具安装失败！"; return 1; }
     print_info "必要工具安装完成！"
 
-    print_info "正在下载 DanmakuRender v5..."
-    tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { print_error "进入临时目录失败！"; return 1; }
-    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
-         print_error "下载失败！"
+    print_info "正在使用 git 克隆 DanmakuRender v5..."
+    if ! git clone --depth 1 --branch "$GITHUB_BRANCH" "$DMR_GITHUB_BASE.git" "$DMR_DIR"; then
+         print_error "Git clone 失败！"
          return 1
     fi
-    if ! unzip DanmakuRender-5.zip; then
-         print_error "解压失败！"
-         return 1
-    fi
-    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { print_error "未找到解压后的文件夹！"; return 1; }
-    sudo mv "$extracted_folder" "$DMR_DIR" || { print_error "移动文件夹失败！"; return 1; }
-    cd - > /dev/null
-    rm -rf "$tmp_dir"
-    print_info "文件下载并解压完成！"
+    print_info "代码克隆完成！"
 
     cd "$DMR_DIR" || { print_error "进入目录失败！"; return 1; }
     print_info "安装 python3-venv..."
@@ -822,17 +795,6 @@ show_header() {
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址${NC}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
-        local last_update
-        last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
-        local commit_timestamp
-        commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
-        if [ "$commit_timestamp" -gt "$last_update" ]; then
-            echo -e "${YELLOW}${BOLD}v5分支有最新变动${NC}"
-            echo -e "${YELLOW}${BOLD}提交日期：${NC}${commit_time}"
-            [ -n "$commit_message" ] && echo -e "${YELLOW}${BOLD}提交说明：${NC}${commit_message}"
-        fi
-    fi
     local python_version
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
@@ -857,15 +819,6 @@ show_status() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
         echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
-        if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
-            local last_update
-            last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
-            local commit_timestamp
-            commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
-            if [ "$commit_timestamp" -gt "$last_update" ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项10进行更新！${NC}"
-            fi
-        fi
     fi
 }
 
