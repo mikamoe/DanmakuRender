@@ -18,10 +18,8 @@ BILIUP_OWNER="biliup"
 BILIUP_REPO="biliup-rs"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
 
-# 下载链接配置：用于安装和更新 DanmakuRender v5
+# GitHub 克隆地址
 DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
-# 此链接始终下载 v5 分支的 zip 包
-DMR_DOWNLOAD_LINK="${DMR_GITHUB_BASE}/archive/refs/heads/v5.zip"
 
 # 字体下载链接配置（使用 GitHub raw 链接）
 FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
@@ -42,10 +40,10 @@ NORMAL=$(tput sgr0)
 
 # ===================== 辅助函数 =====================
 
-# 检查必备工具：jq 和 curl
+# 检查必备工具：jq、curl 和 git
 check_dependencies() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
-    local required_tools=("jq" "curl")
+    local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
@@ -285,36 +283,38 @@ update_dmr() {
          return 1
     fi
 
+    # 备份当前的 configs 文件夹
+    backup_configs="${DMR_DIR}_configs_backup_$(date +%s)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${YELLOW}$backup_configs${NC} ..."
+    if ! sudo cp -r "$DMR_DIR/configs" "$backup_configs"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
+         return 1
+    fi
+
     update_fail=0
     tmp_dir=$(mktemp -d)
-    if ! cd "$tmp_dir"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
          update_fail=1
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载 DanmakuRender v5 更新包..."
-    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载更新包失败！"
-         update_fail=1
-    fi
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在解压更新包..."
-    if ! unzip DanmakuRender-5.zip; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压更新包失败！"
-         update_fail=1
-    fi
-
-    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    if [ -z "$extracted_folder" ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！"
-         update_fail=1
+    # 检测更新包中的 configs 文件夹是否有变动
+    if ! diff -qr "$DMR_DIR/configs" "$tmp_dir/update_repo/configs" >/dev/null 2>&1; then
+         echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} 更新包中的 configs 文件夹有变动，请记得检查并更新您的配置文件。"
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-    if ! sudo rsync -a "$extracted_folder/" "$DMR_DIR/"; then
+    # 使用 rsync 时排除更新包中的 configs 文件夹
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
          update_fail=1
     fi
+    # 将备份的配置文件夹覆盖回去
+    sudo rm -rf "$DMR_DIR/configs"
+    sudo mv "$backup_configs" "$DMR_DIR/configs"
 
     cd - > /dev/null
     rm -rf "$tmp_dir"
@@ -360,7 +360,7 @@ update_dmr() {
     fi
 }
 
-# 安装 DanmakuRender v5：下载、解压、设置虚拟环境、安装依赖及其他工具
+# 安装 DanmakuRender v5：使用 git clone 拉取代码、设置虚拟环境、安装依赖及其他工具
 install_dmr() {
     local rollback_needed=true
     # 设置安装错误时自动回滚
@@ -391,25 +391,18 @@ install_dmr() {
     sudo apt install -y unzip curl wget xz-utils || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 必要工具安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}必要工具安装完成！${NC}"
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 DanmakuRender v5...${NC}"
-    tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！${NC}"; return 1; }
-    if ! wget -O DanmakuRender-5.zip "$DMR_DOWNLOAD_LINK"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载失败！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 git clone 拉取 DanmakuRender v5...${NC}"
+    if ! command -v git &>/dev/null; then
+         echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} 未检测到 git，正在安装..."
+         sudo apt install -y git || { echo -e "${RED}${BOLD}[ERROR]${NC} git 安装失败！"; return 1; }
+    fi
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} git clone 失败！"
          return 1
     fi
-    if ! unzip DanmakuRender-5.zip; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 解压失败！${NC}"
-         return 1
-    fi
-    extracted_folder=$(find . -maxdepth 1 -type d -name "DanmakuRender-*" | head -n 1)
-    [ -z "$extracted_folder" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到解压后的文件夹！${NC}"; return 1; }
-    sudo mv "$extracted_folder" "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动文件夹失败！${NC}"; return 1; }
-    cd - > /dev/null
-    rm -rf "$tmp_dir"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}文件下载并解压完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}代码拉取完成！${NC}"
 
-    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！${NC}"; return 1; }
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
     sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} python3-venv 安装失败！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
@@ -427,21 +420,20 @@ install_dmr() {
 
     install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！${NC}"; return 1; }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}${NORMAL}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}记录安装日期...${NC}"
+    # 安装完成后询问是否安装 JavaScript 解释器和 JS 引擎
+    read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
+    if [[ "$js_choice" =~ ^[Yy]$ ]]; then
+         install_js_engine
+    fi
+
+    echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DanmakuRender v5 安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 您可以进入选项8安装字体。"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录安装日期..."
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！${NC}"
         return 1
     }
     get_install_date
-
-    # 安装完成后询问是否安装 JavaScript 解释器和 JS 引擎
-    read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
-    if [[ "$js_choice" =~ ^[Yy]$ ]]; then
-         install_js_engine
-         read -n 1 -s -r -p "安装完成，按任意键继续..."
-         echo ""
-    fi
 
     rollback_needed=false
     trap - EXIT
@@ -450,6 +442,11 @@ install_dmr() {
 # 卸载 DanmakuRender v5：卸载前询问是否备份配置文件后删除安装目录
 uninstall_dmr() {
     require_installed || return 1
+    read -p "确定要卸载 DanmakuRender v5 吗？(y/N): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+         echo -e "${YELLOW}取消卸载。${NC}"
+         return 1
+    fi
     read -p "是否备份配置文件？(y/n): " backup_choice
     if [[ "$backup_choice" =~ ^[Yy]$ ]]; then
          backup_config_dir="${DMR_DIR}_config_backup_$(date +%s)"
@@ -781,6 +778,112 @@ biliup_append() {
     fi
 
     cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
+    ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
+}
+
+# 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
+biliup_append() {
+    require_installed || return 1
+    local last_bv_file="$BILIUP_DIR/last_bv.txt"
+    local bv
+    if [ -f "$last_bv_file" ]; then
+        local last_bv
+        last_bv=$(cat "$last_bv_file")
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检测到上一次使用的视频BV号：${last_bv}"
+        echo "1) 使用上一次的BV号"
+        echo "2) 重新输入BV号"
+        read -p "请选择选项 (1/2): " choice_bv
+        if [ "$choice_bv" = "1" ]; then
+            bv="$last_bv"
+        elif [ "$choice_bv" = "2" ]; then
+            while true; do
+                read -p "请输入视频BV号: " bv
+                [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
+            done
+            echo "$bv" > "$last_bv_file"
+        else
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
+            return 1
+        fi
+    else
+        while true; do
+            read -p "请输入视频BV号: " bv
+            [[ "$bv" =~ ^BV ]] && break || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的BV号，请确保以BV开头！"
+        done
+        echo "$bv" > "$last_bv_file"
+    fi
+
+    local video_paths=()
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
+    echo "1. 直播回放"
+    echo "2. 直播回放弹幕版"
+    echo "3. 其他路径"
+    read -p "请输入选项 (1/2/3): " type_choice
+
+    local files=()
+    case $type_choice in
+        1)
+            local video_dir="$DMR_DIR/直播回放"
+            [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir${NC}"; return 1; }
+            mapfile -t files < <(find "$video_dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
+            ;;
+        2)
+            local video_dir2="$DMR_DIR/直播回放（弹幕版）"
+            [ ! -d "$video_dir2" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir2${NC}"; return 1; }
+            mapfile -t files < <(find "$video_dir2" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
+            ;;
+        3)
+            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+            ;;
+        *)
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
+            return 1
+            ;;
+    esac
+
+    if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
+        if [ ${#files[@]} -eq 0 ]; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录下没有视频文件！${NC}"
+            return 1
+        fi
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}目录下的视频文件：${NC}"
+        for i in "${!files[@]}"; do
+            printf "%d) %s\n" $((i+1)) "$(basename "${files[$i]}")"
+        done
+        echo "$(( ${#files[@]} + 1 )) ) 全部上传"
+        echo "0 ) 返回上一级菜单"
+        while true; do
+            read -p "请输入要上传的视频选项（数字，用空格分隔，0返回）： " -a selections
+            if [[ " ${selections[@]} " =~ " 0 " ]]; then
+                return
+            fi
+            local valid=true
+            for num in "${selections[@]}"; do
+                if [[ ! "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#files[@]} + 1 )); then
+                    echo -e "${RED}无效选项：$num${NC}"
+                    valid=false
+                    break
+                fi
+            done
+            $valid && break
+        done
+        local all_option=$(( ${#files[@]} + 1 ))
+        if [[ " ${selections[@]} " =~ " $all_option " ]]; then
+            video_paths=("${files[@]}")
+        else
+            for num in "${selections[@]}"; do
+                if (( num >= 1 && num <= ${#files[@]} )); then
+                    video_paths+=("${files[$((num-1))]}")
+                else
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项：$num"
+                    return 1
+                fi
+            done
+        fi
+    fi
+
+    cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
@@ -845,17 +948,7 @@ show_header() {
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址${NC}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
-        local last_update
-        last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
-        local commit_timestamp
-        commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
-        if [ "$commit_timestamp" -gt "$last_update" ]; then
-            echo -e "${YELLOW}${BOLD}v5分支有最新变动${NC}"
-            echo -e "${YELLOW}${BOLD}提交日期：${NC}${commit_time}"
-            [ -n "$commit_message" ] && echo -e "${YELLOW}${BOLD}提交说明：${NC}${commit_message}"
-        fi
-    fi
+    # 删除了提示 v5分支有更新 的文字
     local python_version
     python_version=$(get_python_version)
     if [[ "$python_version" == "not_installed" ]]; then
@@ -880,15 +973,6 @@ show_status() {
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
         echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
-        if [ -f "$INSTALL_DATE_FILE" ] && [[ "$commit_time" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2} ]]; then
-            local last_update
-            last_update=$(date -d "$install_date" +%s 2>/dev/null || echo 0)
-            local commit_timestamp
-            commit_timestamp=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
-            if [ "$commit_timestamp" -gt "$last_update" ]; then
-                echo -e "${YELLOW}${BOLD}提示：v5分支有更新，请选择选项10进行更新！${NC}"
-            fi
-        fi
     fi
 }
 
@@ -921,8 +1005,8 @@ main_menu() {
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 安装JavaScript解释器和JS引擎"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD} 卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         read -p "请输入选项： " choice
         case $choice in
