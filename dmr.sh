@@ -439,19 +439,13 @@ install_dmr() {
     trap - EXIT
 }
 
-# 卸载 DanmakuRender v5：卸载前询问是否备份配置文件后删除安装目录
+# 卸载 DanmakuRender v5：卸载前询问
 uninstall_dmr() {
     require_installed || return 1
     read -p "确定要卸载 DanmakuRender v5 吗？(y/N): " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
          echo -e "${YELLOW}取消卸载。${NC}"
          return 1
-    fi
-    read -p "是否备份配置文件？(y/n): " backup_choice
-    if [[ "$backup_choice" =~ ^[Yy]$ ]]; then
-         backup_config_dir="${DMR_DIR}_config_backup_$(date +%s)"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件到 ${YELLOW}$backup_config_dir${NC} ..."
-         sudo cp -r "$DMR_DIR/configs" "$backup_config_dir" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件备份失败！"
     fi
     rm -rf "$DMR_DIR" \
       && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}卸载完成！${NC}" \
