@@ -420,9 +420,7 @@ install_dmr() {
 
     install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！${NC}"; return 1; }
 
-    # 安装完成后询问是否安装 JavaScript 解释器和 JS 引擎
-    read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
-    if [[ "$js_choice" =~ ^[Yy]$ ]]; then
+    # 安装完成后进入，询问是否安装 JavaScript 解释器和 JS 引擎
          install_js_engine
     fi
 
