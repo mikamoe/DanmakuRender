@@ -644,33 +644,24 @@ biliup_upload() {
     echo "3. 其他路径"
     read -p "请输入选项 (1/2/3): " type_choice
     local video_dir
-    local video_paths=()
     case $type_choice in
-        1) 
-            video_dir="$DMR_DIR/直播回放"
-            ;;
-        2) 
-            video_dir="$DMR_DIR/直播回放（弹幕版）"
-            ;;
+        1) video_dir="$DMR_DIR/直播回放" ;;
+        2) video_dir="$DMR_DIR/直播回放（弹幕版）" ;;
         3)
             read -p "请输入视频所在目录的绝对路径: " video_dir
             ;;
-        *) 
-            print_error "无效选项！" 
-            return 1 
-            ;;
+        *) print_error "无效选项！" ; return 1 ;;
     esac
 
+    local video_paths=()
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
-        if [ ! -d "$video_dir" ]; then
-            print_error "目录不存在：$video_dir"
-            return 1
-        fi
+        [ ! -d "$video_dir" ] && { print_error "目录不存在：$video_dir"; return 1; }
         if ! select_video_files "$video_dir" video_paths; then
             return 1
         fi
     else
-        read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+        print_info "请输入视频路径（支持多个，含空格请用引号包裹）："
+        read -r -p "示例: \"/path/视频1.mp4\" \"/path/视频2.mp4\": " -a video_paths
     fi
 
     read -p "请输入tid号（默认65）: " tid
@@ -679,14 +670,18 @@ biliup_upload() {
     tags=${tags:-"直播回放,录播"}
 
     cd "$BILIUP_DIR" || { print_error "进入工具目录失败！"; return 1; }
-    # 构造命令数组确保正确传参
-    local cmd=(./biliup upload)
+    
+    # 构建参数数组
+    local cmd_args=()
+    cmd_args+=(upload)
+    cmd_args+=(--tid "$tid")
+    cmd_args+=(--tag "$tags")
     for path in "${video_paths[@]}"; do
-        cmd+=("$path")
+        cmd_args+=("$path")
     done
-    cmd+=(--tid "$tid" --tag "$tags")
-    print_info "执行命令：${cmd[*]}"
-    "${cmd[@]}"
+
+    print_info "执行命令：./biliup ${cmd_args[*]}"
+    ./biliup "${cmd_args[@]}"
 }
 
 # 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
@@ -731,26 +726,21 @@ biliup_append() {
     case $type_choice in
         1)
             local video_dir="$DMR_DIR/直播回放"
-            if [ ! -d "$video_dir" ]; then
-                print_error "目录不存在：$video_dir"
-                return 1
-            fi
+            [ ! -d "$video_dir" ] && { print_error "目录不存在：$video_dir"; return 1; }
             if ! select_video_files "$video_dir" video_paths; then
                 return 1
             fi
             ;;
         2)
-            local video_dir="$DMR_DIR/直播回放（弹幕版）"
-            if [ ! -d "$video_dir" ]; then
-                print_error "目录不存在：$video_dir"
-                return 1
-            fi
-            if ! select_video_files "$video_dir" video_paths; then
+            local video_dir2="$DMR_DIR/直播回放（弹幕版）"
+            [ ! -d "$video_dir2" ] && { print_error "目录不存在：$video_dir2"; return 1; }
+            if ! select_video_files "$video_dir2" video_paths; then
                 return 1
             fi
             ;;
         3)
-            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+            print_info "请输入视频路径（支持多个，含空格请用引号包裹）："
+            read -r -p "示例: \"/path/视频1.mp4\" \"/path/视频2.mp4\": " -a video_paths
             ;;
         *)
             print_error "无效选项！"
@@ -759,14 +749,19 @@ biliup_append() {
     esac
 
     cd "$BILIUP_DIR" || { print_error "进入工具目录失败！"; return 1; }
-    # 构造命令数组确保正确传参
-    local cmd=(./biliup append --vid "$bv")
+    
+    # 构建参数数组
+    local cmd_args=()
+    cmd_args+=(append)
+    cmd_args+=(--vid "$bv")
     for path in "${video_paths[@]}"; do
-        cmd+=("$path")
+        cmd_args+=("$path")
     done
-    print_info "执行命令：${cmd[*]}"
-    "${cmd[@]}"
+
+    print_info "执行命令：./biliup ${cmd_args[*]}"
+    ./biliup "${cmd_args[@]}"
 }
+
 
 # biliup‑rs 工具子菜单：展示版本信息及相关上传、登录、更新选项
 biliup_menu() {
