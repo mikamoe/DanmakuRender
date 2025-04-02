@@ -7,10 +7,7 @@
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ![脚本图片](docs/IMG_2530.jpeg)
-### 2025-03-27）
-- 修改下载安装链接更换为上游仓库
-- 修改字体下载逻辑，依旧从Fork仓库下载
-- 再次优化了安装逻辑
+
 
 ##### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
 
