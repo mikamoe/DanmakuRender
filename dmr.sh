@@ -867,7 +867,6 @@ show_status() {
 
     if [ -d "$DMR_DIR" ]; then
         echo -e "配置文件：$(check_config && echo -e "${GREEN}${BOLD}已完成配置${NC}${NORMAL}" || echo -e "${RED}${BOLD}未正确配置${NC}${NORMAL}")"
-        echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
     fi
 }
 
@@ -889,7 +888,12 @@ main_menu() {
     local skip_read=false
     while true; do
         show_header
+        # 在显示当前状态上方输出上一次安装/更新日期
+        if [ -n "$install_date" ]; then
+            echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
+        fi
         show_status
+        echo ""  # 在“请选择操作”前空一行
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
