@@ -547,7 +547,6 @@ install_fonts() {
         return 1
     fi
     sudo mv /tmp/msyh.ttf /usr/share/fonts/truetype/microsoft/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动微软雅黑字体失败！${NC}"; return 1; }
-    # 这里加粗“已安装微软雅黑字体！”
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装微软雅黑字体！${NC}"
     fc-list | grep "Microsoft YaHei" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到微软雅黑字体！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
@@ -567,7 +566,6 @@ install_alibaba_fonts() {
         return 1
     fi
     sudo mv /tmp/AlibabaPuHuiTi.ttf /usr/share/fonts/truetype/AlibabaPuHuiTi/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动阿里巴巴普惠体失败！${NC}"; return 1; }
-    # 这里加粗“已安装阿里巴巴普惠体！”
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装阿里巴巴普惠体！${NC}"
     fc-list | grep "Alibaba PuHuiTi" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到阿里巴巴普惠体！${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
@@ -828,12 +826,11 @@ install_js_engine() {
     else
          echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消安装。${NC}"
     fi
-    # 此处去掉原本的“按任意键返回菜单”提示
 }
 
 # ===================== 状态及主菜单 =====================
 
-# 显示头部信息：清屏后显示版本、提交、更新日期、项目地址及 Python 版本信息
+# 显示头部信息：清屏后显示版本、提交、更新日期、项目地址等信息
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
@@ -843,12 +840,16 @@ show_header() {
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${PURPLE}${BOLD}项目原地址${NC}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    local python_version
-    python_version=$(get_python_version)
-    if [[ "$python_version" == "not_installed" ]]; then
-        echo -e "${RED}${BOLD}[ERROR]${NC} Python3 未安装或未检测到！${NC}"
+    # 检测上一次安装/更新时间是否早于最新提交时间
+    if [ -f "$INSTALL_DATE_FILE" ]; then
+        install_epoch=$(cat "$INSTALL_DATE_FILE")
     else
-        echo -e "${YELLOW}${BOLD}当前Python版本：${BOLD}${python_version}${NC}\n"
+        install_epoch=0
+    fi
+    commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+    if [ "$install_epoch" -lt "$commit_epoch" ]; then
+         echo -e "${YELLOW}检测到项目有最新变动${NC}"
+         echo -e "${YELLOW}提交说明：${NC} ${commit_message}"
     fi
 }
 
@@ -906,6 +907,9 @@ main_menu() {
         case $choice in
             1) install_dmr; skip_read=false ;;
             2)
+                # 在选项2运行前增加检测当前Python版本并显示
+                python_version=$(get_python_version)
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${python_version}"
                 if require_installed; then
                     if check_config; then
                         if pgrep -f "$DMR_CMD" > /dev/null; then
