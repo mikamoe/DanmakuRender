@@ -911,14 +911,14 @@ main_menu() {
         case $choice in
             1) install_dmr; skip_read=false ;;
             2)
-                # 在选项2运行前增加检测当前Python版本并显示
-                python_version=$(get_python_version)
-                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${python_version}"
                 if require_installed; then
                     if check_config; then
                         if pgrep -f "$DMR_CMD" > /dev/null; then
                             stop_dmr
                         else
+                            # 仅在启动时查询并显示 Python 版本
+                            python_version=$(get_python_version)
+                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${python_version}"
                             if start_dmr; then
                                 view_log; skip_read=true
                             fi
