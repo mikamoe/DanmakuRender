@@ -354,7 +354,7 @@ update_dmr() {
          echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
          sudo rm -rf "$backup_dir"
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！"
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
          fetch_github_times
          get_install_date
     fi
@@ -427,7 +427,6 @@ install_dmr() {
     fi
 
     echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}"
-    # 优化提示：让用户更清晰地知道如何安装字体
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 如需安装字体，请在主菜单中选择选项 8。"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录安装日期..."
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
@@ -830,7 +829,7 @@ install_js_engine() {
 
 # ===================== 状态及主菜单 =====================
 
-# 显示头部信息：清屏后显示版本、提交、更新日期、项目地址等信息
+# 显示头部信息：清屏后显示版本、提交、更新日期以及链接（不再显示“项目原地址”标签）
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
@@ -838,18 +837,19 @@ show_header() {
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
     echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
-    echo -e "${PURPLE}${BOLD}项目原地址${NC}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    # 检测上一次安装/更新时间是否早于最新提交时间
-    if [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE")
-    else
-        install_epoch=0
-    fi
-    commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-    if [ "$install_epoch" -lt "$commit_epoch" ]; then
-         echo -e "${YELLOW}检测到项目有最新变动${NC}"
-         echo -e "${YELLOW}提交说明：${NC} ${commit_message}"
+    # 只有已安装后才检测更新
+    if [ -d "$DMR_DIR" ]; then
+         if [ -f "$INSTALL_DATE_FILE" ]; then
+            install_epoch=$(cat "$INSTALL_DATE_FILE")
+         else
+            install_epoch=0
+         fi
+         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+         if [ "$install_epoch" -lt "$commit_epoch" ]; then
+              echo -e "${YELLOW}检测到项目有最新变动${NC}"
+              echo -e "${YELLOW}提交说明：${NC} ${commit_message}"
+         fi
     fi
 }
 
