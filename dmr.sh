@@ -252,7 +252,7 @@ update_biliup_rs() {
     install_biliup_rs
 }
 
-# 更新 DanmakuRender v5：备份当前安装、下载新版本、覆盖文件、重建虚拟环境及安装依赖
+# 更新 DanmakuRender v5：备份当前安装、下载新版本、覆盖文件、【无需重新安装虚拟环境及依赖】
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -260,8 +260,9 @@ update_dmr() {
          return 0
     fi
 
-    echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录，请确保重要文件已备份。${NC}"
-    read -p "是否删除这两个目录？(y/n): " delete_choice
+    echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录（默认不删除，请直接回车），请确保重要文件已备份。${NC}"
+    read -p "是否删除这两个目录？(y/n, 默认n): " delete_choice
+    delete_choice=${delete_choice:-n}
     if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
         [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}[INFO] 已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
         [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}[INFO] 已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
@@ -318,31 +319,6 @@ update_dmr() {
 
     cd - > /dev/null
     rm -rf "$tmp_dir"
-
-    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; update_fail=1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在删除旧虚拟环境..."
-    [ -d "venv" ] && rm -rf venv || true
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在创建新的虚拟环境..."
-    if ! python3 -m venv venv; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"
-         update_fail=1
-    fi
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在激活虚拟环境并安装 Python 依赖..."
-    if ! source venv/bin/activate; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"
-         update_fail=1
-    fi
-    if ! pip install --quiet --upgrade pip; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"
-         update_fail=1
-    fi
-    if ! pip install -r requirements.txt; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"
-         update_fail=1
-    fi
-    deactivate
 
     if [ "$update_fail" -eq 1 ]; then
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
