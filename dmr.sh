@@ -814,6 +814,7 @@ show_header() {
     echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
+    echo ""  # 在链接下方添加空行
     # 只有已安装后才检测更新
     if [ -d "$DMR_DIR" ]; then
          if [ -f "$INSTALL_DATE_FILE" ]; then
@@ -869,7 +870,8 @@ main_menu() {
             echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         fi
         show_status
-        echo ""  # 在“请选择操作”前空一行
+        echo ""  
+        echo "━━━━━━━━━━━━━━━━━━"  # 添加分隔线
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
@@ -883,6 +885,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
+        echo "━━━━━━━━━━━━━━━━━━"  # 添加分隔线
         read -p "请输入选项： " choice
         case $choice in
             1) install_dmr; skip_read=false ;;
