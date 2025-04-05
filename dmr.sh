@@ -872,7 +872,6 @@ main_menu() {
             echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         fi
         show_status
-        echo ""  # 空一行
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
