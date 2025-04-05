@@ -555,9 +555,11 @@ font_menu() {
     local oneshot=${1:-false}
     while true; do
         echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和 Emoji 字体"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 安装阿里巴巴普惠体和 Emoji 字体"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "请输入选项： " font_choice
         case $font_choice in
             1) install_fonts ;;
@@ -752,11 +754,11 @@ biliup_append() {
     fi
 
     cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup append --vid \"$bv\" ${video_paths[*]}${NC}"
-    ./biliup append --vid "$bv" "${video_paths[@]}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
+    ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# biliup‑rs 工具子菜单：展示版本信息及相关上传、登录、更新选项
+# 哔哩哔哩工具子菜单：展示版本信息及相关上传、登录、更新选项
 biliup_menu() {
     while true; do
         show_header
@@ -770,6 +772,7 @@ biliup_menu() {
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 biliup-rs"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "请输入选项： " sub_choice
         case $sub_choice in
             1) biliup_upload ;;
@@ -814,7 +817,6 @@ show_header() {
     echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    echo ""  # 在链接下方添加空行
     # 只有已安装后才检测更新
     if [ -d "$DMR_DIR" ]; then
          if [ -f "$INSTALL_DATE_FILE" ]; then
@@ -870,8 +872,8 @@ main_menu() {
             echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         fi
         show_status
-        echo ""  
-        echo "━━━━━━━━━━━━━━━━━━"  # 添加分隔线
+        echo ""  # 空一行
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${CYAN}${BOLD}请选择操作：${NC}${NORMAL}"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装DanmakuRender v5"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 启动/停止录制"
@@ -885,7 +887,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}更新DanmakuRender v5"
         echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
-        echo "━━━━━━━━━━━━━━━━━━"  # 添加分隔线
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "请输入选项： " choice
         case $choice in
             1) install_dmr; skip_read=false ;;
