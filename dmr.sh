@@ -753,6 +753,11 @@ biliup_append() {
         fi
     fi
 
+    read -p "请输入tid号（默认65）: " tid
+    tid=${tid:-65}
+    read -p "请输入视频标签（默认直播回放,录播）: " tags
+    tags=${tags:-"直播回放,录播"}
+
     cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入工具目录失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行命令：./biliup upload ${video_paths[*]} --tid $tid --tag \"$tags\"${NC}"
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
