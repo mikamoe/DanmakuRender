@@ -55,17 +55,17 @@ check_dependencies() {
     done
     
     # 更新检测提示
-    echo -e "\n(◕‿◕) 正在检查更新..."
+    echo -e "\n${YELLOW}(◕‿◕) 正在检查更新...${NC}"
     fetch_github_times
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE")
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
         if [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！"
-            echo -e "最新提交日期: $commit_time"
-            echo -e "提交说明: $commit_message"
-            echo -e "更新详情: ${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}"
-            echo -e "(｡･ω･｡) 按任意键继续进入脚本..."
+            echo -e "${GREEN}(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！${NC}"
+            echo -e "${BOLD}最新提交日期: ${PINK}$commit_time${NC}"
+            echo -e "提交说明: ${CYAN}$commit_message${NC}"
+            echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/$(curl -s "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/${GITHUB_BRANCH}" | jq -r '.commit.sha')${NC}"
+            echo -e "${YELLOW}(｡･ω･｡) 按任意键继续...${NC}"
             read -n 1 -s -r
         fi
     fi
@@ -127,9 +127,11 @@ fetch_github_times() {
         raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(convert_to_beijing_time "$raw_time")
         commit_message=$(jq -r '.commit.commit.message // empty' <<< "$branch_info")
+        commit_sha=$(jq -r '.commit.sha // empty' <<< "$branch_info")  # 获取提交SHA
     else
         commit_time="获取失败"
         commit_message=""
+        commit_sha=""
     fi
 
     local release_info
@@ -250,7 +252,7 @@ install_biliup_rs() {
     rm -rf "$extracted_folder" || {
         echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除解压文件夹失败！${NC}"
         return 1
-    }
+    fi
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${GREEN}安装 biliup-rs 完成！${NC}"
 }
 
@@ -300,10 +302,10 @@ update_dmr() {
          return 1
     fi
 
-    # 备份当前的 configs 文件夹
-    backup_configs="${DMR_DIR}_configs_backup_$(date +%s)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${YELLOW}$backup_configs${NC} ..."
-    if ! sudo cp -r "$DMR_DIR/configs" "$backup_configs"; then
+    # 创建备份文件夹并备份configs
+    config_backup_dir="$DMR_DIR/config_backup_$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${YELLOW}$config_backup_dir${NC} ..."
+    if ! sudo mkdir -p "$config_backup_dir" || ! sudo cp -r "$DMR_DIR/configs" "$config_backup_dir"; then
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
          return 1
     fi
@@ -329,9 +331,6 @@ update_dmr() {
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
          update_fail=1
     fi
-    # 将备份的配置文件夹覆盖回去
-    sudo rm -rf "$DMR_DIR/configs"
-    sudo mv "$backup_configs" "$DMR_DIR/configs"
 
     cd - > /dev/null
     rm -rf "$tmp_dir"
@@ -344,6 +343,7 @@ update_dmr() {
          return 1
     else
          echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 配置文件已备份至: ${YELLOW}$config_backup_dir${NC}"
          sudo rm -rf "$backup_dir"
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
          date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
