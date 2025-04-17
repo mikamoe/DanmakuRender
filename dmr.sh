@@ -843,8 +843,8 @@ main_menu() {
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} biliup-rs"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} 字体安装"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 安装JavaScript解释器和JS引擎"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE} 更新DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD} 卸载DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}更新DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 退出脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "请输入选项： " choice
