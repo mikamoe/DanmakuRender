@@ -1,7 +1,4 @@
 #!/bin/bash
-set -euo pipefail
-IFS=$'\n\t'
-
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -56,6 +53,24 @@ check_dependencies() {
             }
         fi
     done
+    
+    # 可爱的更新检测提示
+    echo -e "\n${PINK}ฅ^•ﻌ•^ฅ ${BOLD}正在检查更新...${NORMAL}${NC}"
+    fetch_github_times
+    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
+        install_epoch=$(cat "$INSTALL_DATE_FILE")
+        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+        if [ "$install_epoch" -lt "$commit_epoch" ]; then
+            echo -e "${PINK}✧･ﾟ: *✧･ﾟ:* ${BOLD}发现新版本啦! *:･ﾟ✧*:･ﾟ✧${NORMAL}${NC}"
+            echo -e "${CYAN}╔══════════════════════════════════════╗"
+            echo -e "║ ${BOLD}✨ 最新提交日期:${NORMAL} $commit_time"
+            echo -e "║ ${BOLD}📝 提交说明:${NORMAL} $commit_message"
+            echo -e "║ ${BOLD}🔗 项目地址:${NORMAL} $DMR_GITHUB_BASE"
+            echo -e "╚══════════════════════════════════════╝${NC}"
+            echo -e "${PINK}(っ◕‿◕)っ 按任意键继续进入脚本...${NC}"
+            read -n 1 -s -r
+        fi
+    fi
 }
 
 # 获取 Python3 的版本号，便于检查环境
@@ -67,7 +82,7 @@ get_python_version() {
     fi
 }
 
-# 将给定时间转换为北京时间，若失败则返回“获取失败”
+# 将给定时间转换为北京时间，若失败则返回"获取失败"
 convert_to_beijing_time() {
     local raw_time="$1"
     if [ -z "$raw_time" ]; then
@@ -105,22 +120,18 @@ check_config() {
     fi
 }
 
-# 从 GitHub 获取最新提交信息和 Release 信息
+# 从 GitHub 获取最新提交时间、提交说明以及最新 Release 时间、版本号
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
     if [[ -n "$branch_info" ]]; then
-        local raw_time raw_sha
+        local raw_time
         raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(convert_to_beijing_time "$raw_time")
         commit_message=$(jq -r '.commit.commit.message // empty' <<< "$branch_info")
-        raw_sha=$(jq -r '.commit.sha // empty' <<< "$branch_info")
-        commit_sha="$raw_sha"
-        commit_url="https://github.com/$GITHUB_OWNER/$GITHUB_REPO/commit/$commit_sha"
     else
         commit_time="获取失败"
         commit_message=""
-        commit_url=""
     fi
 
     local release_info
@@ -184,11 +195,16 @@ install_biliup_rs() {
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}最新 biliup-rs 版本：${latest_version}${NC}"
 
     # 根据系统架构选择合适的压缩包
-    local arch asset asset_file download_url
+    local arch
     arch=$(uname -m)
+    local asset
     case "$arch" in
-        aarch64) asset="aarch64-linux.tar.xz" ;;
-        arm*|aarch32) asset="arm-linux.tar.xz" ;;
+        aarch64)
+            asset="aarch64-linux.tar.xz"
+            ;;
+        arm*|aarch32)
+            asset="arm-linux.tar.xz"
+            ;;
         x86_64)
             if ldd --version 2>&1 | grep -qi musl; then
                 asset="x86_64-linux-musl.tar.xz"
@@ -203,8 +219,8 @@ install_biliup_rs() {
     esac
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}检测到系统架构：$arch，选择资源文件：${asset}${NC}"
 
-    asset_file="biliupR-${latest_version}-${asset}"
-    download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
+    local asset_file="biliupR-${latest_version}-${asset}"
+    local download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}下载 URL：${download_url}${NC}"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在下载 biliup-rs...${NC}"
@@ -243,12 +259,12 @@ install_biliup_rs() {
 # 更新 biliup‑rs：删除旧的二进制文件后重新安装
 update_biliup_rs() {
     cd "$BILIUP_DIR" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入 tools 目录失败！${NC}"
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
         return 1
     }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新 biliup-rs...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在更新 biliup-rs...${NC}"
     rm -f "$BILIUP_DIR/biliup" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除旧的 biliup 文件失败！${NC}"
+        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除旧的 biliup 文件失败！${NC}"
         return 1
     }
     install_biliup_rs
@@ -341,6 +357,7 @@ update_dmr() {
 # 安装 DanmakuRender v5：使用 git clone 拉取代码、设置虚拟环境、安装依赖及其他工具
 install_dmr() {
     local rollback_needed=true
+    # 设置安装错误时自动回滚
     trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
     if [ -d "$DMR_DIR" ]; then
@@ -353,6 +370,7 @@ install_dmr() {
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装Python依赖...${NC}"
         cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
         [ -d "venv" ] && rm -rf venv
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建新的虚拟环境...${NC}"
         python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"; return 1; }
         source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
         pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"; return 1; }
@@ -379,17 +397,24 @@ install_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}代码拉取完成！${NC}"
 
     cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
-    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} python3-venv 安装失败！"; return 1; }
-    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！"; return 1; }
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
-    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！"; return 1; }
-    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 python3-venv...${NC}"
+    sudo apt install python3-venv -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} python3-venv 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建虚拟环境...${NC}"
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建虚拟环境失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！${NC}"; return 1; }
+    pip install --quiet --upgrade pip || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} pip 升级失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}安装 Python 依赖...${NC}"
+    pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Python 依赖安装失败！${NC}"; return 1; }
     deactivate
 
-    sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ffmpeg 安装失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 ffmpeg...${NC}"
+    sudo apt install ffmpeg -y || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ffmpeg 安装失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}ffmpeg 安装完成！${NC}"
 
-    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！"; return 1; }
+    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！${NC}"; return 1; }
 
+    # 安装完成后询问是否安装 JavaScript 解释器和 JS 引擎
     read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
          install_js_engine
@@ -417,11 +442,15 @@ uninstall_dmr() {
          return 1
     fi
 
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}先停止运行中的进程...${NC}"
     stop_dmr
+
     rm -rf "$DMR_DIR" \
       && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}卸载完成！${NC}" \
       || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！${NC}"
 }
+
+# ===================== 运行与测试管理函数 =====================
 
 # 启动 DanmakuRender v5：激活虚拟环境并使用 nohup 后台运行
 start_dmr() {
@@ -477,9 +506,9 @@ run_test() {
 # 手动渲染视频：调用 render_only.py 进行渲染
 manual_render() {
     require_installed || return 1
-    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！${NC}"; return 1; }
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！${NC}"; return 1; }
-    python3 render_only.py || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 渲染失败！${NC}"; return 1; }
+    cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC} 进入目录失败！${NC}"; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC} 激活虚拟环境失败！${NC}"; return 1; }
+    python3 render_only.py || { echo -e "${RED}${BOLD}[ERROR]${NC} 渲染失败！${NC}"; return 1; }
     deactivate
 }
 
@@ -499,8 +528,73 @@ delete_replays() {
     fi
 }
 
+# ===================== 字体安装相关函数 =====================
+
+# 安装微软雅黑和 Emoji 字体：从指定链接下载字体文件并移动至系统字体目录
+install_fonts() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装微软雅黑和 Emoji 字体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/microsoft || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建字体目录失败！${NC}"; return 1; }
+    if ! wget -O /tmp/msyh.ttf "$FONT_MSYH_URL"; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载微软雅黑字体失败！${NC}"
+        return 1
+    fi
+    sudo mv /tmp/msyh.ttf /usr/share/fonts/truetype/microsoft/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动微软雅黑字体失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装微软雅黑字体！${NC}"
+    fc-list | grep "Microsoft YaHei" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到微软雅黑字体！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 安装 Emoji 字体包失败！${NC}"; return 1; }
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑和 Emoji 字体安装完成！${NC}"
+}
+
+# 安装阿里巴巴普惠体和 Emoji 字体：同上，使用不同的下载链接
+install_alibaba_fonts() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装阿里巴巴普惠体和 Emoji 字体...${NC}"
+    sudo mkdir -p /usr/share/fonts/truetype/AlibabaPuHuiTi || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建字体目录失败！${NC}"; return 1; }
+    if ! wget -O /tmp/AlibabaPuHuiTi.ttf "$FONT_ALIBABA_URL"; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载阿里巴巴普惠体失败！${NC}"
+        return 1
+    fi
+    sudo mv /tmp/AlibabaPuHuiTi.ttf /usr/share/fonts/truetype/AlibabaPuHuiTi/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动阿里巴巴普惠体失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装阿里巴巴普惠体！${NC}"
+    fc-list | grep "Alibaba PuHuiTi" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到阿里巴巴普惠体！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新字体缓存...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 安装 Emoji 字体包失败！${NC}"; return 1; }
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Emoji 字体安装完成！${NC}"
+}
+
+# 字体安装子菜单：循环显示菜单供用户选择安装字体方案
+font_menu() {
+    local oneshot=${1:-false}
+    while true; do
+        echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和 Emoji 字体"
+        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 安装阿里巴巴普惠体和 Emoji 字体"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        read -p "请输入选项： " font_choice
+        case $font_choice in
+            1) install_fonts ;;
+            2) install_alibaba_fonts ;;
+            0) break ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ;;
+        esac
+        if [ "$oneshot" = true ]; then
+            break
+        fi
+        read -n 1 -s -r -p "按任意键继续..."
+    done
+}
+
 # ===================== biliup‑rs 相关函数 =====================
 
+# 哔哩哔哩快速上传：用户选择视频目录及文件后调用 biliup 工具上传
 biliup_upload() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
@@ -508,8 +602,7 @@ biliup_upload() {
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
     read -p "请输入选项 (1/2/3): " type_choice
-    local video_dir files video_paths selections tid tags all_option
-
+    local video_dir
     case $type_choice in
         1) video_dir="$DMR_DIR/直播回放" ;;
         2) video_dir="$DMR_DIR/直播回放（弹幕版）" ;;
@@ -518,6 +611,9 @@ biliup_upload() {
             ;;
         *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ; return 1 ;;
     esac
+
+    local files=()
+    local video_paths=()
 
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
         [ ! -d "$video_dir" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir${NC}"; return 1; }
@@ -547,7 +643,7 @@ biliup_upload() {
             done
             $valid && break
         done
-        all_option=$(( ${#files[@]} + 1 ))
+        local all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
             video_paths=("${files[@]}")
         else
@@ -574,12 +670,13 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
+# 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
 biliup_append() {
     require_installed || return 1
-    local last_bv_file="$BILIUP_DIR/last_bv.txt" bv files video_paths selections type_choice
-
+    local last_bv_file="$BILIUP_DIR/last_bv.txt"
+    local bv
     if [ -f "$last_bv_file" ]; then
-        local last_bv choice_bv
+        local last_bv
         last_bv=$(cat "$last_bv_file")
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检测到上一次使用的视频BV号：${last_bv}"
         echo "1) 使用上一次的BV号"
@@ -605,12 +702,14 @@ biliup_append() {
         echo "$bv" > "$last_bv_file"
     fi
 
+    local video_paths=()
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
     echo "1. 直播回放"
     echo "2. 直播回放弹幕版"
     echo "3. 其他路径"
     read -p "请输入选项 (1/2/3): " type_choice
 
+    local files=()
     case $type_choice in
         1)
             local video_dir="$DMR_DIR/直播回放"
@@ -622,8 +721,13 @@ biliup_append() {
             [ ! -d "$video_dir2" ] && { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 目录不存在：$video_dir2${NC}"; return 1; }
             mapfile -t files < <(find "$video_dir2" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.avi" \) -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
             ;;
-        3) read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths ;;
-        *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ; return 1 ;;
+        3)
+            read -p "请输入视频文件的绝对路径（多个请用空格分隔）： " -a video_paths
+            ;;
+        *)
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！"
+            return 1
+            ;;
     esac
 
     if [[ "$type_choice" == "1" || "$type_choice" == "2" ]]; then
@@ -652,7 +756,7 @@ biliup_append() {
             done
             $valid && break
         done
-        all_option=$(( ${#files[@]} + 1 ))
+        local all_option=$(( ${#files[@]} + 1 ))
         if [[ " ${selections[@]} " =~ " $all_option " ]]; then
             video_paths=("${files[@]}")
         else
@@ -672,6 +776,7 @@ biliup_append() {
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
+# 哔哩哔哩工具子菜单：展示版本信息及相关上传、登录、更新选项
 biliup_menu() {
     while true; do
         show_header
@@ -685,6 +790,7 @@ biliup_menu() {
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} 更新 biliup-rs"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "请输入选项： " sub_choice
         case $sub_choice in
             1) biliup_upload ;;
@@ -697,69 +803,17 @@ biliup_menu() {
             0) return 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ;;
         esac
-        read -n 1 -s -r -p "按任意键继续..."
+        [ "$sub_choice" != "0" ] && read -n 1 -s -r -p "按任意键继续..."
     done
 }
 
-# 安装微软雅黑和 Emoji 字体
-install_fonts() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装微软雅黑和 Emoji 字体...${NC}"
-    sudo mkdir -p /usr/share/fonts/truetype/microsoft || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建字体目录失败！${NC}"; return 1; }
-    if ! wget -O /tmp/msyh.ttf "$FONT_MSYH_URL"; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载微软雅黑字体失败！${NC}"
-        return 1
-    fi
-    sudo mv /tmp/msyh.ttf /usr/share/fonts/truetype/microsoft/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动微软雅黑字体失败！${NC}"; return 1; }
-    fc-list | grep "Microsoft YaHei" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到微软雅黑字体！${NC}"; return 1; }
-    sudo fc-cache -fv > /dev/null 2>&1
-    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1
-    sudo fc-cache -fv > /dev/null 2>&1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑和 Emoji 字体安装完成！${NC}"
-}
-
-# 安装阿里巴巴普惠体和 Emoji 字体
-install_alibaba_fonts() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装阿里巴巴普惠体和 Emoji 字体...${NC}"
-    sudo mkdir -p /usr/share/fonts/truetype/AlibabaPuHuiTi || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建字体目录失败！${NC}"; return 1; }
-    if ! wget -O /tmp/AlibabaPuHuiTi.ttf "$FONT_ALIBABA_URL"; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 下载阿里巴巴普惠体失败！${NC}"
-        return 1
-    fi
-    sudo mv /tmp/AlibabaPuHuiTi.ttf /usr/share/fonts/truetype/AlibabaPuHuiTi/ || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 移动阿里巴巴普惠体失败！${NC}"; return 1; }
-    fc-list | grep "Alibaba PuHuiTi" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未找到阿里巴巴普惠体！${NC}"; return 1; }
-    sudo fc-cache -fv > /dev/null 2>&1
-    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji > /dev/null 2>&1
-    sudo fc-cache -fv > /dev/null 2>&1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Emoji 字体安装完成！${NC}"
-}
-
-# 字体安装子菜单
-font_menu() {
-    while true; do
-        echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 安装微软雅黑和 Emoji 字体"
-        echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 安装阿里巴巴普惠体和 Emoji 字体"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
-        read -p "请输入选项： " font_choice
-        case $font_choice in
-            1) install_fonts ;;
-            2) install_alibaba_fonts ;;
-            0) break ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项！" ;;
-        esac
-        read -n 1 -s -r -p "按任意键继续..."
-    done
-}
-
-# 安装 JavaScript 解释器和 JS 引擎
+# ===================== 新增：安装 JavaScript 解释器和 JS 引擎 =====================
 install_js_engine() {
     read -p "是否进行安装 JavaScript 解释器和 JS 引擎？(y/n): " js_ans
     if [[ "$js_ans" =~ ^[Yy]$ ]]; then
          echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 Node.js 和 npm...${NC}"
          sudo apt install -y nodejs npm || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} Node.js 和 npm 安装失败！"; return 1; }
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}切换到主目录并激活虚拟环境...${NC}"
          cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录失败！"; return 1; }
          source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; return 1; }
          pip install quickjs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} quickjs 安装失败！"; deactivate; return 1; }
@@ -770,25 +824,28 @@ install_js_engine() {
     fi
 }
 
-# 显示头部信息：清屏后显示版本、提交、更新日期以及链接
+# ===================== 状态及主菜单 =====================
+
+# 显示头部信息：清屏后显示版本、提交、更新日期以及链接（不再显示"项目原地址"标签）
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
     echo -e "${BLUE}${BOLD}DanmakuRender v5${NORMAL}"
     echo -e "${PINK}最新提交日期${NC} ${BOLD}${commit_time}"
-    echo -e "${PINK}版本号    ${NC} ${BOLD}${release_version}"
-    echo -e "${PINK}更新日期  ${NC} ${BOLD}${release_time}"
+    echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
+    echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-
     # 只有已安装后才检测更新
-    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-         install_epoch=$(cat "$INSTALL_DATE_FILE")
-         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null || echo 0)
+    if [ -d "$DMR_DIR" ]; then
+         if [ -f "$INSTALL_DATE_FILE" ]; then
+            install_epoch=$(cat "$INSTALL_DATE_FILE")
+         else
+            install_epoch=0
+         fi
+         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
          if [ "$install_epoch" -lt "$commit_epoch" ]; then
               echo -e "${YELLOW}检测到项目有最新变动${NC}"
               echo -e "${YELLOW}提交说明：${NC} ${commit_message}"
-              # 在提交说明下方增加提交说明的链接
-              echo -e "${YELLOW}提交链接：${NC} ${commit_url}"
          fi
     fi
 }
@@ -828,6 +885,7 @@ main_menu() {
     local skip_read=false
     while true; do
         show_header
+        # 在显示当前状态上方输出上一次安装/更新日期
         if [ -n "$install_date" ]; then
             echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         fi
@@ -856,8 +914,9 @@ main_menu() {
                         if pgrep -f "$DMR_CMD" > /dev/null; then
                             stop_dmr
                         else
+                            # 仅在启动时查询并显示 Python 版本
                             python_version=$(get_python_version)
-                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本：${python_version}"
+                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${python_version}"
                             if start_dmr; then
                                 view_log; skip_read=true
                             fi
@@ -871,41 +930,77 @@ main_menu() {
                 skip_read=false
                 ;;
             3)
-                if require_installed; then view_log; skip_read=true; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    view_log; skip_read=true
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             4)
-                if require_installed; then manual_render; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    manual_render
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             5)
-                if require_installed; then run_test; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    run_test
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             6)
-                if require_installed; then delete_replays; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    delete_replays
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             7)
-                if require_installed; then biliup_menu; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    biliup_menu; skip_read=true
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             8)
-                if require_installed; then font_menu; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    font_menu
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             9)
-                if require_installed; then install_js_engine; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    install_js_engine
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             10)
-                if require_installed; then update_dmr; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    update_dmr
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 fetch_github_times
                 get_install_date
                 skip_read=false
                 ;;
             11)
-                if require_installed; then uninstall_dmr; else echo -e "${RED}请先安装DanmakuRender v5!${NC}"; fi
+                if require_installed; then
+                    uninstall_dmr
+                else
+                    echo -e "${RED}请先安装DanmakuRender v5!${NC}"
+                fi
                 skip_read=false
                 ;;
             0) exit 0 ;;
