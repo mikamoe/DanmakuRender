@@ -312,43 +312,50 @@ update_dmr() {
 
     update_fail=0
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
+    cd "$tmp_dir" || { 
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"
+        update_fail=1
+    }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
-    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
-         update_fail=1
+    if [ "$update_fail" -eq 0 ]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
+        if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
+            update_fail=1
+        fi
     fi
 
-    # 检测更新包中的 configs 文件夹是否有变动
-    if ! diff -qr "$DMR_DIR/configs" "$tmp_dir/update_repo/configs" >/dev/null 2>&1; then
-         echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} 更新包中的 configs 文件夹有变动，请记得检查并更新您的配置文件。"
-    fi
+    if [ "$update_fail" -eq 0 ]; then
+        # 检测更新包中的 configs 文件夹是否有变动
+        if ! diff -qr "$DMR_DIR/configs" "$tmp_dir/update_repo/configs" >/dev/null 2>&1; then
+            echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} 更新包中的 configs 文件夹有变动，请记得检查并更新您的配置文件。"
+        fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-    # 使用 rsync 时排除更新包中的 configs 文件夹
-    if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
-         update_fail=1
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
+        # 使用 rsync 时排除更新包中的 configs 文件夹
+        if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
+            update_fail=1
+        fi
     fi
 
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
     if [ "$update_fail" -eq 1 ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
-         sudo rm -rf "$DMR_DIR"
-         sudo mv "$backup_dir" "$DMR_DIR"
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
-         return 1
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
+        sudo rm -rf "$DMR_DIR"
+        sudo mv "$backup_dir" "$DMR_DIR"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
+        return 1
     else
-         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 配置文件已备份至: ${YELLOW}$config_backup_dir${NC}"
-         sudo rm -rf "$backup_dir"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
-         fetch_github_times
-         get_install_date
+        echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 配置文件已备份至: ${YELLOW}$config_backup_dir${NC}"
+        sudo rm -rf "$backup_dir"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
+        date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
+        fetch_github_times
+        get_install_date
     fi
 }
 
