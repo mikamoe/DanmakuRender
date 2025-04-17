@@ -54,20 +54,18 @@ check_dependencies() {
         fi
     done
     
-    # 可爱的更新检测提示
-    echo -e "\n${PINK}ฅ^•ﻌ•^ฅ ${BOLD}正在检查更新...${NORMAL}${NC}"
+    # 更新检测提示
+    echo -e "\n(◕‿◕) 正在检查更新..."
     fetch_github_times
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE")
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
         if [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "${PINK}✧･ﾟ: *✧･ﾟ:* ${BOLD}发现新版本啦! *:･ﾟ✧*:･ﾟ✧${NORMAL}${NC}"
-            echo -e "${CYAN}╔══════════════════════════════════════╗"
-            echo -e "║ ${BOLD}✨ 最新提交日期:${NORMAL} $commit_time"
-            echo -e "║ ${BOLD}📝 提交说明:${NORMAL} $commit_message"
-            echo -e "║ ${BOLD}🔗 项目地址:${NORMAL} $DMR_GITHUB_BASE"
-            echo -e "╚══════════════════════════════════════╝${NC}"
-            echo -e "${PINK}(っ◕‿◕)っ 按任意键继续进入脚本...${NC}"
+            echo -e "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！"
+            echo -e "最新提交日期: $commit_time"
+            echo -e "提交说明: $commit_message"
+            echo -e "更新详情: ${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}"
+            echo -e "(｡･ω･｡) 按任意键继续进入脚本..."
             read -n 1 -s -r
         fi
     fi
