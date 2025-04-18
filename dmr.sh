@@ -260,13 +260,13 @@ install_biliup_rs() {
     arch=$(uname -m)
     local asset_suffix=""
     case "$arch" in
-        aarch64)    asset_suffix="aarch64-unknown-linux-gnu.tar.xz" ;;
-        armv7l|armv6l) asset_suffix="arm-unknown-linux-gnueabihf.tar.xz" ;;
+        aarch64)    asset_suffix="aarch64-linux.tar.xz" ;;
+        armv7l|armv6l) asset_suffix="arm-linux.tar.xz" ;;
         x86_64)
             if ldd --version 2>&1 | grep -qi 'musl'; then
-                asset_suffix="x86_64-unknown-linux-musl.tar.xz"
+                asset_suffix="x86_64-linux-musl.tar.xz"
             else
-                asset_suffix="x86_64-unknown-linux-gnu.tar.xz"
+                asset_suffix="x86_64-linux.tar.xz"
             fi
             ;;
         *)  echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}不支持的架构：$arch${NC}"; popd > /dev/null; return 1 ;;
