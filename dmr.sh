@@ -311,152 +311,72 @@ install_biliup_rs() {
 
 update_dmr() {
     require_installed || return 1
-    read -p "$(echo -e "${YELLOW}是否确定要更新 DanmakuRender v5？(y/n): ${NC}")" update_choice
+    read -p "是否进行更新？(y/n): " update_choice
     if [[ ! "$update_choice" =~ ^[Yy]$ ]]; then
-         echo -e "${YELLOW}已取消更新。${NC}"
          return 0
     fi
 
-    echo -e "${YELLOW}更新前建议备份重要数据。更新会覆盖除 'configs' 外的所有文件。${NC}"
-    read -p "$(echo -e "${YELLOW}是否在更新前删除现有的 '直播回放' 和 '直播回放（弹幕版）' 目录？(y/N, 默认n): ${NC}")" delete_choice
-    delete_choice=${delete_choice:-n} # Default to 'n' if user just presses Enter
+    echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录（默认不删除，请直接回车），请确保重要文件已备份。${NC}"
+    read -p "是否删除这两个目录？(y/n, 默认n): " delete_choice
+    delete_choice=${delete_choice:-n}
     if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在删除旧的回放目录...${NC}"
-        if [ -d "$DMR_DIR/直播回放" ]; then
-             sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 已删除 '直播回放' 目录" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 '直播回放' 目录失败！"
-        else
-             echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} '直播回放' 目录不存在，无需删除。${NC}"
-        fi
-        if [ -d "$DMR_DIR/直播回放（弹幕版）" ]; then
-             sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 已删除 '直播回放（弹幕版）' 目录" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 '直播回放（弹幕版）' 目录失败！"
-        else
-             echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} '直播回放（弹幕版）' 目录不存在，无需删除。${NC}"
-        fi
+        [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}[INFO] 已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
+        [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}[INFO] 已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
     else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}跳过删除回放目录。${NC}"
+        echo -e "${YELLOW}未删除直播回放目录，更新过程将继续。${NC}"
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并安装 rsync...${NC}"
-    if ! command -v rsync &> /dev/null; then
-        sudo apt update && sudo apt install -y rsync || {
-             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}rsync 安装失败！无法继续更新。${NC}"
-             return 1
-        }
-    fi
+    sudo apt update && sudo apt install rsync -y
 
-    # Check if the process is running and stop it
     if pgrep -f "$DMR_CMD" > /dev/null; then
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检测到 DanmakuRender 正在运行，正在停止...${NC}"
-         stop_dmr || {
-             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止 DanmakuRender 进程失败！请手动停止后再尝试更新。${NC}"
-             return 1
-         }
-         # Add a small delay to ensure the process has fully stopped
-         sleep 2
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
+         stop_dmr
     fi
 
-    # Create a timestamped backup directory
     backup_configs_dir="${DMR_DIR}/config_backup/$(date +%Y%m%d_%H%M%S)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份 'configs' 文件夹到 ${GREEN}${backup_configs_dir}${NC}"
-    # Ensure the parent directory exists
-    sudo mkdir -p "$(dirname "$backup_configs_dir")" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建备份父目录失败！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${GREEN}${backup_configs_dir}${NC}"
+    sudo mkdir -p "$backup_configs_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建备份目录失败！"
         return 1
     }
-    # Copy the configs directory
-    if [ -d "$DMR_DIR/configs" ]; then
-        sudo cp -rp "$DMR_DIR/configs" "$backup_configs_dir" || {
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'configs' 文件夹备份失败！${NC}"
-            return 1
-        }
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}'configs' 备份成功。${NC}"
-    else
-        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}'configs' 目录不存在，跳过备份。${NC}"
-        # Create an empty backup dir marker so restore logic doesn't fail later if needed
-        sudo mkdir -p "$backup_configs_dir/configs"
-    fi
+    sudo cp -r "$DMR_DIR/configs" "$backup_configs_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
+        return 1
+    }
 
-
-    local update_fail=0
-    # Create a temporary directory for the update files
-    local tmp_dir
+    update_fail=0
     tmp_dir=$(mktemp -d)
-    if [ -z "$tmp_dir" ] || [ ! -d "$tmp_dir" ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建临时目录失败！${NC}"
-         # Attempt to clean up partial backup
-         [ -d "$backup_configs_dir" ] && sudo rm -rf "$backup_configs_dir"
-         return 1
-    fi
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在克隆 DanmakuRender ${GITHUB_BRANCH} 分支到临时目录...${NC}"
-    # Clone only the specified branch, depth 1 for speed
-    if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆更新仓库失败！请检查网络或仓库地址。${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
          update_fail=1
     fi
 
-    if [ "$update_fail" -eq 0 ]; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 rsync 同步文件 (排除 'configs')...${NC}"
-        # Use rsync: archive mode, verbose, exclude 'configs', delete extraneous files from destination
-        # Source ends with / to copy contents, destination is the main dir
-        if ! sudo rsync -av --delete --exclude='/configs/' --exclude='/config_backup/' --exclude='.git/' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
-             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}使用 rsync 同步文件失败！${NC}"
-             update_fail=1
-        fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
+         update_fail=1
     fi
 
-    # Clean up the temporary directory regardless of success or failure
+    cd - > /dev/null
     rm -rf "$tmp_dir"
 
     if [ "$update_fail" -eq 1 ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}更新过程中出现错误，正在尝试恢复 'configs' 备份...${NC}"
-         # Check if backup exists before attempting restore
-         if [ -d "$backup_configs_dir/configs" ]; then
-              # Remove potentially corrupted configs from failed update
-              sudo rm -rf "$DMR_DIR/configs"
-              # Restore from backup
-              sudo cp -rp "$backup_configs_dir/configs" "$DMR_DIR/" || {
-                   echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}从 ${backup_configs_dir} 恢复备份失败！请手动检查。${NC}"
-                   # Don't return yet, let the user know the update failed
-              }
-              echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}已尝试恢复 'configs' 备份。更新失败。${NC}"
-         else
-              echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到有效的 'configs' 备份，无法恢复。更新失败。${NC}"
-         fi
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
+         sudo rm -rf "$DMR_DIR/configs"
+         sudo cp -r "$backup_configs_dir/configs" "$DMR_DIR/"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
          return 1
     else
-         echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${GREEN}DanmakuRender v5 更新成功！${NC}"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}配置文件备份保留在：${backup_configs_dir}${NC}"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在更新安装/更新日期记录...${NC}"
-         # Record the current time as epoch seconds
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录更新日期失败！${NC}"
-
-         # Update python dependencies after successful update
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在检查并更新 Python 依赖...${NC}"
-         pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败"; return 1; }
-         if [ -f "requirements.txt" ]; then
-             source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
-             pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级可能失败，继续安装依赖..."
-             pip install -r requirements.txt || {
-                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}更新 Python 依赖失败！请检查 'requirements.txt' 或网络。${NC}"
-                 deactivate
-                 popd > /dev/null
-                 # Don't return error, update itself was successful, but warn user
-             }
-             deactivate
-             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖检查/更新完成。${NC}"
-         else
-             echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}未找到 requirements.txt，跳过 Python 依赖更新。${NC}"
-         fi
-         popd > /dev/null
-
-         # Re-fetch times to reflect the update immediately
+         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
+         echo -e "${GREEN}配置文件备份路径：${backup_configs_dir}${NC}"
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
          fetch_github_times
          get_install_date
-         return 0 # Explicitly return success
     fi
 }
-
 
 install_dmr() {
     local rollback_needed=true
