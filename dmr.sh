@@ -25,7 +25,7 @@ DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
 FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
 FONT_ALIBABA_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-65-Medium.ttf"
 
-# ANSI 颜色和样式设置，便于终端输出信息区分
+# ANSI 颜色和样式设置
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -40,7 +40,6 @@ NORMAL=$(tput sgr0)
 
 # ===================== 辅助函数 =====================
 
-# 检查必备工具：jq、curl 和 git
 check_dependencies() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
     local required_tools=("jq" "curl" "git")
@@ -55,23 +54,22 @@ check_dependencies() {
     done
     
     # 更新检测提示
-    echo -e "\n${YELLOW}(◕‿◕) 正在检查更新...${NC}"
+    echo -e "\n(◕‿◕) 正在检查更新..."
     fetch_github_times
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE")
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
         if [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "${GREEN}(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！${NC}"
-            echo -e "${BOLD}最新提交日期: ${PINK}$commit_time${NC}"
-            echo -e "提交说明: ${CYAN}$commit_message${NC}"
-            echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/$(curl -s "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/${GITHUB_BRANCH}" | jq -r '.commit.sha')${NC}"
-            echo -e "${YELLOW}(｡･ω･｡) 按任意键继续...${NC}"
+            echo -e "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！"
+            echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
+            echo -e "提交说明: ${CYAN}${commit_message}${NC}"
+            echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
+            echo -e "(｡･ω･｡) 按任意键继续进入脚本..."
             read -n 1 -s -r
         fi
     fi
 }
 
-# 获取 Python3 的版本号，便于检查环境
 get_python_version() {
     if command -v python3 &>/dev/null; then
         echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
@@ -80,7 +78,6 @@ get_python_version() {
     fi
 }
 
-# 将给定时间转换为北京时间，若失败则返回"获取失败"
 convert_to_beijing_time() {
     local raw_time="$1"
     if [ -z "$raw_time" ]; then
@@ -101,7 +98,6 @@ convert_to_beijing_time() {
     fi
 }
 
-# 回滚安装：安装过程中出错时删除安装目录
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚...${NC}"
     [ -d "$DMR_DIR" ] && sudo rm -rf "$DMR_DIR" \
@@ -109,7 +105,6 @@ rollback_installation() {
        || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
 }
 
-# 检查配置文件是否存在（用于判断是否正确配置）
 check_config() {
     if find "$DMR_DIR/configs" -name "*DMR*" -print -quit | grep -q .; then
         return 0
@@ -118,7 +113,6 @@ check_config() {
     fi
 }
 
-# 从 GitHub 获取最新提交时间、提交说明以及最新 Release 时间、版本号
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sf "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
@@ -127,11 +121,9 @@ fetch_github_times() {
         raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(convert_to_beijing_time "$raw_time")
         commit_message=$(jq -r '.commit.commit.message // empty' <<< "$branch_info")
-        commit_sha=$(jq -r '.commit.sha // empty' <<< "$branch_info")  # 获取提交SHA
     else
         commit_time="获取失败"
         commit_message=""
-        commit_sha=""
     fi
 
     local release_info
@@ -147,7 +139,6 @@ fetch_github_times() {
     fi
 }
 
-# 从文件中读取上次安装/更新的日期，并转换为北京时间
 get_install_date() {
     if [ -f "$INSTALL_DATE_FILE" ]; then
         local timestamp
@@ -158,7 +149,6 @@ get_install_date() {
 
 # ===================== 系统安装及更新函数 =====================
 
-# 检查系统必备工具是否存在，否则自动安装
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查系统依赖工具...${NC}"
     local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz")
@@ -173,7 +163,6 @@ check_install_tools() {
     done
 }
 
-# 安装 biliup‑rs 工具：自动获取最新版本，根据系统架构下载相应的二进制文件
 install_biliup_rs() {
     cd "$BILIUP_DIR" || {
         echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
@@ -194,7 +183,6 @@ install_biliup_rs() {
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}最新 biliup-rs 版本：${latest_version}${NC}"
 
-    # 根据系统架构选择合适的压缩包
     local arch
     arch=$(uname -m)
     local asset
@@ -234,7 +222,6 @@ install_biliup_rs() {
         return 1
     }
 
-    # 查找解压后的文件夹，移动二进制文件到当前目录，并删除临时文件夹
     local extracted_folder
     extracted_folder=$(find . -maxdepth 1 -type d -name "biliupR-*" | head -n 1)
     if [ -z "$extracted_folder" ]; then
@@ -252,25 +239,10 @@ install_biliup_rs() {
     rm -rf "$extracted_folder" || {
         echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除解压文件夹失败！${NC}"
         return 1
-    fi
+    }
     echo -e "${BLUE}${BOLD}[INFO]${NC} ${GREEN}安装 biliup-rs 完成！${NC}"
 }
 
-# 更新 biliup‑rs：删除旧的二进制文件后重新安装
-update_biliup_rs() {
-    cd "$BILIUP_DIR" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}进入 tools 目录失败！${NC}"
-        return 1
-    }
-    echo -e "${BLUE}${BOLD}[INFO]${NC} ${BLUE}正在更新 biliup-rs...${NC}"
-    rm -f "$BILIUP_DIR/biliup" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}删除旧的 biliup 文件失败！${NC}"
-        return 1
-    }
-    install_biliup_rs
-}
-
-# 更新 DanmakuRender v5：备份当前安装、下载新版本、覆盖文件、【无需重新安装虚拟环境及依赖】
 update_dmr() {
     require_installed || return 1
     read -p "是否进行更新？(y/n): " update_choice
@@ -295,74 +267,53 @@ update_dmr() {
          stop_dmr
     fi
 
-    backup_dir="${DMR_DIR}_backup_$(date +%s)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份主目录到 ${YELLOW}$backup_dir${NC} ..."
-    if ! sudo cp -r "$DMR_DIR" "$backup_dir"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 备份失败！"
-         return 1
-    fi
-
-    # 创建备份文件夹并备份configs
-    config_backup_dir="$DMR_DIR/config_backup_$(date +%Y%m%d_%H%M%S)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${YELLOW}$config_backup_dir${NC} ..."
-    if ! sudo mkdir -p "$config_backup_dir" || ! sudo cp -r "$DMR_DIR/configs" "$config_backup_dir"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
-         return 1
-    fi
+    backup_configs_dir="${DMR_DIR}/config_backup/$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${GREEN}${backup_configs_dir}${NC}"
+    sudo mkdir -p "$backup_configs_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建备份目录失败！"
+        return 1
+    }
+    sudo cp -r "$DMR_DIR/configs" "$backup_configs_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
+        return 1
+    }
 
     update_fail=0
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { 
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"
-        update_fail=1
-    }
+    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
 
-    if [ "$update_fail" -eq 0 ]; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
-        if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
-            update_fail=1
-        fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
+         update_fail=1
     fi
 
-    if [ "$update_fail" -eq 0 ]; then
-        # 检测更新包中的 configs 文件夹是否有变动
-        if ! diff -qr "$DMR_DIR/configs" "$tmp_dir/update_repo/configs" >/dev/null 2>&1; then
-            echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} 更新包中的 configs 文件夹有变动，请记得检查并更新您的配置文件。"
-        fi
-
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-        # 使用 rsync 时排除更新包中的 configs 文件夹
-        if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
-            update_fail=1
-        fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
+         update_fail=1
     fi
 
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
     if [ "$update_fail" -eq 1 ]; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
-        sudo rm -rf "$DMR_DIR"
-        sudo mv "$backup_dir" "$DMR_DIR"
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
-        return 1
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
+         sudo rm -rf "$DMR_DIR/configs"
+         sudo cp -r "$backup_configs_dir/configs" "$DMR_DIR/"
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
+         return 1
     else
-        echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 配置文件已备份至: ${YELLOW}$config_backup_dir${NC}"
-        sudo rm -rf "$backup_dir"
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录更新日期..."
-        date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
-        fetch_github_times
-        get_install_date
+         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
+         echo -e "${GREEN}配置文件备份路径：${backup_configs_dir}${NC}"
+         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
+         fetch_github_times
+         get_install_date
     fi
 }
 
-# 安装 DanmakuRender v5：使用 git clone 拉取代码、设置虚拟环境、安装依赖及其他工具
 install_dmr() {
     local rollback_needed=true
-    # 设置安装错误时自动回滚
     trap '[[ "$rollback_needed" = true ]] && rollback_installation' EXIT
 
     if [ -d "$DMR_DIR" ]; then
@@ -419,7 +370,6 @@ install_dmr() {
 
     install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} biliup-rs 安装失败！${NC}"; return 1; }
 
-    # 安装完成后询问是否安装 JavaScript 解释器和 JS 引擎
     read -p "安装完成，是否安装 JavaScript 解释器和 JS 引擎？(y/n): " js_choice
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
          install_js_engine
@@ -438,7 +388,6 @@ install_dmr() {
     trap - EXIT
 }
 
-# 卸载 DanmakuRender v5：询问后先停止进程再卸载
 uninstall_dmr() {
     require_installed || return 1
     read -p "确定要卸载 DanmakuRender v5 吗？(y/N): " confirm
@@ -457,7 +406,6 @@ uninstall_dmr() {
 
 # ===================== 运行与测试管理函数 =====================
 
-# 启动 DanmakuRender v5：激活虚拟环境并使用 nohup 后台运行
 start_dmr() {
     require_installed || return 1
     cd "$DMR_DIR" && source venv/bin/activate
@@ -467,7 +415,6 @@ start_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！PID: $pid${NC}"
 }
 
-# 停止 DanmakuRender v5：依据 PID 文件或进程名停止服务
 stop_dmr() {
     require_installed || return 1
     if [ -f "$DMR_DIR/dmr.pid" ]; then
@@ -479,7 +426,6 @@ stop_dmr() {
     fi
 }
 
-# 实时查看日志，支持按 q 键退出
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
@@ -497,7 +443,6 @@ view_log() {
     done
 }
 
-# 运行测试：调用 dryrun.py 进行测试运行
 run_test() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在运行测试...${NC}"
@@ -508,7 +453,6 @@ run_test() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}测试运行完成！${NC}"
 }
 
-# 手动渲染视频：调用 render_only.py 进行渲染
 manual_render() {
     require_installed || return 1
     cd "$DMR_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC} 进入目录失败！${NC}"; return 1; }
@@ -517,7 +461,6 @@ manual_render() {
     deactivate
 }
 
-# 删除回放/渲染文件：列出目录内容后，确认是否删除所有文件
 delete_replays() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}直播回放目录内容：${NC}"
@@ -535,7 +478,6 @@ delete_replays() {
 
 # ===================== 字体安装相关函数 =====================
 
-# 安装微软雅黑和 Emoji 字体：从指定链接下载字体文件并移动至系统字体目录
 install_fonts() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装微软雅黑和 Emoji 字体...${NC}"
@@ -554,7 +496,6 @@ install_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑和 Emoji 字体安装完成！${NC}"
 }
 
-# 安装阿里巴巴普惠体和 Emoji 字体：同上，使用不同的下载链接
 install_alibaba_fonts() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载并安装阿里巴巴普惠体和 Emoji 字体...${NC}"
@@ -573,7 +514,6 @@ install_alibaba_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Emoji 字体安装完成！${NC}"
 }
 
-# 字体安装子菜单：循环显示菜单供用户选择安装字体方案
 font_menu() {
     local oneshot=${1:-false}
     while true; do
@@ -599,7 +539,6 @@ font_menu() {
 
 # ===================== biliup‑rs 相关函数 =====================
 
-# 哔哩哔哩快速上传：用户选择视频目录及文件后调用 biliup 工具上传
 biliup_upload() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择视频所在目录类型：${NC}"
@@ -675,7 +614,6 @@ biliup_upload() {
     ./biliup upload "${video_paths[@]}" --tid "$tid" --tag "$tags"
 }
 
-# 哔哩哔哩视频追加上传：允许用户追加上传视频到已上传的视频中
 biliup_append() {
     require_installed || return 1
     local last_bv_file="$BILIUP_DIR/last_bv.txt"
@@ -781,7 +719,6 @@ biliup_append() {
     ./biliup append --vid "$bv" "${video_paths[@]}"
 }
 
-# 哔哩哔哩工具子菜单：展示版本信息及相关上传、登录、更新选项
 biliup_menu() {
     while true; do
         show_header
@@ -789,7 +726,7 @@ biliup_menu() {
         echo -e "${CYAN}当前 biliup-rs 版本信息：${NC}"
         cd "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无法进入工具目录"; return 1; }
         ./biliup -V
-        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} 哔哩哔哩快速上传"
         echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} 哔哩哔哩视频追加上传"
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} 更新哔哩哔哩Cookies"
@@ -831,7 +768,6 @@ install_js_engine() {
 
 # ===================== 状态及主菜单 =====================
 
-# 显示头部信息：清屏后显示版本、提交、更新日期以及链接（不再显示"项目原地址"标签）
 show_header() {
     clear
     echo -e "${PINK}==============================${NC}"
@@ -840,7 +776,6 @@ show_header() {
     echo -e "${PINK}版本号  ${NC} ${BOLD}${release_version}"
     echo -e "${PINK}更新日期${NC} ${BOLD}${release_time}"
     echo -e "${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-    # 只有已安装后才检测更新
     if [ -d "$DMR_DIR" ]; then
          if [ -f "$INSTALL_DATE_FILE" ]; then
             install_epoch=$(cat "$INSTALL_DATE_FILE")
@@ -855,7 +790,6 @@ show_header() {
     fi
 }
 
-# 显示当前状态：检查安装目录、运行状态及配置情况
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}当前状态：DanmakuRender v5 未安装${NC}${NORMAL}"
@@ -872,7 +806,6 @@ show_status() {
     fi
 }
 
-# 检查是否已经安装 DanmakuRender v5，未安装则提示用户
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} DanmakuRender v5 未安装，请先选择安装选项（1）进行安装！${NC}"
@@ -881,7 +814,6 @@ require_installed() {
     return 0
 }
 
-# 主菜单：循环显示菜单供用户选择操作
 main_menu() {
     check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC} 依赖检查失败，脚本终止"; exit 1; }
     fetch_github_times
@@ -890,7 +822,6 @@ main_menu() {
     local skip_read=false
     while true; do
         show_header
-        # 在显示当前状态上方输出上一次安装/更新日期
         if [ -n "$install_date" ]; then
             echo -e "上一次安装/更新日期：${PINK}${BOLD}${install_date}${NC}"
         fi
@@ -919,7 +850,6 @@ main_menu() {
                         if pgrep -f "$DMR_CMD" > /dev/null; then
                             stop_dmr
                         else
-                            # 仅在启动时查询并显示 Python 版本
                             python_version=$(get_python_version)
                             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${python_version}"
                             if start_dmr; then
