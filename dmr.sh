@@ -771,47 +771,23 @@ stop_dmr() {
     fi
 }
 
-
+# 实时查看日志，支持按 q 键退出
 view_log() {
     require_installed || return 1
-    local log_path="$DMR_DIR/$LOG_FILE"
-    if [ ! -f "$log_path" ]; then
-        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}日志文件 ${log_path} 不存在。${NC}"
-        return 1
-    fi
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}正在显示日志: ${log_path}${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 'q' 键退出日志查看。${NC}"
-    # Use less for better viewing experience (scrolling, searching)
-    # +F makes less behave like tail -f initially
-    # Pass -r for raw control characters, -N for line numbers
-    less +F -rN "$log_path"
-
-    # Fallback using tail if less is not available or preferred
-    # tail -f "$log_path" &
-    # local tail_pid=$!
-    # trap "kill $tail_pid 2>/dev/null" INT # Kill tail on Ctrl+C
-    # while true; do
-    #     # Read a single character, timeout 0.1s, silent
-    #     if read -t 0.1 -n 1 -s key; then
-    #         if [[ "$key" == "q" ]] || [[ "$key" == "Q" ]]; then
-    #             kill $tail_pid 2>/dev/null
-    #             wait $tail_pid 2>/dev/null # Wait for tail to exit
-    #             echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已退出日志查看。${NC}"
-    #             break
-    #         fi
-    #     fi
-    #     # Check if tail process is still running
-    #     if ! ps -p $tail_pid > /dev/null; then
-    #         echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}日志查看进程已结束。${NC}"
-    #         break
-    #     fi
-    # done
-    # trap - INT # Remove the trap
-    echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已退出日志查看。${NC}"
-    return 0
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
+    tail -f "$DMR_DIR/$LOG_FILE" & pid=$!
+    while true; do
+        if read -t 1 -n 1; then
+            if [[ $REPLY == "q" ]]; then
+                kill $pid 2>/dev/null
+                break
+            fi
+        fi
+        if ! ps -p $pid > /dev/null; then
+            break
+        fi
+    done
 }
-
 
 run_test() {
     require_installed || return 1
@@ -1564,13 +1540,13 @@ show_header() {
     echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
     echo -e "${PINK}${border}${NC}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
-         echo -e " ${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
+         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
-         echo -e " ${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
-         # echo -e " ${CYAN}提交信息:${NC} ${commit_message}" # Can be long
+         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
+         # echo -e "${CYAN}提交信息:${NC} ${commit_message}" # Can be long
     fi
-    echo -e " ${CYAN}项目地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
+    echo -e "${CYAN}项目地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
 
     # Update Notification within header
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
@@ -1585,36 +1561,34 @@ show_header() {
 }
 
 show_status() {
-    echo -e "${CYAN}--- 当前状态 ---${NC}"
     # Installation Status
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e " ${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
-        echo -e " ${YELLOW}${BOLD}配置文件：${RED}未安装${NC}${NORMAL}"
-        echo -e " ${YELLOW}${BOLD}运行状态：${RED}未安装${NC}${NORMAL}"
+        echo -e "${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
+        echo -e "${YELLOW}${BOLD}配置文件：${RED}未安装${NC}${NORMAL}"
+        echo -e "${YELLOW}${BOLD}运行状态：${RED}未安装${NC}${NORMAL}"
     else
-        echo -e " ${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} (目录: $DMR_DIR)"
+        echo -e "${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} (目录: $DMR_DIR)"
         # Configuration Status
         if check_config; then
-             echo -e " ${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}"
+             echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}"
         else
-             echo -e " ${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查 ${DMR_DIR}/configs/)"
+             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查 ${DMR_DIR}/configs/)"
         fi
         # Running Status
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e " ${GREEN}${BOLD}运行状态：${GREEN}正在运行 (PID: $pid)${NC}${NORMAL}"
+            echo -e "${GREEN}${BOLD}运行状态：${GREEN}正在运行 (PID: $pid)${NC}${NORMAL}"
         else
-            echo -e " ${YELLOW}${BOLD}运行状态：${RED}未运行${NC}${NORMAL}"
+            echo -e "${YELLOW}${BOLD}运行状态：${RED}未运行${NC}${NORMAL}"
         fi
          # Last Install/Update Date
         if [ -n "$install_date" ] && [ "$install_date" != "无效日期记录" ] && [ "$install_date" != "无法解析日期" ]; then
-            echo -e " ${CYAN}${BOLD}安装/更新：${PINK}${install_date}${NC}${NORMAL}"
+            echo -e "${CYAN}${BOLD}安装/更新：${PINK}${install_date}${NC}${NORMAL}"
         elif [ -f "$INSTALL_DATE_FILE" ]; then
-             echo -e " ${CYAN}${BOLD}安装/更新：${RED}日期记录无效${NC}${NORMAL}"
+             echo -e "${CYAN}${BOLD}安装/更新：${RED}日期记录无效${NC}${NORMAL}"
         fi
     fi
-     echo -e "${CYAN}----------------${NC}"
 
 }
 
@@ -1639,25 +1613,25 @@ main_menu() {
         show_header # Display project info and update notice
         show_status # Display installed/running status
 
-        echo -e "${CYAN}${BOLD}主菜单选项：${NC}${NORMAL}"
+
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e " ${BLUE}${BOLD} 1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
         # Start/Stop Logic based on current status
         if pgrep -f "$DMR_CMD" > /dev/null; then
-             echo -e " ${BLUE}${BOLD} 2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
+             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
         else
-             echo -e " ${BLUE}${BOLD} 2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
         fi
-        echo -e " ${BLUE}${BOLD} 3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e " ${BLUE}${BOLD} 4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
-        echo -e " ${BLUE}${BOLD} 5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
-        echo -e " ${BLUE}${BOLD} 6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e " ${BLUE}${BOLD} 7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
-        echo -e " ${BLUE}${BOLD} 8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠)"
-        echo -e " ${BLUE}${BOLD} 9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
-        echo -e " ${BLUE}${BOLD}10.${NC}${NORMAL} ${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
-        echo -e " ${BLUE}${BOLD}11.${NC}${NORMAL} ${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
-        echo -e " ${BLUE}${BOLD} 0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠)"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # Reset skip_read flag before reading choice
@@ -1746,7 +1720,7 @@ main_menu() {
                     commit_sha=""
                 fi
                 ;;
-            0) echo -e "${YELLOW}正在退出脚本... 再见！${NC}"; exit 0 ;;
+            0) echo -e "${YELLOW}退出脚本${NC}"; exit 0 ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 11 之间的数字。${NC}" ;;
         esac
 
