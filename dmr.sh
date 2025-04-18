@@ -230,28 +230,19 @@ check_install_tools() {
 }
 
 install_biliup_rs() {
-    # Ensure the target directory exists
-    sudo mkdir -p "$BILIUP_DIR" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"
-        return 1
-    }
-    # Use pushd/popd for safer directory navigation
-    pushd "$BILIUP_DIR" > /dev/null || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败: $BILIUP_DIR${NC}"
-        return 1
-    }
+    sudo mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"; return 1; }
+    pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败: $BILIUP_DIR${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}获取 biliup-rs 最新版本信息...${NC}"
     local latest_info
-    # Use -L to follow redirects
     latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
     if [ -z "$latest_info" ]; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}获取 biliup-rs 最新版本信息失败！请检查网络或API限制。${NC}"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}获取 biliup-rs 最新版本信息失败！${NC}"
         popd > /dev/null
         return 1
     fi
 
     local latest_version
-    latest_version=$(echo "$latest_info" | jq -r '.tag_name')
+    latest_version=$(jq -r '.tag_name' <<< "$latest_info")
     if [ -z "$latest_version" ] || [ "$latest_version" == "null" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解析 biliup-rs 版本失败！${NC}"
         popd > /dev/null
@@ -259,9 +250,8 @@ install_biliup_rs() {
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}最新 biliup-rs 版本：${GREEN}${latest_version}${NC}"
 
-    # Check if this version is already installed
-    if [ -f "./biliup" ] && [[ $(./biliup -V 2>/dev/null) == *"$latest_version"* ]]; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已经是最新版本 biliup-rs ($latest_version)。${NC}"
+    if [ -f "./biliup" ] && ./biliup -V 2>/dev/null | grep -q "$latest_version"; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已经是最新版本 biliup-rs (${latest_version})。${NC}"
         popd > /dev/null
         return 0
     fi
@@ -270,84 +260,54 @@ install_biliup_rs() {
     arch=$(uname -m)
     local asset_suffix=""
     case "$arch" in
-        aarch64)
-            asset_suffix="aarch64-unknown-linux-gnu.tar.xz"
-            ;;
-        armv7l|armv6l) # More specific ARM checks if needed
-            asset_suffix="arm-unknown-linux-gnueabihf.tar.xz" # Or adjust based on actual available assets
-            ;;
+        aarch64)    asset_suffix="aarch64-unknown-linux-gnu.tar.xz" ;;
+        armv7l|armv6l) asset_suffix="arm-unknown-linux-gnueabihf.tar.xz" ;;
         x86_64)
-            # Simple check for musl - may not be perfectly reliable
-            if ldd --version 2>&1 | grep -q -i 'musl'; then
+            if ldd --version 2>&1 | grep -qi 'musl'; then
                 asset_suffix="x86_64-unknown-linux-musl.tar.xz"
             else
                 asset_suffix="x86_64-unknown-linux-gnu.tar.xz"
             fi
             ;;
-        *)
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}不支持的架构：$arch${NC}"
-            popd > /dev/null
-            return 1
-            ;;
+        *)  echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}不支持的架构：$arch${NC}"; popd > /dev/null; return 1 ;;
     esac
 
-    # Try to find the correct asset URL from the API response
-    local download_url=""
-    download_url=$(echo "$latest_info" | jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url')
+    # 从 API 响应中查找正确的资源下载 URL
+    local download_url
+    download_url=$(jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url' <<< "$latest_info")
 
     if [ -z "$download_url" ]; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}在最新版本 ${latest_version} 中未找到适用于架构 ${arch} (${asset_suffix}) 的资源文件！${NC}"
-        # Fallback to constructing URL (less reliable)
-        local asset_file="biliupR-${latest_version}-${asset_suffix}" # Adjust filename structure if needed
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到适用于架构 ${arch} (${asset_suffix}) 的资源文件！${NC}"
+        # 回退到推测的 URL
+        local asset_file="biliup-${latest_version}-${asset_suffix}"
         download_url="${BILIUP_RELEASE_BASE}/${latest_version}/${asset_file}"
-        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}尝试使用推测的URL: ${download_url}${NC}"
-        # Optionally, ask user to confirm or provide URL here
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}尝试使用推测的 URL: ${download_url}${NC}"
     else
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}找到资源文件 URL: ${download_url}${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}找到资源文件 URL: ${download_url}${NC}"
     fi
 
     local asset_filename
     asset_filename=$(basename "$download_url")
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup-rs (${asset_filename})...${NC}"
-    # Use curl's built-in output option -o
-    curl -fLo "$asset_filename" "$download_url" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup-rs 失败！请检查URL或网络。${NC}"
-        # Clean up potentially incomplete download
-        rm -f "$asset_filename"
-        popd > /dev/null
-        return 1
-    }
+    curl -fLo "$asset_filename" "$download_url" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup-rs 失败！${NC}"; rm -f "$asset_filename"; popd > /dev/null; rollback_installation; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在解压 ${asset_filename}...${NC}"
-    # Extract directly, overwrite existing files, remove the archive after success
-    tar -xJf "$asset_filename" --strip-components=1 || { # Use --strip-components=1 if files are inside a folder
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup-rs 失败！${NC}"
-        rm -f "$asset_filename" # Clean up archive
-        popd > /dev/null
-        return 1
-    }
-    # Clean up the downloaded archive
+    tar -xJf "$asset_filename" --strip-components=1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup-rs 失败！${NC}"; rm -f "$asset_filename"; popd > /dev/null; rollback_installation; return 1; }
     rm -f "$asset_filename"
 
-    # Check if the executable exists and set permissions
     if [ ! -f "./biliup" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压后未找到 'biliup' 可执行文件！${NC}"
         popd > /dev/null
+        rollback_installation
         return 1
     fi
-    chmod +x ./biliup || {
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 'biliup' 执行权限失败！${NC}"
-         popd > /dev/null
-         return 1
-    }
+    chmod +x ./biliup || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 'biliup' 权限失败！${NC}"; popd > /dev/null; rollback_installation; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}安装/更新 biliup-rs 完成！${NC}"
-    # Go back to original directory
     popd > /dev/null
     return 0
 }
-
 
 update_dmr() {
     require_installed || return 1
