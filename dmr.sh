@@ -568,23 +568,22 @@ uninstall_dmr() {
 
 
 # ===================== 运行与测试管理函数 =====================
-
 start_dmr() {
     require_installed || return 1
-    # Check config validity before starting
+    # 检查配置文件有效性
     if ! check_config; then
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
          return 1
     fi
-     # Check if already running
+    # 检查是否已在运行
     if pgrep -f "$DMR_CMD" > /dev/null; then
         local existing_pid
         existing_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}DanmakuRender 似乎已在运行 (PID: $existing_pid)。无需重复启动。${NC}"
-        return 1 # Indicate not started by this call
+        return 1
     fi
 
-    # Navigate to the directory
+    # 进入工作目录
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
@@ -592,26 +591,41 @@ start_dmr() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用 nohup 在后台启动 ${DMR_CMD}...${NC}"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${DMR_DIR}/${LOG_FILE}${NC}"
-    # Start the command with nohup, redirect stdout/stderr, run in background
+    # 使用nohup后台启动程序
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    local pid=$! # Get the PID of the background process
+    local pid=$! # 获取后台进程PID
 
-    # Check if the process started successfully
-    sleep 1 # Give it a moment to potentially fail
+    # 检查进程是否启动成功
+    sleep 1 # 等待1秒防止误判
     if ps -p $pid > /dev/null; then
-        # Store the PID in the pid file
+        # 将PID写入文件
         echo $pid > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！进程 PID: $pid${NC}"
+        
+        # 实时显示日志功能
+        echo -e "\n${CYAN}正在实时显示日志 (按 q 退出查看)...${NC}"
+        tail -f "$LOG_FILE" &  # 后台运行tail命令
+        local tail_pid=$!
+        
+        # 监听键盘输入
+        while true; do
+            read -t 1 -n 1 key
+            if [[ $key == "q" ]]; then
+                kill $tail_pid 2>/dev/null  # 停止tail进程
+                break
+            fi
+        done
+        
         deactivate
         popd > /dev/null
-        return 0 # Success
+        return 0 # 返回成功状态
     else
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}启动失败！进程未能成功运行。请检查 ${LOG_FILE} 获取错误信息。${NC}"
-        # Clean up pid file if it was created somehow
+        # 清理可能创建的pid文件
         rm -f "$DMR_DIR/dmr.pid"
         deactivate
         popd > /dev/null
-        return 1 # Failure
+        return 1 # 返回失败状态
     fi
 }
 
