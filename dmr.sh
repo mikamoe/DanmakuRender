@@ -1492,13 +1492,9 @@ install_js_engine() {
 show_header() {
     clear
     local title="DanmakuRender v5 管理脚本"
-    local border_char="═"
-    local border_len=${#title} # Adjust length dynamically? Or fixed width?
-    printf -v border "%${border_len}s" "" && border="${border// /$border_char}"
-
-    echo -e "${PINK}${border}${NC}"
+    
     echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
-    echo -e "${PINK}${border}${NC}"
+    
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
          echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
@@ -1532,7 +1528,7 @@ show_status() {
         if check_config; then
              echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}"
         else
-             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查 ${DMR_DIR}/configs/)"
+             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
         fi
         # Running Status
         if pgrep -f "$DMR_CMD" > /dev/null; then
@@ -1544,9 +1540,9 @@ show_status() {
         fi
          # Last Install/Update Date
         if [ -n "$install_date" ] && [ "$install_date" != "无效日期记录" ] && [ "$install_date" != "无法解析日期" ]; then
-            echo -e "${CYAN}${BOLD}安装/更新：${PINK}${install_date}${NC}${NORMAL}"
+            echo -e "${CYAN}${BOLD}上一次安装/更新：${PINK}${install_date}${NC}${NORMAL}"
         elif [ -f "$INSTALL_DATE_FILE" ]; then
-             echo -e "${CYAN}${BOLD}安装/更新：${RED}日期记录无效${NC}${NORMAL}"
+             echo -e "${CYAN}${BOLD}上一次安装/更新：${RED}日期记录无效${NC}${NORMAL}"
         fi
     fi
 
