@@ -629,30 +629,29 @@ start_dmr() {
     fi
 }
 
-
 stop_dmr() {
     require_installed || return 1
     local pid_file="$DMR_DIR/dmr.pid"
     local pid_to_kill=""
     local stopped=false
 
-    # Try finding PID from pid file first
+    # 首先尝试从pid文件中获取PID
     if [ -f "$pid_file" ]; then
         pid_to_kill=$(cat "$pid_file")
         if [[ "$pid_to_kill" =~ ^[0-9]+$ ]]; then
-            # Check if the process actually exists
+            # 检查进程是否存在
             if ps -p "$pid_to_kill" > /dev/null; then
-                # Check if the process command matches (as a basic sanity check)
+                # 检查进程命令是否匹配（基础验证）
                  if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
                     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
-                    # Try graceful TERM signal first
+                    # 先尝试发送TERM信号优雅停止
                     kill "$pid_to_kill"
-                    sleep 1 # Wait a bit
+                    sleep 1 # 等待1秒
                     if ! ps -p "$pid_to_kill" > /dev/null; then
                         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (TERM)。${NC}"
                         stopped=true
                     else
-                        # Force kill if TERM didn't work
+                        # TERM无效时强制KILL
                         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}进程 $pid_to_kill 未响应 TERM 信号，强制停止 (KILL)...${NC}"
                         kill -9 "$pid_to_kill"
                         sleep 1
@@ -665,29 +664,29 @@ stop_dmr() {
                     fi
                  else
                      echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 存在，但命令不匹配 ${DMR_CMD}。可能不是目标进程，跳过。${NC}"
-                     pid_to_kill="" # Reset pid_to_kill so pkill might run
+                     pid_to_kill="" # 重置pid_to_kill以便后续使用pkill
                  fi
             else
                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 不存在。可能已停止。${NC}"
-                stopped=true # Consider it stopped if PID doesn't exist
+                stopped=true # 如果PID不存在则认为已停止
             fi
         else
              echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件 ($pid_file) 包含无效内容: '$pid_to_kill'。${NC}"
-             pid_to_kill="" # Reset pid_to_kill
+             pid_to_kill="" # 重置pid_to_kill
         fi
-        # Clean up the pid file if we attempted to stop using it or if it was invalid/stale
+        # 无论是否成功停止，都清理pid文件
         rm -f "$pid_file"
     fi
 
-    # If not stopped via pid file, try pkill as a fallback
+    # 如果通过pid文件未能停止，尝试使用pkill作为备用方案
     if [ "$stopped" = false ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未通过 PID 文件停止进程，尝试使用 pkill 查找 '${DMR_CMD}'...${NC}"
-        # Use pgrep first to see if any process matches
+        # 先用pgrep检查是否有匹配进程
         if pgrep -f "$DMR_CMD" > /dev/null; then
-            # Use pkill -f to kill based on the command string
+            # 使用pkill根据命令字符串停止
             pkill -f "$DMR_CMD"
             sleep 1
-            # Check if stopped
+            # 检查是否已停止
             if ! pgrep -f "$DMR_CMD" > /dev/null; then
                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已使用 pkill 停止匹配 '${DMR_CMD}' 的进程。${NC}"
                 stopped=true
@@ -696,17 +695,18 @@ stop_dmr() {
             fi
         else
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}未找到正在运行的匹配 '${DMR_CMD}' 的进程。${NC}"
-            stopped=true # Nothing to stop
+            stopped=true # 无需停止
         fi
     fi
 
-    # Return status
+    # 返回状态
     if [ "$stopped" = true ]; then
         return 0
     else
         return 1
     fi
 }
+
 
 # 实时查看日志，支持按 q 键退出
 view_log() {
