@@ -311,71 +311,114 @@ install_biliup_rs() {
 
 update_dmr() {
     require_installed || return 1
-    read -p "是否进行更新？(y/n): " update_choice
-    if [[ ! "$update_choice" =~ ^[Yy]$ ]]; then
-         return 0
+    
+    # 询问确认更新
+    read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
+    if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消更新操作。${NC}"
+        return 0
     fi
 
-    echo -e "${YELLOW}更新前将删除现有的直播回放及直播回放（弹幕版）目录（默认不删除，请直接回车），请确保重要文件已备份。${NC}"
-    read -p "是否删除这两个目录？(y/n, 默认n): " delete_choice
-    delete_choice=${delete_choice:-n}
-    if [[ "$delete_choice" =~ ^[Yy]$ ]]; then
-        [ -d "$DMR_DIR/直播回放" ] && sudo rm -rf "$DMR_DIR/直播回放" && echo -e "${BLUE}[INFO] 已删除 直播回放 目录" || echo -e "${YELLOW}直播回放 目录不存在${NC}"
-        [ -d "$DMR_DIR/直播回放（弹幕版）" ] && sudo rm -rf "$DMR_DIR/直播回放（弹幕版）" && echo -e "${BLUE}[INFO] 已删除 直播回放（弹幕版） 目录" || echo -e "${YELLOW}直播回放（弹幕版） 目录不存在${NC}"
-    else
-        echo -e "${YELLOW}未删除直播回放目录，更新过程将继续。${NC}"
-    fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始更新 DanmakuRender v5...${NC}"
 
-    sudo apt update && sudo apt install rsync -y
-
+    # 1. 停止运行中的进程
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并停止运行中的进程...${NC}"
     if pgrep -f "$DMR_CMD" > /dev/null; then
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在停止运行中的进程..."
-         stop_dmr
+        stop_dmr || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止进程失败！更新中止。${NC}"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已成功停止运行中的进程。${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}当前没有运行中的进程。${NC}"
     fi
 
-    backup_configs_dir="${DMR_DIR}/config_backup/$(date +%Y%m%d_%H%M%S)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在备份配置文件夹到 ${GREEN}${backup_configs_dir}${NC}"
-    sudo mkdir -p "$backup_configs_dir" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建备份目录失败！"
-        return 1
-    }
-    sudo cp -r "$DMR_DIR/configs" "$backup_configs_dir" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 配置文件夹备份失败！"
+    # 2. 创建完整备份目录
+    local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
+    sudo mkdir -p "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建备份目录失败！${NC}"
         return 1
     }
 
-    update_fail=0
+    # 3. 单独备份configs文件夹
+    local configs_backup="${DMR_DIR}/configs_backup_$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份配置文件到: ${configs_backup}${NC}"
+    sudo cp -r "$DMR_DIR/configs" "$configs_backup" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份配置文件失败！${NC}"
+        return 1
+    }
+
+    # 4. 备份整个DMR目录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个DMR目录到 ${backup_dir}...${NC}"
+    sudo cp -r "$DMR_DIR" "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份DMR目录失败！${NC}"
+        return 1
+    }
+
+    # 5. 拉取最新代码
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
     tmp_dir=$(mktemp -d)
-    cd "$tmp_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入临时目录失败！"; update_fail=1; }
+    git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！${NC}"
+        rollback_update "$backup_dir" "$configs_backup"
+        return 1
+    }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在克隆 DanmakuRender v5 更新包..."
-    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir/update_repo"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 克隆更新包失败！"
-         update_fail=1
-    fi
+    # 6. 覆盖现有文件
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
+    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
+        rollback_update "$backup_dir" "$configs_backup"
+        return 1
+    }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在覆盖主目录文件..."
-    if ! sudo rsync -a --exclude='configs' "$tmp_dir/update_repo/" "$DMR_DIR/"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 文件覆盖失败！"
-         update_fail=1
-    fi
-
-    cd - > /dev/null
+    # 7. 清理临时文件
     rm -rf "$tmp_dir"
 
-    if [ "$update_fail" -eq 1 ]; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 更新过程中出现错误，正在恢复备份..."
-         sudo rm -rf "$DMR_DIR/configs"
-         sudo cp -r "$backup_configs_dir/configs" "$DMR_DIR/"
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 恢复备份完成！"
-         return 1
+    # 8. 更新完成
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份路径: ${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}完整备份路径: ${backup_dir}${NC}"
+    
+    # 更新安装日期记录
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
+    fetch_github_times
+    get_install_date
+    
+    # 询问是否删除完整备份
+    read -p "$(echo -e "${YELLOW}是否删除完整备份目录 ${backup_dir}？(y/N): ${NC}")" delete_backup
+    if [[ "$delete_backup" =~ ^[Yy]$ ]]; then
+        sudo rm -rf "$backup_dir" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除完整备份。${NC}"
     else
-         echo -e "${GREEN}${BOLD}[INFO]${NC}${NORMAL} 更新成功！"
-         echo -e "${GREEN}配置文件备份路径：${backup_configs_dir}${NC}"
-         date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 记录更新日期失败！${NC}"
-         fetch_github_times
-         get_install_date
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}保留完整备份: ${backup_dir}${NC}"
     fi
+    
+    return 0
+}
+
+rollback_update() {
+    local backup_dir="$1"
+    local configs_backup="$2"
+    
+    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}更新过程中出现错误，正在回滚...${NC}"
+    
+    # 恢复DMR目录
+    if [ -d "$backup_dir/DanmakuRender-5" ]; then
+        echo -e "${YELLOW}恢复DMR目录...${NC}"
+        sudo rm -rf "$DMR_DIR" && sudo mv "$backup_dir/DanmakuRender-5" "$DMR_DIR"
+    fi
+    
+    # 恢复configs
+    if [ -d "$configs_backup" ]; then
+        echo -e "${YELLOW}恢复configs目录...${NC}"
+        sudo rm -rf "$DMR_DIR/configs" && sudo mv "$configs_backup" "$DMR_DIR/configs"
+    fi
+    
+    # 删除备份目录
+    sudo rm -rf "$backup_dir"
+    
+    echo -e "${YELLOW}回滚完成。${NC}"
 }
 
 install_dmr() {
