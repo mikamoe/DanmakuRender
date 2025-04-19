@@ -960,7 +960,6 @@ delete_replays() {
 install_fonts_package() {
     local font_name="$1"
     local font_pkg="$2"
-
     if ! dpkg -s "$font_pkg" &> /dev/null; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 apt 安装 ${font_name} 字体包 (${font_pkg})...${NC}"
         sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续安装..."
@@ -968,146 +967,110 @@ install_fonts_package() {
             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装 ${font_name} 字体包 (${font_pkg}) 失败！${NC}"
             return 1
         }
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 安装成功。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 安装成功。${NC}"
     else
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 已安装。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 已安装。${NC}"
     fi
     return 0
 }
 
+# 新增：Option 3 的 Noto 全家桶安装
+install_noto_group() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装 Noto 全家桶（包括 Emoji） ---${NC}"
+    sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续..."
+    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装 Noto 全家桶失败！${NC}"
+        return 1
+    }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Noto 全家桶安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 刷新字体缓存失败！"
+    echo -e "${PURPLE}----------------------------------------------${NC}"
+    return 0
+}
+
+# Option 1：安装/检查 微软雅黑 + Emoji，再安装 Noto 全家桶
 install_fonts() {
     require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装微软雅黑和 Noto Emoji 字体 ---${NC}"
-
-    # 1. Install Microsoft YaHei
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装微软雅黑和 Emoji ---${NC}"
     local ms_font_dir="/usr/share/fonts/truetype/microsoft"
     local ms_font_path="${ms_font_dir}/msyh.ttf"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查微软雅黑字体...${NC}"
     if [ -f "$ms_font_path" ] && fc-list | grep -q "Microsoft YaHei"; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑字体似乎已安装。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑字体已安装。${NC}"
     else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}微软雅黑字体未找到，开始下载和安装...${NC}"
-        sudo mkdir -p "$ms_font_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录 ${ms_font_dir} 失败！${NC}"; return 1; }
-        local tmp_font_path="/tmp/msyh.ttf"
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 ${FONT_MSYH_URL}...${NC}"
-        wget -O "$tmp_font_path" "$FONT_MSYH_URL" || {
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载微软雅黑字体失败！请检查URL或网络。${NC}"
-            rm -f "$tmp_font_path" # Clean up partial download
-            return 1
-        }
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在移动字体到 ${ms_font_path}...${NC}"
-        sudo mv "$tmp_font_path" "$ms_font_path" || {
-             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动微软雅黑字体失败！(权限问题？)${NC}"
-             rm -f "$tmp_font_path" # Clean up if move failed
-             return 1
-        }
-         # Set correct permissions
-         sudo chmod 644 "$ms_font_path"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装微软雅黑字体！${NC}"
-         # Verify with fc-list immediately (might need cache refresh first)
-         # fc-list | grep "Microsoft YaHei" || echo -e "${YELLOW}fc-list 可能需要刷新缓存才能看到新字体${NC}"
+        echo -e "${YELLOW}微软雅黑未检测到，开始下载...${NC}"
+        sudo mkdir -p "$ms_font_dir"
+        local tmp="/tmp/msyh.ttf"
+        wget -O "$tmp" "$FONT_MSYH_URL" || { echo -e "${RED}下载失败！${NC}"; rm -f "$tmp"; return 1; }
+        sudo mv "$tmp" "$ms_font_path" && sudo chmod 644 "$ms_font_path"
+        echo -e "${GREEN}微软雅黑安装完成！${NC}"
     fi
 
-    # 2. Install Noto Fonts and Emoji
+    # 原有 Emoji 安装逻辑
     local noto_emoji_pkg="fonts-noto-color-emoji"
     install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
 
-    # Optional: Install other Noto fonts if needed
-    # install_fonts_package "Noto CJK" "fonts-noto-cjk"
-    # install_fonts_package "Noto Extra" "fonts-noto-extra"
-    # install_fonts_package "Noto Basic" "fonts-noto"
-    # install_fonts_package "Symbola" "fonts-symbola"
-
-    # 3. Refresh Font Cache
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体缓存刷新完成。${NC}"
-
-    # Final verification for MS YaHei
-    if ! fc-list | grep -q "Microsoft YaHei"; then
-         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}fc-list 仍然未检测到微软雅黑。可能需要重启应用或系统。${NC}"
-    fi
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑和 Noto Emoji 字体安装/检查完成！${NC}"
-    echo -e "${PURPLE}-------------------------------------------------${NC}"
+    # 新增：再安装 Noto 全家桶
+    install_noto_group
     return 0
 }
 
+# Option 2：安装/检查 阿里巴巴普惠体 + Emoji，再安装 Noto 全家桶
 install_alibaba_fonts() {
     require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装阿里巴巴普惠体和 Noto Emoji 字体 ---${NC}"
-
-    # 1. Install Alibaba PuHuiTi
-    local ali_font_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
-    local ali_font_path="${ali_font_dir}/AlibabaPuHuiTi-3-65-Medium.ttf" # Match the actual filename
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装阿里巴巴普惠体和 Emoji ---${NC}"
+    local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
+    local ali_path="${ali_dir}/AlibabaPuHuiTi-3-65-Medium.ttf"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查阿里巴巴普惠体...${NC}"
-    if [ -f "$ali_font_path" ] && fc-list | grep -q "Alibaba PuHuiTi"; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体似乎已安装。${NC}"
+    if [ -f "$ali_path" ] && fc-list | grep -q "Alibaba PuHuiTi"; then
+        echo -e "${GREEN}阿里巴巴普惠体已安装。${NC}"
     else
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}阿里巴巴普惠体未找到，开始下载和安装...${NC}"
-        sudo mkdir -p "$ali_font_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录 ${ali_font_dir} 失败！${NC}"; return 1; }
-        local tmp_font_path="/tmp/AlibabaPuHuiTi.ttf" # Temporary download name
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 ${FONT_ALIBABA_URL}...${NC}"
-        wget -O "$tmp_font_path" "$FONT_ALIBABA_URL" || {
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载阿里巴巴普惠体失败！请检查URL或网络。${NC}"
-            rm -f "$tmp_font_path"
-            return 1
-        }
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在移动字体到 ${ali_font_path}...${NC}"
-        sudo mv "$tmp_font_path" "$ali_font_path" || {
-             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动阿里巴巴普惠体失败！(权限问题？)${NC}"
-             rm -f "$tmp_font_path"
-             return 1
-        }
-         sudo chmod 644 "$ali_font_path"
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装阿里巴巴普惠体！${NC}"
+        echo -e "${YELLOW}阿里巴巴普惠体未检测到，开始下载...${NC}"
+        sudo mkdir -p "$ali_dir"
+        local tmp="/tmp/AlibabaPuHuiTi.ttf"
+        wget -O "$tmp" "$FONT_ALIBABA_URL" || { echo -e "${RED}下载失败！${NC}"; rm -f "$tmp"; return 1; }
+        sudo mv "$tmp" "$ali_path" && sudo chmod 644 "$ali_path"
+        echo -e "${GREEN}阿里巴巴普惠体安装完成！${NC}"
     fi
 
-    # 2. Install Noto Fonts and Emoji (same as in the other function)
+    # 原有 Emoji 安装逻辑
     local noto_emoji_pkg="fonts-noto-color-emoji"
     install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
 
-    # 3. Refresh Font Cache
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体缓存刷新完成。${NC}"
-
-    # Final verification for Alibaba
-     if ! fc-list | grep -q "Alibaba PuHuiTi"; then
-         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}fc-list 仍然未检测到阿里巴巴普惠体。可能需要重启应用或系统。${NC}"
-    fi
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Noto Emoji 字体安装/检查完成！${NC}"
-    echo -e "${PURPLE}-----------------------------------------------------${NC}"
+    # 新增：再安装 Noto 全家桶
+    install_noto_group
     return 0
+}
+
+# Option 3：仅安装 Noto 全家桶（含 Emoji）
+install_noto_group_wrapper() {
+    install_noto_group
 }
 
 
 font_menu() {
-    local oneshot=${1:-false} # Check if called in oneshot mode (currently not used)
+    require_installed || return 1
     while true; do
-        # Clear screen for sub-menu clarity? Optional.
-        # clear
+        clear
         echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} 安装/检查 ${GREEN}微软雅黑${NC} + Noto Emoji"
-        echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} 安装/检查 ${GREEN}阿里巴巴普惠体${NC} + Noto Emoji"
+        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} 安装/检查 ${GREEN}微软雅黑 + Emoji${NC}，并安装 Noto 全家桶"
+        echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} 安装/检查 ${GREEN}阿里巴巴普惠体 + Emoji${NC}，并安装 Noto 全家桶"
+        echo -e " ${BLUE}${BOLD}3.${NC}${NORMAL} 安装/检查 ${GREEN}Noto 全家桶（含 Emoji）${NC}"
         echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        read -p "$(echo -e "${CYAN}请输入选项 (0-2): ${NC}")" font_choice
+        read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
         case $font_choice in
             1) install_fonts ;;
             2) install_alibaba_fonts ;;
+            3) install_noto_group_wrapper ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$font_choice'！请输入 0, 1 或 2。${NC}" ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$font_choice'！请输入 0 到 3。${NC}" ;;
         esac
-        # Pause only if not returning to main menu
-        if [ "$font_choice" != "0" ]; then
-             read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
-             echo # Add a newline after the pause
-        fi
-        # If oneshot was intended, break here:
-        # if [ "$oneshot" = true ] && [ "$font_choice" != "0" ]; then break; fi
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
+        echo
     done
 }
 
