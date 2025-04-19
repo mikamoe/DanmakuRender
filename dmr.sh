@@ -540,6 +540,40 @@ uninstall_dmr() {
     fi
 }
 
+# ===================== JavaScript 环境安装函数 ===============
+install_js_engine() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始安装 JavaScript 环境...${NC}"
+    
+    # 安装 Node.js
+    if ! command -v node &>/dev/null; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 Node.js，正在安装...${NC}"
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+        sudo apt install -y nodejs || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js 安装失败！${NC}"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 安装完成！${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 已安装。${NC}"
+    fi
+
+    # 安装 quickjs Python 包
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 quickjs Python 包...${NC}"
+    pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
+    
+    pip install quickjs || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}quickjs 安装失败！${NC}"
+        deactivate
+        popd > /dev/null
+        return 1
+    }
+    
+    deactivate
+    popd > /dev/null
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}JavaScript 环境安装完成！${NC}"
+    return 0
+}
 
 # ===================== 运行与测试管理函数 =====================
 start_dmr() {
