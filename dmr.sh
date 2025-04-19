@@ -1386,7 +1386,7 @@ show_status() {
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}，共${streamers_count}位主播"
+            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}共${streamers_count}位主播哦"
         else
             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
         fi
@@ -1430,22 +1430,22 @@ main_menu() {
         if pgrep -f "$DMR_CMD" > /dev/null; then
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
         else
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程(后台运行)"
         fi
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志(按'q'退出)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频(render_only.py)"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript环境(Node.js+quickjs)"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         skip_read=false
-        read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
+        read -p "$(echo -e "${CYAN}请输入选项喵~ (0-11): ${NC}")" choice
 
         case $choice in
             1) install_dmr ;;
