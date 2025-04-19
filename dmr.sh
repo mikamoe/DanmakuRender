@@ -63,26 +63,21 @@ check_dependencies() {
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
 
-        # Check if both install_epoch and commit_epoch are valid numbers and if an update exists
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
             echo -e "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！"
             echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
             echo -e "提交说明: ${CYAN}${commit_message}${NC}"
-            # Check if commit_sha was successfully fetched before creating the specific commit link
             if [ -n "$commit_sha" ]; then
-                echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}" # <-- Modified link
+                echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
             else
-                # Fallback link to commits page if SHA couldn't be fetched
                 echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
             fi
             echo -e "(｡･ω･｡) 按任意键继续进入脚本..."
             read -n 1 -s -r
         fi
     fi
-    # Return 0 explicitly if checks pass or no update needed/possible to check
     return 0
 }
-
 
 get_python_version() {
     if command -v python3 &>/dev/null; then
@@ -103,7 +98,6 @@ convert_to_beijing_time() {
     if [ -n "$converted" ]; then
         echo "$converted"
     else
-        # Fallback if TZ conversion fails, try direct conversion (might be server's local time)
         converted=$(date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null)
         if [ -n "$converted" ]; then
             echo "$converted (可能为服务器本地时间)"
@@ -115,119 +109,221 @@ convert_to_beijing_time() {
 
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚...${NC}"
-    # Check if directory exists before attempting removal
     if [ -d "$DMR_DIR" ]; then
         sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
     else
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装目录不存在，无需回滚删除。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装目录不存在，无需回滚删除。${NC}"
     fi
-
 }
 
 check_config() {
-    # Check if the directory exists first
     if [ ! -d "$DMR_DIR/configs" ]; then
         return 1
     fi
-    # Use find with -quit to stop after the first match for efficiency
     if find "$DMR_DIR/configs" -maxdepth 1 -name "*DMR*" -print -quit | grep -q .; then
-        return 0 # Found a file
+        return 0
     else
-        return 1 # No matching file found
+        return 1
     fi
 }
 
-
 fetch_github_times() {
     local branch_info
-    # Fetch branch info including the latest commit
     branch_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
     if [[ -n "$branch_info" ]]; then
         local raw_time
-        # Extract commit author date, commit message, and commit SHA
         raw_time=$(jq -r '.commit.commit.author.date // empty' <<< "$branch_info")
         commit_time=$(convert_to_beijing_time "$raw_time")
         commit_message=$(jq -r '.commit.commit.message // empty' <<< "$branch_info")
-        commit_sha=$(jq -r '.commit.sha // empty' <<< "$branch_info") # <-- Extract commit SHA
+        commit_sha=$(jq -r '.commit.sha // empty' <<< "$branch_info")
     else
-        # Set defaults if fetching branch info fails
         commit_time="获取失败"
         commit_message="获取失败"
-        commit_sha="" # <-- Default empty SHA
+        commit_sha=""
     fi
 
     local release_info
-    # Fetch latest release info
     release_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
     if [[ -n "$release_info" ]]; then
-        # Extract release tag name and publication date
         release_version=$(jq -r '.tag_name // empty' <<< "$release_info")
         local raw_release_time
         raw_release_time=$(jq -r '.published_at // empty' <<< "$release_info")
         release_time=$(convert_to_beijing_time "$raw_release_time")
     else
-        # Set defaults if fetching release info fails
         release_version="获取失败"
         release_time="获取失败"
     fi
 }
 
-
 get_install_date() {
-    # Reset install_date at the beginning
     install_date=""
     if [ -f "$INSTALL_DATE_FILE" ]; then
         local timestamp
-        # Read timestamp, suppress errors if file is empty or unreadable
         timestamp=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-        # Check if timestamp is a valid number
         if [[ "$timestamp" =~ ^[0-9]+$ ]]; then
-            # Convert timestamp to RFC 3339 format, then to Beijing time
             local rfc_date
             rfc_date=$(date -d "@$timestamp" --rfc-3339=seconds 2>/dev/null)
             if [ -n "$rfc_date" ]; then
-                 install_date=$(convert_to_beijing_time "$rfc_date")
+                install_date=$(convert_to_beijing_time "$rfc_date")
             else
-                 install_date="无法解析日期" # Handle potential date command failure
+                install_date="无法解析日期"
             fi
         else
-             install_date="无效日期记录" # Handle invalid content in file
+            install_date="无效日期记录"
         fi
     fi
-    # If install_date is still empty (file not found or errors), keep it empty.
+}
+
+# ===================== 字体安装相关函数 =====================
+
+install_fonts_package() {
+    local font_name="$1"
+    local font_pkg="$2"
+
+    if ! dpkg -s "$font_pkg" &> /dev/null; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 apt 安装 ${font_name} 字体包 (${font_pkg})...${NC}"
+        sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续安装..."
+        sudo apt install -y "$font_pkg" || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装 ${font_name} 字体包 (${font_pkg}) 失败！${NC}"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 安装成功。${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 已安装。${NC}"
+    fi
+    return 0
+}
+
+install_fonts() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装微软雅黑和 Noto Emoji 字体 ---${NC}"
+    local ms_font_dir="/usr/share/fonts/truetype/microsoft"
+    local ms_font_path="${ms_font_dir}/msyh.ttf"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查微软雅黑字体...${NC}"
+    if [ -f "$ms_font_path" ] && fc-list | grep -q "Microsoft YaHei"; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑字体似乎已安装。${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}微软雅黑字体未找到，开始下载和安装...${NC}"
+        sudo mkdir -p "$ms_font_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录 ${ms_font_dir} 失败！${NC}"; return 1; }
+        local tmp_font_path="/tmp/msyh.ttf"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 ${FONT_MSYH_URL}...${NC}"
+        wget -O "$tmp_font_path" "$FONT_MSYH_URL" || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载微软雅黑字体失败！请检查URL或网络。${NC}"
+            rm -f "$tmp_font_path"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在移动字体到 ${ms_font_path}...${NC}"
+        sudo mv "$tmp_font_path" "$ms_font_path" || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动微软雅黑字体失败！(权限问题？)${NC}"
+            rm -f "$tmp_font_path"
+            return 1
+        }
+        sudo chmod 644 "$ms_font_path"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装微软雅黑字体！${NC}"
+    fi
+
+    local noto_emoji_pkg="fonts-noto-color-emoji"
+    install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体缓存刷新完成。${NC}"
+
+    if ! fc-list | grep -q "Microsoft YaHei"; then
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}fc-list 仍然未检测到微软雅黑。可能需要重启应用或系统。${NC}"
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑和 Noto Emoji 字体安装/检查完成！${NC}"
+    echo -e "${PURPLE}-------------------------------------------------${NC}"
+    return 0
+}
+
+install_alibaba_fonts() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装阿里巴巴普惠体和 Noto Emoji 字体 ---${NC}"
+    local ali_font_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
+    local ali_font_path="${ali_font_dir}/AlibabaPuHuiTi-3-65-Medium.ttf"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查阿里巴巴普惠体...${NC}"
+    if [ -f "$ali_font_path" ] && fc-list | grep -q "Alibaba PuHuiTi"; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体似乎已安装。${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}阿里巴巴普惠体未找到，开始下载和安装...${NC}"
+        sudo mkdir -p "$ali_font_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建字体目录 ${ali_font_dir} 失败！${NC}"; return 1; }
+        local tmp_font_path="/tmp/AlibabaPuHuiTi.ttf"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 ${FONT_ALIBABA_URL}...${NC}"
+        wget -O "$tmp_font_path" "$FONT_ALIBABA_URL" || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载阿里巴巴普惠体失败！请检查URL或网络。${NC}"
+            rm -f "$tmp_font_path"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在移动字体到 ${ali_font_path}...${NC}"
+        sudo mv "$tmp_font_path" "$ali_font_path" || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动阿里巴巴普惠体失败！(权限问题？)${NC}"
+            rm -f "$tmp_font_path"
+            return 1
+        }
+        sudo chmod 644 "$ali_font_path"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${BOLD}已安装阿里巴巴普惠体！${NC}"
+    fi
+
+    local noto_emoji_pkg="fonts-noto-color-emoji"
+    install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体缓存刷新完成。${NC}"
+
+    if ! fc-list | grep -q "Alibaba PuHuiTi"; then
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}fc-list 仍然未检测到阿里巴巴普惠体。可能需要重启应用或系统。${NC}"
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}阿里巴巴普惠体和 Noto Emoji 字体安装/检查完成！${NC}"
+    echo -e "${PURPLE}-----------------------------------------------------${NC}"
+    return 0
+}
+
+# 新增：仅安装 Noto Color Emoji
+install_noto_emoji_only() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装 Noto Color Emoji 字体 ---${NC}"
+    local noto_emoji_pkg="fonts-noto-color-emoji"
+    install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
+    sudo fc-cache -fv > /dev/null 2>&1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}刷新字体缓存失败！${NC}"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}字体缓存刷新完成。${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Noto Color Emoji 字体安装/检查完成！${NC}"
+    echo -e "${PURPLE}----------------------------------------------${NC}"
+    return 0
 }
 
 # ===================== 系统安装及更新函数 =====================
 
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查系统依赖工具...${NC}"
-    # Added git here as it's needed for cloning in install_dmr
     local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git")
     local missing_tools=()
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
-            # Collect missing tools first
             missing_tools+=("$tool")
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool ...${NC}"
         fi
     done
 
-    # If any tools are missing, try to install them all at once
     if [ ${#missing_tools[@]} -gt 0 ]; then
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}正在尝试安装缺失的工具: ${missing_tools[*]}${NC}"
-         # Update package list before installing
-         sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！可能需要手动运行。${NC}"; return 1; }
-         # Install all missing tools in one command
-         sudo apt install -y "${missing_tools[@]}" || {
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}正在尝试安装缺失的工具: ${missing_tools[*]}${NC}"
+        sudo apt update || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}apt update 失败！可能需要手动运行。${NC}"; return 1; }
+        sudo apt install -y "${missing_tools[@]}" || {
             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}一个或多个工具 (${missing_tools[*]}) 安装失败！请尝试手动安装。${NC}"
             return 1
-         }
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}缺失工具安装完成或已尝试安装。${NC}"
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}缺失工具安装完成或已尝试安装。${NC}"
     else
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}所有必要的系统依赖工具已安装。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}所有必要的系统依赖工具已安装。${NC}"
     fi
     return 0
 }
+
 
 install_biliup_rs() {
     sudo mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"; return 1; }
@@ -1344,18 +1440,16 @@ update_biliup_rs() {
 }
 
 biliup_menu() {
-    # Ensure we are in the correct directory for biliup commands
     require_installed || return 1
     pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无法进入工具目录 $BILIUP_DIR"; return 1; }
 
     while true; do
-        # Don't clear screen here, keep main menu header visible? Or clear? Let's keep it simple.
-        # show_header # Re-show main header? Might be too much.
+        clear
         echo -e "\n${PINK}=== biliup-rs 管理菜单 ===${NC}"
         echo -e "${CYAN}当前目录: $(pwd)${NC}"
         echo -e "${CYAN}biliup-rs 版本信息：${NC}"
         if [ -f "./biliup" ] && [ -x "./biliup" ]; then
-            ./biliup -V # Display version
+            ./biliup -V
         else
             echo -e "${RED}biliup 工具未找到或不可执行！${NC}"
         fi
@@ -1366,148 +1460,95 @@ biliup_menu() {
         echo -e " ${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}检查/更新${NC} biliup-rs 工具"
         echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        read -p "$(echo -e "${CYAN}请输入 biliup 菜单选项 (0-3, 9): ${NC}")" sub_choice
+        read -p "$(echo -e "${CYAN}请输入 biliup 菜单选项 (0-3,9): ${NC}")" sub_choice
         case $sub_choice in
             1) biliup_upload ;;
             2) biliup_append ;;
             3)
                 if [ -f "./biliup" ] && [ -x "./biliup" ]; then
-                     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行 ./biliup login ...${NC}"
-                     ./biliup login
+                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行 ./biliup login ...${NC}"
+                    ./biliup login
                 else
-                     echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'biliup' 工具不存在或不可执行！${NC}"
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'biliup' 工具不存在或不可执行！${NC}"
                 fi
                 ;;
-            9) update_biliup_rs ;; # Correctly call the update function now
-            0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;; # Exit the biliup menu loop
+            9) update_biliup_rs ;;
+            0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
             *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$sub_choice'！" ;;
         esac
-        # Pause only if not returning to main menu
-        if [ "$sub_choice" != "0" ]; then
-             read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回 biliup 菜单...${NC}")"
-             echo # Add a newline
-        fi
+
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回 biliup 菜单...${NC}")"
+        echo
     done
-    # Return to the directory script was run from
+
     popd > /dev/null
     return 0
 }
 
+font_menu() {
+    require_installed || return 1
+    while true; do
+        clear
+        echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} 安装/检查 ${GREEN}微软雅黑${NC} + Noto Emoji"
+        echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} 安装/检查 ${GREEN}阿里巴巴普惠体${NC} + Noto Emoji"
+        echo -e " ${BLUE}${BOLD}3.${NC}${NORMAL} 安装/检查 ${GREEN}Noto Color Emoji${NC}"
+        echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
+        case $font_choice in
+            1) install_fonts ;;
+            2) install_alibaba_fonts ;;
+            3) install_noto_emoji_only ;;
+            0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$font_choice'！请输入 0 到 3。${NC}" ;;
+        esac
 
-# ===================== 新增：安装 JavaScript 解释器和 JS 引擎 =====================
-install_js_engine() {
-    echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}--- JavaScript 环境安装 ---${NC}"
-    echo "此功能将尝试安装 Node.js (提供 'node' 和 'npm' 命令) 和 Python 的 'quickjs' 库。"
-    echo "Node.js 将通过系统包管理器 (apt) 安装。"
-    echo "'quickjs' 将安装在 DanmakuRender 的 Python 虚拟环境中。"
-    read -p "$(echo -e "${YELLOW}是否确定要安装 JavaScript 环境？(y/N): ${NC}")" js_ans
-    js_ans=${js_ans:-n} # Default to 'n'
-
-    if [[ "$js_ans" =~ ^[Yy]$ ]]; then
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并安装 Node.js 和 npm...${NC}"
-         local node_installed=false
-         local npm_installed=false
-         command -v node &>/dev/null && node_installed=true
-         command -v npm &>/dev/null && npm_installed=true
-
-         if [ "$node_installed" = true ] && [ "$npm_installed" = true ]; then
-              echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 和 npm 似乎已安装。${NC}"
-         else
-              echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}正在使用 apt 安装 nodejs 和 npm...${NC}"
-              sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续安装..."
-              sudo apt install -y nodejs npm || {
-                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js 或 npm 安装失败！请尝试手动安装。${NC}"
-                    # Decide whether to proceed with quickjs or not. Let's try.
-              }
-              # Verify again
-               command -v node &>/dev/null && node_installed=true
-               command -v npm &>/dev/null && npm_installed=true
-               if [ "$node_installed" = true ] && [ "$npm_installed" = true ]; then
-                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 和 npm 安装完成。${NC}"
-               else
-                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js 或 npm 安装后仍未检测到！${NC}"
-               fi
-         fi
-
-         echo -e "\n${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并安装 Python 'quickjs' 库...${NC}"
-         require_installed || return 1 # Need main install for venv
-         pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
-
-         if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
-              echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 虚拟环境 'venv' 不存在或不完整！无法安装 quickjs。${NC}"
-              popd > /dev/null; return 1;
-         fi
-
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-         source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
-
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用 pip 安装 'quickjs'...${NC}"
-         pip install quickjs
-         local pip_status=$?
-
-         deactivate
-         popd > /dev/null
-
-         if [ $pip_status -eq 0 ]; then
-              echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 'quickjs' 库安装成功！${NC}"
-              echo -e "\n${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${GREEN}JavaScript 环境 (Node.js, npm, quickjs) 安装/检查完成！${NC}"
-              return 0
-         else
-              echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 'quickjs' 库安装失败！(退出码: $pip_status)${NC}"
-              echo -e "\n${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}JavaScript 环境安装未完全成功。${NC}"
-              return 1
-         fi
-    else
-         echo -e "${YELLOW}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消安装 JavaScript 环境。${NC}"
-         return 1 # Indicate cancellation/non-action
-    fi
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
+        echo
+    done
 }
-
 
 # ===================== 状态及主菜单 =====================
 
 show_header() {
     clear
     local title="DanmakuRender v5 管理脚本"
-    
     echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
-    
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
-         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
+        echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
-         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
-         # echo -e "${CYAN}提交信息:${NC} ${commit_message}" # Can be long
+        echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     fi
     echo -e "${CYAN}项目地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
-
-    # Update Notification within header
+    echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    # 更新提示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-              echo -e "${YELLOW}${BOLD}✨ 检测到项目有更新！建议运行选项 10 进行更新。 ✨${NC}"
-              echo -e "${YELLOW}   最新提交说明: ${commit_message}${NC}"
-         fi
+        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+        if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
+            echo -e "${YELLOW}${BOLD}✨ 检测到项目有更新！建议运行选项 10 进行更新。 ✨${NC}"
+            echo -e "${YELLOW}   最新提交说明: ${commit_message}${NC}"
+        fi
     fi
-     echo -e "${PINK}${border}${NC}"
 }
 
 show_status() {
-    # Installation Status
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
         echo -e "${YELLOW}${BOLD}配置文件：${RED}未安装${NC}${NORMAL}"
         echo -e "${YELLOW}${BOLD}运行状态：${RED}未安装${NC}${NORMAL}"
     else
         echo -e "${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} (目录: $DMR_DIR)"
-        # Configuration Status
         if check_config; then
-             echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}"
+            local streamers_count
+            streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
+            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}，共${streamers_count}位主播"
         else
-             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
+            echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
         fi
-        # Running Status
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
@@ -1515,61 +1556,54 @@ show_status() {
         else
             echo -e "${YELLOW}${BOLD}运行状态：${RED}未运行${NC}${NORMAL}"
         fi
-         # Last Install/Update Date
-        if [ -n "$install_date" ] && [ "$install_date" != "无效日期记录" ] && [ "$install_date" != "无法解析日期" ]; then
+        if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
             echo -e "${CYAN}${BOLD}上一次安装/更新：${PINK}${install_date}${NC}${NORMAL}"
         elif [ -f "$INSTALL_DATE_FILE" ]; then
-             echo -e "${CYAN}${BOLD}上一次安装/更新：${RED}日期记录无效${NC}${NORMAL}"
+            echo -e "${CYAN}${BOLD}上一次安装/更新：${RED}日期记录无效${NC}${NORMAL}"
         fi
     fi
-
 }
 
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "\n${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装！${NC}"
         echo -e "${YELLOW}请先在主菜单中选择选项 ${BOLD}'1'${NORMAL}${YELLOW} 进行安装。${NC}"
-        return 1 # Return failure code
+        return 1
     fi
-    return 0 # Return success code
+    return 0
 }
 
 main_menu() {
-    # Initial checks and data fetching on script start
     echo "正在初始化脚本，请稍候..."
     check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}依赖检查或安装失败，脚本无法继续。请检查错误信息并手动安装所需工具 (jq, curl, git)。${NC}"; exit 1; }
     fetch_github_times
-    get_install_date # Get initial install date if available
+    get_install_date
 
-    local skip_read=false # Flag to skip "Press any key" prompt sometimes
+    local skip_read=false
     while true; do
-        show_header # Display project info and update notice
-        show_status # Display installed/running status
-
+        show_header
+        show_status
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
-        # Start/Stop Logic based on current status
         if pgrep -f "$DMR_CMD" > /dev/null; then
-             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
         else
-             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
         fi
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠)"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
         echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        # Reset skip_read flag before reading choice
         skip_read=false
-
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
 
         case $choice in
@@ -1579,90 +1613,49 @@ main_menu() {
                     if pgrep -f "$DMR_CMD" > /dev/null; then
                         stop_dmr
                     else
-                        # Check config before starting
-                         if ! check_config; then
-                             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
-                         else
-                             python_version=$(get_python_version)
-                             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${GREEN}${python_version}${NC}"
-                             if start_dmr; then
-                                 # Optionally view log immediately after starting?
-                                 # read -p "$(echo -e "${YELLOW}启动成功，是否立即查看日志？(y/N): ${NC}")" viewlognow
-                                 # if [[ "$viewlognow" =~ ^[Yy]$ ]]; then
-                                 #    view_log; skip_read=true
-                                 # fi
-                                 : # Do nothing extra by default after start
-                             fi
-                         fi
+                        if ! check_config; then
+                            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
+                        else
+                            python_version=$(get_python_version)
+                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${GREEN}${python_version}${NC}"
+                            start_dmr
+                        fi
                     fi
                 fi
                 ;;
             3)
-                if require_installed; then
-                    view_log; skip_read=true # Skip "press any key" after exiting log view
-                fi
+                require_installed && { view_log; skip_read=true; }
                 ;;
             4)
-                if require_installed; then
-                    manual_render
-                fi
+                require_installed && manual_render
                 ;;
             5)
-                if require_installed; then
-                    run_test
-                fi
+                require_installed && run_test
                 ;;
             6)
-                if require_installed; then
-                    delete_replays
-                fi
+                require_installed && delete_replays
                 ;;
             7)
-                if require_installed; then
-                    biliup_menu # This function handles its own loops and pauses
-                    skip_read=true # Skip main menu pause after returning from sub-menu
-                fi
+                require_installed && { biliup_menu; skip_read=true; }
                 ;;
             8)
-                if require_installed; then
-                    font_menu # Handles its own loops and pauses
-                    skip_read=true # Skip main menu pause
-                fi
+                require_installed && { font_menu; skip_read=true; }
                 ;;
-            9)
-                # No need to require_installed here, JS engine can be installed independently
-                # Though quickjs part needs the venv
-                install_js_engine
-                ;;
+            9) install_js_engine ;;
             10)
-                if require_installed; then
-                    update_dmr
-                    # Re-fetch info after update
-                    fetch_github_times
-                    get_install_date
-                fi
+                require_installed && { update_dmr; fetch_github_times; get_install_date; }
                 ;;
             11)
-                if require_installed; then
-                    uninstall_dmr
-                    # Clear status variables after uninstall
-                    install_date=""
-                    commit_time="N/A"
-                    release_version="N/A"
-                    release_time="N/A"
-                    commit_sha=""
-                fi
+                require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; }
                 ;;
             0) echo -e "${YELLOW}退出脚本${NC}"; exit 0 ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 11 之间的数字。${NC}" ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 11 之间的数字。${NC}";;
         esac
 
-        # Pause for user to see output, unless skipped
         if [ "$skip_read" = false ]; then
-             # Add a newline for better spacing before the prompt
-             echo
-             read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
-             echo # Add a newline after the pause
+            echo
+            read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
+            echo
         fi
     done
 }
