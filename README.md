@@ -6,7 +6,7 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
-![脚本图片](docs/IMG_2530.jpeg)
+![脚本图片](docs/IMG_4196.jpeg)
 
 
 ##### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
