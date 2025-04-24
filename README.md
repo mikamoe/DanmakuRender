@@ -1,5 +1,5 @@
 ## DanmakuRender Script
-- 由Claude+ChatGPT+Grok生/优化
+- 由Claude+ChatGPT+Grok生成/优化
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
