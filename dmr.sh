@@ -57,7 +57,7 @@ check_dependencies() {
     done
 
     # 更新检测提示
-    echo -e "\n(◕‿◕) 正在检查更新..."
+    echo -e "\n Check for updates..."
     fetch_github_times # Ensure latest times are fetched before checking
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
