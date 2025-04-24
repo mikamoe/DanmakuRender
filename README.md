@@ -6,8 +6,32 @@
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
-![脚本图片](docs/IMG_4196.jpeg)
+### Menu
+DanmakuRender v5 管理脚本
+最新发布版本: v5.0.1 (2024-11-15 14:30:25)
+最新代码提交: 2024-11-10 09:15:42
+项目地址: https://github.com/SmallPeaches/DanmakuRender
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+程序状态：已安装 (目录: /opt/DanmakuRender-5)
+配置文件：已找到 (*DMR* in configs)，共3位主播
+运行状态：正在运行 (PID: 12345)
+上一次安装/更新：2023-11-15 14:30:25
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 安装 DanmakuRender v5
+2. 启动/停止 录制进程
+3. 查看实时日志
+4. 手动渲染视频 (render_only.py)
+5. 运行测试 (dryrun.py)
+6. 删除回放/渲染的视频文件
+7. biliup-rs 上传工具菜单
+8. 字体安装菜单
+9. 安装 JavaScript 环境 (Node.js + quickjs)
+10. 更新 DanmakuRender v5
+11. 卸载 DanmakuRender v5
+0. 退出脚本
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+请输入选项 (0-11):
 
 ##### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
 
