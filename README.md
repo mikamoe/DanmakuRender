@@ -1,5 +1,5 @@
-## DanmakuRender脚本
-- 由Claude+ChatGPT+Grok生成以及优化~~
+## DanmakuRender Script
+- 由Claude+ChatGPT+Grok生/优化
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
@@ -34,7 +34,7 @@ DanmakuRender v5 管理脚本
 请输入选项喵~ (0-11):
 ```
 
-##### [biliup-rs 项目地址](https://github.com/biliup/biliup-rs)
+##### [biliup-rs](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
 ---
