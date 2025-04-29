@@ -1502,7 +1502,21 @@ main_menu() {
             4) require_installed && manual_render ;;
             5) require_installed && run_test ;;
             6) require_installed && delete_replays ;;
-            7) bash <(curl -s https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmrdelete.sh) ;;
+            # 将原来的第 7 项替换为以下代码片段：
+            7)
+    # 定义删除脚本路径
+    delete_script="$DMR_DIR/dmrdelete.sh"
+    # 如果脚本不存在，则下载
+    if [ ! -f "$delete_script" ]; then
+        echo -e "${BLUE}[INFO] 未找到 dmrdelete.sh，正在下载...${NC}"
+        curl -fsSL "https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmrdelete.sh" -o "$delete_script" \
+            || { echo -e "${RED}[ERROR] 下载 dmrdelete.sh 失败！${NC}"; break; }
+        chmod +x "$delete_script"
+    fi
+    # 进入主目录并运行脚本
+    echo -e "${BLUE}[INFO] 运行删除脚本...${NC}"
+    bash "$delete_script"
+    ;;
             8) require_installed && { biliup_menu; skip_read=true; } ;;
             9) require_installed && { font_menu; skip_read=true; } ;;
             10) install_js_engine ;;
