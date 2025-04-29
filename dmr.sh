@@ -1450,7 +1450,7 @@ require_installed() {
 
 main_menu() {
     echo "正在初始化脚本，请稍候..."
-    check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}依赖检查或安装失败，脚本无法继续。请检查错误信息并手动安装所需工具 (jq, curl, git)。${NC}"; exit 1; }
+    check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 依赖检查失败，请手动安装 jq、curl、git。"; exit 1; }
     fetch_github_times
     get_install_date
 
@@ -1470,16 +1470,16 @@ main_menu() {
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${MAGENTA}定时清理视频文件${NC}"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
+        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        skip_read=false
-        read -p "$(echo -e "${CYAN}请输入选项喵~ (0-11): ${NC}")" choice
+        read -p "$(echo -e "${CYAN}请输入选项喵~ (0-12): ${NC}")" choice
 
         case $choice in
             1) install_dmr ;;
@@ -1489,42 +1489,34 @@ main_menu() {
                         stop_dmr
                     else
                         if ! check_config; then
-                            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
+                            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未检测到有效配置，先在 configs/ 下配置 *DMR* 文件后重试。"
                         else
                             python_version=$(get_python_version)
-                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${GREEN}${python_version}${NC}"
+                            echo -e "${BLUE}[INFO] 当前 Python 版本：${GREEN}${python_version}${NC}"
                             start_dmr
                         fi
                     fi
                 fi
                 ;;
-            3)
-                require_installed && { view_log; skip_read=true; }
+            3) require_installed && { view_log; skip_read=true; } ;;
+            4) require_installed && manual_render ;;
+            5) require_installed && run_test ;;
+            6) require_installed && delete_replays ;;
+            7) 
+                require_installed && {
+                    # 调用定时清理脚本（dmrdelete.sh）相关功能
+                    # 例如：bash /opt/DanmakuRender-5/tools/dmrdelete.sh status|start|stop
+                    dmrdelete_menu
+                    skip_read=true
+                }
                 ;;
-            4)
-                require_installed && manual_render
-                ;;
-            5)
-                require_installed && run_test
-                ;;
-            6)
-                require_installed && delete_replays
-                ;;
-            7)
-                require_installed && { biliup_menu; skip_read=true; }
-                ;;
-            8)
-                require_installed && { font_menu; skip_read=true; }
-                ;;
-            9) install_js_engine ;;
-            10)
-                require_installed && { update_dmr; fetch_github_times; get_install_date; }
-                ;;
-            11)
-                require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; }
-                ;;
-            0) echo -e "${YELLOW}退出脚本${NC}"; exit 0 ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 11 之间的数字。${NC}";;
+            8) require_installed && { biliup_menu; skip_read=true; } ;;
+            9) require_installed && { font_menu; skip_read=true; } ;;
+            10) install_js_engine ;;
+            11) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
+            12) require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; } ;;
+            0) echo -e "${YELLOW}退出脚本${NC}" ; exit 0 ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 12 之间的数字。";;
         esac
 
         if [ "$skip_read" = false ]; then
