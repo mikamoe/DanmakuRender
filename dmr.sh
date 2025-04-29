@@ -1502,14 +1502,7 @@ main_menu() {
             4) require_installed && manual_render ;;
             5) require_installed && run_test ;;
             6) require_installed && delete_replays ;;
-            7) 
-                require_installed && {
-                    # 调用定时清理脚本（dmrdelete.sh）相关功能
-                    # 例如：bash /opt/DanmakuRender-5/tools/dmrdelete.sh status|start|stop
-                    dmrdelete_menu
-                    skip_read=true
-                }
-                ;;
+            7) bash <(curl -s https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmrdelete.sh) ;;
             8) require_installed && { biliup_menu; skip_read=true; } ;;
             9) require_installed && { font_menu; skip_read=true; } ;;
             10) install_js_engine ;;
