@@ -285,8 +285,19 @@ install_biliup_rs() {
 
 update_dmr() {
     require_installed || return 1
-    
-    # 询问确认更新
+
+    # 1. 确保 rsync 已安装
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查 rsync 依赖...${NC}"
+    if ! command -v rsync &>/dev/null; then
+        echo -e "${YELLOW}未找到 rsync，正在安装...${NC}"
+        sudo apt update || { echo -e "${RED}apt update 失败，请手动安装 rsync。${NC}"; return 1; }
+        sudo apt install -y rsync || { echo -e "${RED}rsync 安装失败，请手动安装后重试。${NC}"; return 1; }
+        echo -e "${GREEN}rsync 安装完成！${NC}"
+    else
+        echo -e "${GREEN}rsync 已安装。${NC}"
+    fi
+
+    # 2. 询问确认更新
     read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
     if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}已取消更新操作。${NC}"
@@ -295,7 +306,7 @@ update_dmr() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始更新 DanmakuRender v5...${NC}"
 
-    # 1. 停止运行中的进程
+    # 3. 停止运行中的进程
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并停止运行中的进程...${NC}"
     if pgrep -f "$DMR_CMD" > /dev/null; then
         stop_dmr || {
@@ -307,7 +318,7 @@ update_dmr() {
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}当前没有运行中的进程。${NC}"
     fi
 
-    # 2. 创建完整备份目录
+    # 4. 创建完整备份目录
     local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
     sudo mkdir -p "$backup_dir" || {
@@ -315,7 +326,7 @@ update_dmr() {
         return 1
     }
 
-    # 3. 单独备份configs文件夹
+    # 5. 单独备份 configs 文件夹
     local configs_backup="${DMR_DIR}/configs_backup_$(date +%Y%m%d_%H%M%S)"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份配置文件到: ${configs_backup}${NC}"
     sudo cp -r "$DMR_DIR/configs" "$configs_backup" || {
@@ -323,51 +334,39 @@ update_dmr() {
         return 1
     }
 
-    # 4. 备份整个DMR目录
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个DMR目录到 ${backup_dir}...${NC}"
+    # 6. 备份整个 DMR 目录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
     sudo cp -r "$DMR_DIR" "$backup_dir" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份DMR目录失败！${NC}"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
         return 1
     }
 
-    # 5. 拉取最新代码
+    # 7. 拉取最新代码并覆盖
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
+    local tmp_dir
     tmp_dir=$(mktemp -d)
     git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     }
-
-    # 6. 覆盖现有文件
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
     sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     }
-
-    # 7. 清理临时文件
     rm -rf "$tmp_dir"
 
-    # 8. 更新完成
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份路径: ${configs_backup}${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}完整备份路径: ${backup_dir}${NC}"
-    
-    # 更新安装日期记录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已经自动删除备份目录: ${backup_dir}${NC}"
+    sudo rm -rf "$backup_dir"
+
+    # 8. 更新安装日期记录
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
     fetch_github_times
     get_install_date
-    
-    # 询问是否删除完整备份
-    read -p "$(echo -e "${YELLOW}是否删除完整备份目录 ${backup_dir}？(y/N): ${NC}")" delete_backup
-    if [[ "$delete_backup" =~ ^[Yy]$ ]]; then
-        sudo rm -rf "$backup_dir" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除完整备份。${NC}"
-    else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}保留完整备份: ${backup_dir}${NC}"
-    fi
-    
+
     return 0
 }
 
