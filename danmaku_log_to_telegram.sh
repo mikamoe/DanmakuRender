@@ -1,131 +1,82 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# 日志文件路径
+# 定义日志文件路径
 LOG_FILE="/opt/DanmakuRender-5/nohup.out"
-# 存放后台进程 PID 的文件
-PID_FILE="/opt/DanmakuRender-5/telegram_log.pid"
 
-# 检查推送进程状态
-function is_running() {
-    if [[ -f "$PID_FILE" ]]; then
-        pid=$(<"$PID_FILE")
-        if kill -0 "$pid" &>/dev/null; then
-            echo "运行中 (PID=$pid)"
-            return 0
-        else
-            # 进程不存在则清理旧的 PID 文件
-            rm -f "$PID_FILE"
-        fi
+# 后台进程 PID
+BACKGROUND_PID=""
+
+# 函数：发送 Telegram 消息
+send_message() {
+    local message=$1
+    response=$(curl -s "https://api.telegram.org/bot$BOT_TOKEN/sendMessage?chat_id=$CHAT_ID&text=$message")
+    if echo "$response" | grep -q '"ok":true'; then
+        return 0
+    else
+        echo "发送消息失败: $response"
+        return 1
     fi
-    echo "已停止"
-    return 1
 }
 
-# 启动日志推送
-function start_push() {
-    is_running && {
-        echo "日志推送已经在运行，请先停止再重新启动。"
-        return
-    }
-
-    if [[ ! -e "$LOG_FILE" ]]; then
-        echo "找不到日志文件：$LOG_FILE"
-        return
+# 函数：显示菜单并指示状态
+show_menu() {
+    local status="未运行"
+    if [ -n "$BACKGROUND_PID" ] && kill -0 "$BACKGROUND_PID" 2>/dev/null; then
+        status="正在运行 (PID: $BACKGROUND_PID)"
     fi
-
-    # 获取 Bot Token
-    read -p "请输入 Telegram Bot Token（输入 0 返回菜单）: " TOKEN
-    [[ "$TOKEN" == "0" ]] && return
-    if [[ -z "$TOKEN" ]]; then
-        echo "Token 不能为空。"
-        return
-    fi
-    if [[ ! "$TOKEN" =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
-        echo "Token 格式不正确，请重新运行“启动”并输入正确的 Token。"
-        return
-    fi
-
-    # 获取 Chat ID
-    read -p "请输入 Chat ID（输入 0 返回菜单）: " CHAT_ID
-    [[ "$CHAT_ID" == "0" ]] && return
-    if [[ -z "$CHAT_ID" ]]; then
-        echo "Chat ID 不能为空。"
-        return
-    fi
-    if [[ ! "$CHAT_ID" =~ ^-?[0-9]+$ ]]; then
-        echo "Chat ID 应为纯数字，请重新运行“启动”并输入正确的 Chat ID。"
-        return
-    fi
-
-    echo "正在启动日志推送..."
-    nohup bash -c "
-        tail -n0 -F \"$LOG_FILE\" 2>/dev/null | \
-        while IFS= read -r line; do
-            [[ -z \"\$line\" ]] && continue
-            curl -s -X POST \"https://api.telegram.org/bot$TOKEN/sendMessage\" \
-                -d chat_id=\"$CHAT_ID\" \
-                -d text=\"\$(echo \"\$line\" | sed 's/\"/\\\"/g')\" \
-                >/dev/null
-        done
-    " >/dev/null 2>&1 &
-    bg_pid=$!
-    echo "$bg_pid" > "$PID_FILE"
-    echo "日志推送已启动 (PID=$bg_pid)"
+    echo "实时日志推送状态: $status"
+    echo "1. 启动实时日志推送到Telegram"
+    echo "2. 停止实时日志推送"
+    echo "0. 退出"
 }
 
-# 停止日志推送并清理
-function stop_push() {
-    if [[ ! -f "$PID_FILE" ]]; then
-        echo "未检测到推送进程，当前并未运行。"
-        return
-    fi
-
-    pid=$(<"$PID_FILE")
-    echo "正在停止日志推送 (主进程 PID=$pid)..."
-
-    # 杀死主进程
-    kill "$pid" 2>/dev/null
-
-    # 等待一小段时间，让子进程响应
-    sleep 1
-
-    # 杀死所有以该 PID 为父进程的子进程
-    pkill -P "$pid" 2>/dev/null
-
-    # 检查主进程是否仍然存在，若存在则强制杀死
-    if kill -0 "$pid" &>/dev/null; then
-        kill -9 "$pid" 2>/dev/null
-    fi
-
-    # 再次清理任何残留的子进程
-    pkill -9 -P "$pid" 2>/dev/null
-
-    # 清理 PID 文件
-    rm -f "$PID_FILE"
-    echo "日志推送已停止"
-}
-
-# 主菜单循环
+# 主循环，提供交互菜单
 while true; do
-    status=$(is_running)
-    cat <<EOF
+    show_menu
+    read -p "请输入您的选择: " choice
 
-===============================
-  实时日志推送到 Telegram
-  当前状态：$status
-===============================
-  1) 启动实时推送
-  2) 停止实时推送
-  0) 退出
--------------------------------
-请选择操作 [0-2]:
-EOF
+    case $choice in
+        1)
+            # 检查是否已有推送进程运行
+            if [ -n "$BACKGROUND_PID" ] && kill -0 "$BACKGROUND_PID" 2>/dev/null; then
+                echo "日志推送已在运行。"
+            else
+                # 交互询问 Bot Token 和 Chat ID
+                read -p "请输入 Bot Token: " BOT_TOKEN
+                read -p "请输入 Chat ID: " CHAT_ID
 
-    read -p "> " choice
-    case "$choice" in
-        1) start_push ;;
-        2) stop_push ;;
-        0) exit 0 ;;
-        *) echo "请输入有效选项 0、1 或 2。" ;;
+                # 发送测试消息验证输入
+                if send_message "测试消息"; then
+                    # 启动后台进程推送日志
+                    (
+                        tail -f "$LOG_FILE" | while read line; do
+                            curl -s "https://api.telegram.org/bot$BOT_TOKEN/sendMessage?chat_id=$CHAT_ID&text=$line"
+                        done
+                    ) &
+                    BACKGROUND_PID=$!
+                    echo "日志推送已启动。"
+                else
+                    echo "启动失败，请检查 Bot Token 和 Chat ID 是否正确。"
+                fi
+            fi
+            ;;
+        2)
+            # 检查是否有推送进程可停止
+            if [ -n "$BACKGROUND_PID" ] && kill -0 "$BACKGROUND_PID" 2>/dev/null; then
+                send_message "日志推送已停止"
+                kill "$BACKGROUND_PID"
+                BACKGROUND_PID=""
+                echo "日志推送已停止。"
+            else
+                echo "没有正在运行的日志推送进程。"
+            fi
+            ;;
+        0)
+            echo "退出脚本。"
+            break
+            ;;
+        *)
+            echo "无效的选择，请重新输入。"
+            ;;
     esac
 done
