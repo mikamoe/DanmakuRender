@@ -1,7 +1,7 @@
 ## DanmakuRender Script
 - 由Claude生成.优化
 - 适用于**Debian/Ubuntu**
-- 一键安装/卸载,启动/停止录制
+- 快捷安装/卸载,启动/停止录制/快速上传
 - ~~其实Docker构建更方便~~
 - 最近在学习Next.js 和 Go
 - 其实有想法写个图形化web端的 更方便！
