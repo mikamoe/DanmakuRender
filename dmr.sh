@@ -767,20 +767,30 @@ push_log_telegram() {
 
     if [ -f "$script" ]; then
         # 获取本地脚本修改时间
-        local local_epoch=$(stat -c %Y "$script")
+        local local_epoch
+        local_epoch=$(stat -c %Y "$script" 2>/dev/null || echo 0)
+
         # 获取远程仓库最新提交时间
         local raw_time
-        raw_time=$(curl -sfL "https://api.github.com/repos/sillda76/DanmakuRender/commits/v5" | jq -r '.commit.commit.author.date')
-        local remote_epoch=$(date -d "$raw_time" +%s)
+        raw_time=$(curl -sfL "https://api.github.com/repos/sillda76/DanmakuRender/commits/v5" \
+                   | jq -r '.commit.commit.author.date // empty')
 
-        if [ "$local_epoch" -lt "$remote_epoch" ]; then
-            echo -e "${YELLOW}检测到远程脚本有更新，是否重新下载？${NC}"
-            echo " 1) 是"
-            echo " 2) 否"
-            read -p "请选择 (1/2): " opt
-            if [ "$opt" = "1" ]; then
-                echo -e "${BLUE}[INFO] 下载最新脚本...${NC}"
-                curl -sfL "$url" -o "$script" && chmod +x "$script"
+        if [[ -z "$raw_time" ]]; then
+            echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法获取远程脚本的提交时间，跳过更新检查。"
+        else
+            # 只有在 raw_time 有效时才转换并比较
+            local remote_epoch
+            remote_epoch=$(date -d "$raw_time" +%s 2>/dev/null || echo 0)
+
+            if [[ "$local_epoch" -lt "$remote_epoch" ]]; then
+                echo -e "${YELLOW}检测到远程脚本有更新，是否重新下载？${NC}"
+                echo " 1) 是"
+                echo " 2) 否"
+                read -p "请选择 (1/2): " opt
+                if [ "$opt" = "1" ]; then
+                    echo -e "${BLUE}[INFO] 下载最新脚本...${NC}"
+                    curl -sfL "$url" -o "$script" && chmod +x "$script"
+                fi
             fi
         fi
     else
