@@ -3,6 +3,9 @@
 - 适用于**Debian/Ubuntu**
 - 一键安装/卸载,启动/停止录制
 - ~~其实Docker构建更方便~~
+- 最近在学习Next.js 和 Go
+- 其实有想法写个图形化web端的 更方便！
+- ~~但是懒~~
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
