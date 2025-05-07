@@ -24,14 +24,15 @@ DanmakuRender v5 管理脚本
 1. 安装 DanmakuRender v5
 2. 停止 录制进程
 3. 查看 实时日志 (按 'q' 退出)
-4. 手动渲染 视频 (render_only.py)
-5. 运行测试 (dryrun.py)
-6. 删除 回放/渲染的视频文件
-7. biliup-rs 上传工具菜单
-8. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
-9. 安装 JavaScript 环境 (Node.js + quickjs)
-10.更新 DanmakuRender v5 (保留配置)
-11.卸载 DanmakuRender v5
+4. 实时推送日志到 Telegram
+5. 手动渲染 视频 (render_only.py)
+6. 运行测试 (dryrun.py)
+7. 删除 回放/渲染的视频文件
+8. biliup-rs 上传工具菜单
+9. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
+10.安装 JavaScript 环境 (Node.js + quickjs)
+11.更新 DanmakuRender v5 (保留配置)
+12.卸载 DanmakuRender v5
 0. 退出 脚本
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 请输入选项喵~ (0-11):
