@@ -729,28 +729,71 @@ stop_dmr() {
     fi
 }
 
-
-# 实时查看日志，支持按 q 键退出
+# ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
-    
-    # 使用 tail -n 50 -F 查看最后 50 行并实时跟踪
-    tail -n 50 -F "$DMR_DIR/$LOG_FILE" & 
-    tail_pid=$!
-    
-    # 捕获用户输入（按 q 退出）
-    while read -t 1 -n 1 input; do
-        if [[ "$input" == "q" ]]; then
+
+    # 使用 tail -F 实时跟踪日志
+    tail -n 50 -F "$DMR_DIR/$LOG_FILE" &
+    local tail_pid=$!
+
+    # 切换终端到无缓冲模式，实时读取单字符
+    stty -echo -icanon time 0 min 0
+    while true; do
+        # 读取一个字符（如果有）
+        IFS= read -r -n1 key
+        if [[ $key == "q" ]]; then
             kill "$tail_pid" 2>/dev/null
             break
         fi
+        # 如果 tail 进程已经退出，也结束循环
+        if ! ps -p "$tail_pid" > /dev/null; then
+            break
+        fi
     done
-    
-    # 如果 tail 进程意外退出，也退出脚本
+    # 恢复终端设置
+    stty echo icanon
     wait "$tail_pid" 2>/dev/null
-    if ! ps -p "$tail_pid" > /dev/null; then
-        echo -e "${RED}[INFO]${NC} 日志查看已结束。${NORMAL}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志查看已退出。"
+}
+
+# ===================== 实时推送日志到 Telegram =====================
+push_log_telegram() {
+    require_installed || return 1
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}实时推送日志到 Telegram${NC}"
+    local script="$DMR_DIR/danmaku_log_to_telegram.sh"
+    local url="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/danmaku_log_to_telegram.sh"
+
+    if [ -f "$script" ]; then
+        # 获取本地脚本修改时间
+        local local_epoch=$(stat -c %Y "$script")
+        # 获取远程仓库最新提交时间
+        local raw_time
+        raw_time=$(curl -sfL "https://api.github.com/repos/sillda76/DanmakuRender/commits/v5" | jq -r '.commit.commit.author.date')
+        local remote_epoch=$(date -d "$raw_time" +%s)
+
+        if [ "$local_epoch" -lt "$remote_epoch" ]; then
+            echo -e "${YELLOW}检测到远程脚本有更新，是否重新下载？${NC}"
+            echo " 1) 是"
+            echo " 2) 否"
+            read -p "请选择 (1/2): " opt
+            if [ "$opt" = "1" ]; then
+                echo -e "${BLUE}[INFO] 下载最新脚本...${NC}"
+                curl -sfL "$url" -o "$script" && chmod +x "$script"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}未找到脚本，正在下载...${NC}"
+        curl -sfL "$url" -o "$script" && chmod +x "$script"
+    fi
+
+    if [ -f "$script" ] && [ -x "$script" ]; then
+        echo -e "${GREEN}执行推送脚本：$script${NC}"
+        "$script"
+    else
+        echo -e "${RED}脚本下载或权限设置失败，无法执行！${NC}"
+        return 1
     fi
 }
 
@@ -1469,13 +1512,13 @@ require_installed() {
     return 0
 }
 
+# ===================== 主菜单 =====================
 main_menu() {
     echo "正在初始化脚本，请稍候..."
-    check_dependencies || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}依赖检查或安装失败，脚本无法继续。请检查错误信息并手动安装所需工具 (jq, curl, git)。${NC}"; exit 1; }
+    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
     fetch_github_times
     get_install_date
 
-    local skip_read=false
     while true; do
         show_header
         show_status
@@ -1488,73 +1531,50 @@ main_menu() {
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
         fi
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境 (Node.js + quickjs)"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC}${NORMAL} DanmakuRender v5 (保留配置)"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC}${NORMAL} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PINK}实时推送日志到 Telegram${NC}"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL} ${YELLOW}更新${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL} ${RED}卸载${NC} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        skip_read=false
-        read -p "$(echo -e "${CYAN}请输入选项喵~ (0-11): ${NC}")" choice
-
+        read -p "$(echo -e "${CYAN}请输入选项 (0-12): ${NC}")" choice
         case $choice in
             1) install_dmr ;;
             2)
-                if require_installed; then
+                require_installed && {
                     if pgrep -f "$DMR_CMD" > /dev/null; then
                         stop_dmr
                     else
                         if ! check_config; then
-                            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
+                            echo -e "${RED}配置文件检查失败！请配置 ${DMR_DIR}/configs/ 下的 *DMR* 文件。${NC}"
                         else
-                            python_version=$(get_python_version)
-                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本： ${GREEN}${python_version}${NC}"
                             start_dmr
                         fi
                     fi
-                fi
+                }
                 ;;
-            3)
-                require_installed && { view_log; skip_read=true; }
-                ;;
-            4)
-                require_installed && manual_render
-                ;;
-            5)
-                require_installed && run_test
-                ;;
-            6)
-                require_installed && delete_replays
-                ;;
-            7)
-                require_installed && { biliup_menu; skip_read=true; }
-                ;;
-            8)
-                require_installed && { font_menu; skip_read=true; }
-                ;;
-            9) install_js_engine ;;
-            10)
-                require_installed && { update_dmr; fetch_github_times; get_install_date; }
-                ;;
-            11)
-                require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; }
-                ;;
+            3) view_log ;;
+            4) push_log_telegram ;;
+            5) require_installed && manual_render ;;
+            6) require_installed && run_test ;;
+            7) require_installed && delete_replays ;;
+            8) require_installed && biliup_menu ;;
+            9) require_installed && font_menu ;;
+            10) install_js_engine ;;
+            11) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
+            12) require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; } ;;
             0) echo -e "${YELLOW}退出脚本${NC}"; exit 0 ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$choice'！请输入 0 到 11 之间的数字。${NC}";;
+            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 12。${NC}" ;;
         esac
 
-        if [ "$skip_read" = false ]; then
-            echo
-            read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
-            echo
-        fi
+        echo
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
+        echo
     done
 }
-
-# ===================== 脚本入口 =====================
-main_menu
