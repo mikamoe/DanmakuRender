@@ -326,8 +326,17 @@ update_dmr() {
         return 1
     }
 
-    # 5. 单独备份 configs 文件夹
-    local configs_backup="${DMR_DIR}/configs_backup_$(date +%Y%m%d_%H%M%S)"
+    # 5. 单独备份 configs 文件夹：先在主目录下的 configs_backups 目录里创建时间戳子目录
+    local configs_backup_root="${DMR_DIR}/configs_backups"
+    local timestamp="$(date +%Y%m%d_%H%M%S)"
+    local configs_backup="${configs_backup_root}/configs_backup_${timestamp}"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 configs 备份根目录（若不存在）: ${configs_backup_root}${NC}"
+    sudo mkdir -p "$configs_backup_root" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 configs_backups 根目录失败！${NC}"
+        return 1
+    }
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份配置文件到: ${configs_backup}${NC}"
     sudo cp -r "$DMR_DIR/configs" "$configs_backup" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份配置文件失败！${NC}"
@@ -359,39 +368,16 @@ update_dmr() {
     rm -rf "$tmp_dir"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已经自动删除备份目录: ${backup_dir}${NC}"
-    sudo rm -rf "$backup_dir"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份存放于：${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新前的所有项目备份目录已自动删除: ${backup_dir}${NC}"
 
-    # 8. 更新安装日期记录
+    # 8. 删除完整备份并刷新安装日期
+    sudo rm -rf "$backup_dir"
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
     fetch_github_times
     get_install_date
 
     return 0
-}
-
-rollback_update() {
-    local backup_dir="$1"
-    local configs_backup="$2"
-    
-    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}更新过程中出现错误，正在回滚...${NC}"
-    
-    # 恢复DMR目录
-    if [ -d "$backup_dir/DanmakuRender-5" ]; then
-        echo -e "${YELLOW}恢复DMR目录...${NC}"
-        sudo rm -rf "$DMR_DIR" && sudo mv "$backup_dir/DanmakuRender-5" "$DMR_DIR"
-    fi
-    
-    # 恢复configs
-    if [ -d "$configs_backup" ]; then
-        echo -e "${YELLOW}恢复configs目录...${NC}"
-        sudo rm -rf "$DMR_DIR/configs" && sudo mv "$configs_backup" "$DMR_DIR/configs"
-    fi
-    
-    # 删除备份目录
-    sudo rm -rf "$backup_dir"
-    
-    echo -e "${YELLOW}回滚完成。${NC}"
 }
 
 install_dmr() {
