@@ -116,6 +116,34 @@ rollback_installation() {
     fi
 }
 
+# ===================== 回滚更新（恢复备份） =====================  # <<< 修改点 >>>
+rollback_update() {
+    local backup_dir="$1"
+    local configs_backup="$2"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新失败，正在回滚更新...${NC}"
+
+    # 删除可能已拉下来的新目录
+    if [ -d "$DMR_DIR" ]; then
+        sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除临时目录：$DMR_DIR${NC}"
+    fi
+
+    # 恢复整个项目备份
+    if [ -d "$backup_dir" ]; then
+        sudo mv "$backup_dir" "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已恢复项目目录：$DMR_DIR${NC}"
+    else
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到备份目录：$backup_dir，回滚失败！${NC}"
+    fi
+
+    # 恢复 configs（如果存在）
+    if [ -d "$configs_backup" ]; then
+        sudo rm -rf "$DMR_DIR/configs" 2>/dev/null
+        sudo mv "$configs_backup" "$DMR_DIR/configs" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已恢复配置文件：$DMR_DIR/configs${NC}"
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 回滚完成，请检查后重试。"
+}
+
 check_config() {
     if [ ! -d "$DMR_DIR/configs" ]; then
         return 1
@@ -202,7 +230,6 @@ check_install_tools() {
     return 0
 }
 
-
 install_biliup_rs() {
     sudo mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"; return 1; }
     pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败: $BILIUP_DIR${NC}"; return 1; }
@@ -283,6 +310,7 @@ install_biliup_rs() {
     return 0
 }
 
+# ===================== 更新 DanmakuRender v5 =====================
 update_dmr() {
     require_installed || return 1
 
@@ -326,7 +354,7 @@ update_dmr() {
         return 1
     }
 
-    # 5. 单独备份 configs 文件夹：先在主目录下的 configs_backups 目录里创建时间戳子目录
+    # 5. 单独备份 configs 文件夹
     local configs_backup_root="${DMR_DIR}/configs_backups"
     local timestamp="$(date +%Y%m%d_%H%M%S)"
     local configs_backup="${configs_backup_root}/configs_backup_${timestamp}"
@@ -354,17 +382,18 @@ update_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！${NC}"
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！请检查网络、权限或仓库地址/分支。${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
-    }
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
-    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" || {
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
-    }
+    fi
     rm -rf "$tmp_dir"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
