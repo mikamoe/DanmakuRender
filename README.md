@@ -46,7 +46,7 @@ DanmakuRender v5 管理脚本
 /opt/DanmakuRender-v5/tools
 ```
 
-### [biliup-rs](https://github.com/biliup/biliup-rs)
+### [biliup-rs项目地址](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
 ---
