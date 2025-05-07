@@ -734,19 +734,26 @@ stop_dmr() {
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
-    tail -f "$DMR_DIR/$LOG_FILE" & pid=$!
-    while true; do
-        if read -t 1 -n 1; then
-            if [[ $REPLY == "q" ]]; then
-                kill $pid 2>/dev/null
-                break
-            fi
-        fi
-        if ! ps -p $pid > /dev/null; then
+    
+    # 使用 tail -n 50 -F 查看最后 50 行并实时跟踪
+    tail -n 50 -F "$DMR_DIR/$LOG_FILE" & 
+    tail_pid=$!
+    
+    # 捕获用户输入（按 q 退出）
+    while read -t 1 -n 1 input; do
+        if [[ "$input" == "q" ]]; then
+            kill "$tail_pid" 2>/dev/null
             break
         fi
     done
+    
+    # 如果 tail 进程意外退出，也退出脚本
+    wait "$tail_pid" 2>/dev/null
+    if ! ps -p "$tail_pid" > /dev/null; then
+        echo -e "${RED}[INFO]${NC} 日志查看已结束。${NORMAL}"
+    fi
 }
+
 
 run_test() {
     require_installed || return 1
