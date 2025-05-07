@@ -1537,9 +1537,9 @@ main_menu() {
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}字体${NC} 安装菜单"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL} ${YELLOW}更新${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL} ${RED}卸载${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${LIGHT_BLUE}安装${NC} JavaScript 环境"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
