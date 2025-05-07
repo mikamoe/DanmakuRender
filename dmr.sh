@@ -1578,3 +1578,5 @@ main_menu() {
         echo
     done
 }
+
+main_menu
