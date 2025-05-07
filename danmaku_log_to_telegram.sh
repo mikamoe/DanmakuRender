@@ -81,20 +81,21 @@ function stop_push() {
     fi
 
     pid=$(<"$PID_FILE")
-    if kill -0 "$pid" &>/dev/null; then
-        echo "正在停止日志推送 (PID=$pid)..."
-        kill "$pid"
-        sleep 1
-        if kill -0 "$pid" &>/dev/null; then
-            kill -9 "$pid"
-        fi
-        echo "日志推送已停止"
-    else
-        echo "进程 $pid 不存在，已清理旧记录。"
-    fi
+    echo "正在停止日志推送 (主进程 PID=$pid)..."
+    # 先杀父进程
+    kill "$pid" 2>/dev/null
+
+    # 再杀掉所有以该父进程为 PPID 的子进程
+    pkill -P "$pid" 2>/dev/null
+
+    sleep 1
+    # 如果仍有残余，强制清理
+    kill -9 "$pid" 2>/dev/null
+    pkill -9 -P "$pid" 2>/dev/null
 
     # 清理残留 PID 文件
     rm -f "$PID_FILE"
+    echo "日志推送已停止"
 }
 
 # 主菜单循环
@@ -117,7 +118,7 @@ EOF
     case "$choice" in
         1) start_push ;;
         2) stop_push ;;
-        0) echo "已退出。"; exit 0 ;;
+        0) exit 0 ;;
         *) echo "请输入有效选项 0、1 或 2。" ;;
     esac
 done
