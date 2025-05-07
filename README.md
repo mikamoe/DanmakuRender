@@ -37,11 +37,16 @@ DanmakuRender v5 管理脚本
 请输入选项喵~ (0-11):
 ```
 ### 安装的目录如下
+#### DanmakuRender-v5
 ```
 /opt/DanmakuRender-v5
 ```
+#### biliup-rs
+```
+/opt/DanmakuRender-v5/tools
+```
 
-##### [biliup-rs](https://github.com/biliup/biliup-rs)
+### [biliup-rs](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
 ---
