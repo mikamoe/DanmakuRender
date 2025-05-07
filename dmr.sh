@@ -763,22 +763,22 @@ push_log_telegram() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}实时推送日志到 Telegram${NC}"
     local script="$DMR_DIR/danmaku_log_to_telegram.sh"
-    local url="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/danmaku_log_to_telegram.sh"
+    local file_path="danmaku_log_to_telegram.sh"  # 仓库中脚本的路径
+    local repo_url="https://api.github.com/repos/sillda76/DanmakuRender/commits?path=$file_path&sha=v5"
 
     if [ -f "$script" ]; then
         # 获取本地脚本修改时间
         local local_epoch
         local_epoch=$(stat -c %Y "$script" 2>/dev/null || echo 0)
 
-        # 获取远程仓库最新提交时间
+        # 获取远程仓库中该文件的最新提交时间
         local raw_time
-        raw_time=$(curl -sfL "https://api.github.com/repos/sillda76/DanmakuRender/commits/v5" \
-                   | jq -r '.commit.commit.author.date // empty')
+        raw_time=$(curl -sfL "$repo_url" | jq -r '.[0].commit.author.date // empty')
 
         if [[ -z "$raw_time" ]]; then
             echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法获取远程脚本的提交时间，跳过更新检查。"
         else
-            # 只有在 raw_time 有效时才转换并比较
+            # 转换时间为 epoch
             local remote_epoch
             remote_epoch=$(date -d "$raw_time" +%s 2>/dev/null || echo 0)
 
@@ -789,13 +789,13 @@ push_log_telegram() {
                 read -p "请选择 (1/2): " opt
                 if [ "$opt" = "1" ]; then
                     echo -e "${BLUE}[INFO] 下载最新脚本...${NC}"
-                    curl -sfL "$url" -o "$script" && chmod +x "$script"
+                    curl -sfL "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/$file_path" -o "$script" && chmod +x "$script"
                 fi
             fi
         fi
     else
         echo -e "${YELLOW}未找到脚本，正在下载...${NC}"
-        curl -sfL "$url" -o "$script" && chmod +x "$script"
+        curl -sfL "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/$file_path" -o "$script" && chmod +x "$script"
     fi
 
     if [ -f "$script" ] && [ -x "$script" ]; then
