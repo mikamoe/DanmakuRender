@@ -82,18 +82,25 @@ function stop_push() {
 
     pid=$(<"$PID_FILE")
     echo "正在停止日志推送 (主进程 PID=$pid)..."
-    # 先杀父进程
+
+    # 杀死主进程
     kill "$pid" 2>/dev/null
 
-    # 再杀掉所有以该父进程为 PPID 的子进程
+    # 等待一小段时间，让子进程响应
+    sleep 1
+
+    # 杀死所有以该 PID 为父进程的子进程
     pkill -P "$pid" 2>/dev/null
 
-    sleep 1
-    # 如果仍有残余，强制清理
-    kill -9 "$pid" 2>/dev/null
+    # 检查主进程是否仍然存在，若存在则强制杀死
+    if kill -0 "$pid" &>/dev/null; then
+        kill -9 "$pid" 2>/dev/null
+    fi
+
+    # 再次清理任何残留的子进程
     pkill -9 -P "$pid" 2>/dev/null
 
-    # 清理残留 PID 文件
+    # 清理 PID 文件
     rm -f "$PID_FILE"
     echo "日志推送已停止"
 }
