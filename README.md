@@ -21,15 +21,14 @@ DanmakuRender v5 管理脚本
 1. 安装 DanmakuRender v5
 2. 停止 录制进程
 3. 查看 实时日志 (按 'q' 退出)
-4. 实时推送日志到 Telegram
-5. 手动渲染 视频 (render_only.py)
-6. 运行测试 (dryrun.py)
-7. 删除 回放/渲染的视频文件
-8. biliup-rs 上传工具菜单
-9. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
-10.安装 JavaScript 环境 (Node.js + quickjs)
-11.更新 DanmakuRender v5 (保留配置)
-12.卸载 DanmakuRender v5
+4. 手动渲染 视频 (render_only.py)
+5. 运行测试 (dryrun.py)
+6. 删除 回放/渲染的视频文件
+7. biliup-rs 上传工具菜单
+8. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
+9.安装 JavaScript 环境 (Node.js + quickjs)
+10.更新 DanmakuRender v5 (保留配置)
+11.卸载 DanmakuRender v5
 0. 退出 脚本
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 请输入选项喵~ (0-11):
@@ -43,7 +42,33 @@ DanmakuRender v5 管理脚本
 ```
 /opt/DanmakuRender-v5/tools
 ```
+### 逻辑分解（启动/停止录制进程）
+```bash
+# 逻辑流程：
+1. 检查是否已安装 (require_installed)
+   → 未安装则退出
 
+2. 检查当前进程状态：
+   - 如果正在运行 (pgrep -f "python3 main.py")：
+     → 调用 stop_dmr() 停止进程
+   - 如果未运行：
+     → 检查配置文件有效性 (check_config)
+       → 无效则报错退出
+     → 调用 start_dmr() 启动进程
+
+# start_dmr() 关键步骤：
+- 进入工作目录 (/opt/DanmakuRender-5)
+- 激活 Python 虚拟环境 (source venv/bin/activate)
+- 用 nohup 后台启动：  
+  `nohup python3 main.py > nohup.out 2>&1 &`
+- 记录 PID 到文件 (dmr.pid)
+- 实时显示日志（按 q 退出）
+
+# stop_dmr() 关键步骤：
+- 尝试通过 PID 文件停止进程
+- 失败则用 pkill 强制停止
+- 删除 PID 文件
+```
 ### [biliup-rs项目地址](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
