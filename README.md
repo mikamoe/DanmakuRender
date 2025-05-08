@@ -26,7 +26,7 @@ DanmakuRender v5 管理脚本
 6. 删除 回放/渲染的视频文件
 7. biliup-rs 上传工具菜单
 8. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
-9.安装 JavaScript 环境 (Node.js + quickjs)
+9. 安装 JavaScript 环境 (Node.js + quickjs)
 10.更新 DanmakuRender v5 (保留配置)
 11.卸载 DanmakuRender v5
 0. 退出 脚本
