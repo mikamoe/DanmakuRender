@@ -23,7 +23,7 @@ DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
 
 # 字体下载链接配置（使用 GitHub raw 链接）
 FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
-FONT_ALIBABA_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-65-Medium.ttf"
+FONT_ALIBABA_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
 
 # ANSI 颜色和样式设置
 RED='\033[0;31m'
@@ -959,7 +959,7 @@ install_alibaba_fonts() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装阿里巴巴普惠体和 Emoji ---${NC}"
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
-    local ali_path="${ali_dir}/AlibabaPuHuiTi-3-65-Medium.ttf"
+    local ali_path="${ali_dir}/AlibabaPuHuiTi-3-85-Bold.ttf"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查阿里巴巴普惠体...${NC}"
     if [ -f "$ali_path" ] && fc-list | grep -q "Alibaba PuHuiTi"; then
         echo -e "${GREEN}阿里巴巴普惠体已安装。${NC}"
