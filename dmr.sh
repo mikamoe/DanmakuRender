@@ -892,123 +892,182 @@ delete_replays() {
 }
 
 
-# ===================== 字体安装相关函数 =====================
+# 字体下载链接（请放到脚本开头或合适位置）
+FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
+FONT_ALIBABA_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
+FONT_SEGUIEMJ_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/seguiemj.ttf"
+FONT_NOTO_EMOJI_URL="https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf"
 
-install_fonts_package() {
-    local font_name="$1"
-    local font_pkg="$2"
-    if ! dpkg -s "$font_pkg" &> /dev/null; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 apt 安装 ${font_name} 字体包 (${font_pkg})...${NC}"
-        sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续安装..."
-        sudo apt install -y "$font_pkg" || {
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装 ${font_name} 字体包 (${font_pkg}) 失败！${NC}"
-            return 1
-        }
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 安装成功。${NC}"
-    else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}${font_name} 字体包 (${font_pkg}) 已安装。${NC}"
-    fi
-    return 0
-}
-
-# 新增：Option 3 的 Noto 全家桶安装
-install_noto_group() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装 Noto 全家桶（包括 Emoji） ---${NC}"
-    sudo apt update || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} apt update 失败，尝试继续..."
-    sudo apt install -y fonts-noto fonts-noto-extra fonts-noto-cjk fonts-symbola fonts-noto-color-emoji || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}安装 Noto 全家桶失败！${NC}"
-        return 1
-    }
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Noto 全家桶安装完成！${NC}"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在刷新系统字体缓存 (fc-cache)...${NC}"
-    sudo fc-cache -fv > /dev/null 2>&1 || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 刷新字体缓存失败！"
-    echo -e "${PURPLE}----------------------------------------------${NC}"
-    return 0
-}
-
-# Option 1：安装/检查 微软雅黑 + Emoji，再安装 Noto 全家桶
-install_fonts() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装微软雅黑和 Emoji ---${NC}"
-    local ms_font_dir="/usr/share/fonts/truetype/microsoft"
-    local ms_font_path="${ms_font_dir}/msyh.ttf"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查微软雅黑字体...${NC}"
-    if [ -f "$ms_font_path" ] && fc-list | grep -q "Microsoft YaHei"; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}微软雅黑字体已安装。${NC}"
-    else
-        echo -e "${YELLOW}微软雅黑未检测到，开始下载...${NC}"
-        sudo mkdir -p "$ms_font_dir"
-        local tmp="/tmp/msyh.ttf"
-        wget -O "$tmp" "$FONT_MSYH_URL" || { echo -e "${RED}下载失败！${NC}"; rm -f "$tmp"; return 1; }
-        sudo mv "$tmp" "$ms_font_path" && sudo chmod 644 "$ms_font_path"
-        echo -e "${GREEN}微软雅黑安装完成！${NC}"
-    fi
-
-    # 原有 Emoji 安装逻辑
-    local noto_emoji_pkg="fonts-noto-color-emoji"
-    install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
-
-    # 新增：再安装 Noto 全家桶
-    install_noto_group
-    return 0
-}
-
-# Option 2：安装/检查 阿里巴巴普惠体 + Emoji，再安装 Noto 全家桶
-install_alibaba_fonts() {
-    require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${PURPLE}--- 开始安装阿里巴巴普惠体和 Emoji ---${NC}"
-    local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
-    local ali_path="${ali_dir}/AlibabaPuHuiTi-3-85-Bold.ttf"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查阿里巴巴普惠体...${NC}"
-    if [ -f "$ali_path" ] && fc-list | grep -q "Alibaba PuHuiTi"; then
-        echo -e "${GREEN}阿里巴巴普惠体已安装。${NC}"
-    else
-        echo -e "${YELLOW}阿里巴巴普惠体未检测到，开始下载...${NC}"
-        sudo mkdir -p "$ali_dir"
-        local tmp="/tmp/AlibabaPuHuiTi.ttf"
-        wget -O "$tmp" "$FONT_ALIBABA_URL" || { echo -e "${RED}下载失败！${NC}"; rm -f "$tmp"; return 1; }
-        sudo mv "$tmp" "$ali_path" && sudo chmod 644 "$ali_path"
-        echo -e "${GREEN}阿里巴巴普惠体安装完成！${NC}"
-    fi
-
-    # 原有 Emoji 安装逻辑
-    local noto_emoji_pkg="fonts-noto-color-emoji"
-    install_fonts_package "Noto Color Emoji" "$noto_emoji_pkg" || return 1
-
-    # 新增：再安装 Noto 全家桶
-    install_noto_group
-    return 0
-}
-
-# Option 3：仅安装 Noto 全家桶（含 Emoji）
-install_noto_group_wrapper() {
-    install_noto_group
-}
-
-
+# ================= 字体安装子菜单 =================
 font_menu() {
     require_installed || return 1
+
+    # 顶部提示
+    echo -e "${CYAN}※ 字体将安装在 /usr/share/fonts/truetype 目录及其子目录下${NC}"
+
     while true; do
         clear
         echo -e "\n${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} 安装/检查 ${GREEN}微软雅黑 + Emoji${NC}，并安装 Noto 全家桶"
-        echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} 安装/检查 ${GREEN}阿里巴巴普惠体 + Emoji${NC}，并安装 Noto 全家桶"
-        echo -e " ${BLUE}${BOLD}3.${NC}${NORMAL} 安装/检查 ${GREEN}Noto 全家桶（含 Emoji）${NC}"
-        echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo -e " ${BLUE}${BOLD}1.${NC} 安装/检查 ${GREEN}微软雅黑 + Emoji 相关字体${NC}"
+        echo -e " ${BLUE}${BOLD}2.${NC} 安装/检查 ${GREEN}阿里巴巴普惠体 + Emoji 相关字体${NC}"
+        echo -e " ${BLUE}${BOLD}3.${NC} 仅安装/检查 ${GREEN}Emoji 相关字体${NC}"
+        echo -e " ${BLUE}${BOLD}0.${NC} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
         case $font_choice in
             1) install_fonts ;;
             2) install_alibaba_fonts ;;
-            3) install_noto_group_wrapper ;;
+            3) install_emoji_fonts ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
-            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$font_choice'！请输入 0 到 3。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$font_choice'！请输入 0-3。${NC}" ;;
         esac
-        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键继续...${NC}")"
         echo
     done
+}
+
+# ================= 选项1：微软雅黑 + Emoji 相关字体 =================
+install_fonts() {
+    read -p "是否确认安装 微软雅黑 + Emoji 相关字体？(y/N): " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { echo "已取消安装。"; return 0; }
+
+    # 1. 微软雅黑
+    echo -e "\n--- 检查 微软雅黑 ---"
+    ms_dir="/usr/share/fonts/truetype/microsoft"
+    ms_path="$ms_dir/msyh.ttf"
+    if fc-list | grep -qi "Microsoft YaHei"; then
+        echo "已检测到 微软雅黑。"
+    else
+        echo "未检测到 微软雅黑，正在下载并安装..."
+        sudo mkdir -p "$ms_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_MSYH_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$ms_path"
+        sudo chmod 644 "$ms_path"
+        echo "微软雅黑 安装完成。"
+    fi
+
+    # 2. Segoe UI Emoji
+    echo -e "\n--- 检查 Segoe UI Emoji ---"
+    seg_path="$ms_dir/seguiemj.ttf"
+    if fc-list | grep -qi "Segoe UI Emoji"; then
+        echo "已检测到 Segoe UI Emoji。"
+    else
+        echo "未检测到 Segoe UI Emoji，正在下载并安装..."
+        sudo mkdir -p "$ms_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_SEGUIEMJ_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$seg_path"
+        sudo chmod 644 "$seg_path"
+        echo "Segoe UI Emoji 安装完成。"
+    fi
+
+    # 3. Noto Color Emoji
+    echo -e "\n--- 检查 Noto Color Emoji ---"
+    noto_dir="/usr/share/fonts/truetype/noto-emoji"
+    noto_path="$noto_dir/NotoColorEmoji.ttf"
+    if fc-list | grep -qi "Noto Color Emoji"; then
+        echo "已检测到 Noto Color Emoji。"
+    else
+        echo "未检测到 Noto Color Emoji，正在下载并安装..."
+        sudo mkdir -p "$noto_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_NOTO_EMOJI_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$noto_path"
+        sudo chmod 644 "$noto_path"
+        echo "Noto Color Emoji 安装完成。"
+    fi
+
+    # 4. Symbola
+    echo -e "\n--- 检查 Symbola ---"
+    if dpkg -s fonts-symbola &>/dev/null; then
+        echo "已检测到 fonts-symbola。"
+    else
+        echo "未检测到 fonts-symbola，正在安装..."
+        sudo apt update && sudo apt install -y fonts-symbola || { echo "安装失败！"; return 1; }
+        echo "fonts-symbola 安装完成。"
+    fi
+
+    # 刷新缓存
+    echo -e "\n刷新字体缓存..."
+    sudo fc-cache -fv > /dev/null
+    echo -e "${GREEN}所有字体安装/检查完毕。${NC}"
+}
+
+# ================ 选项2：阿里巴巴普惠体 + Emoji 相关字体 ================
+install_alibaba_fonts() {
+    read -p "是否确认安装 阿里巴巴普惠体 + Emoji 相关字体？(y/N): " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { echo "已取消安装。"; return 0; }
+
+    # 1. 阿里巴巴普惠体
+    echo -e "\n--- 检查 阿里巴巴普惠体 ---"
+    ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
+    ali_path="$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
+    if fc-list | grep -qi "Alibaba PuHuiTi"; then
+        echo "已检测到 阿里巴巴普惠体。"
+    else
+        echo "未检测到 阿里巴巴普惠体，正在下载并安装..."
+        sudo mkdir -p "$ali_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_ALIBABA_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$ali_path"
+        sudo chmod 644 "$ali_path"
+        echo "阿里巴巴普惠体 安装完成。"
+    fi
+
+    # 调用选项1中的 Emoji 安装部分（2~4 步）
+    install_emoji_fonts
+}
+
+# ================= 选项3：仅 Emoji 相关字体 =================
+install_emoji_fonts() {
+    # Segoe UI Emoji
+    echo -e "\n--- 检查 Segoe UI Emoji ---"
+    seg_dir="/usr/share/fonts/truetype/microsoft"
+    seg_path="$seg_dir/seguiemj.ttf"
+    if fc-list | grep -qi "Segoe UI Emoji"; then
+        echo "已检测到 Segoe UI Emoji。"
+    else
+        echo "未检测到 Segoe UI Emoji，正在下载并安装..."
+        sudo mkdir -p "$seg_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_SEGUIEMJ_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$seg_path"
+        sudo chmod 644 "$seg_path"
+        echo "Segoe UI Emoji 安装完成。"
+    fi
+
+    # Noto Color Emoji
+    echo -e "\n--- 检查 Noto Color Emoji ---"
+    noto_dir="/usr/share/fonts/truetype/noto-emoji"
+    noto_path="$noto_dir/NotoColorEmoji.ttf"
+    if fc-list | grep -qi "Noto Color Emoji"; then
+        echo "已检测到 Noto Color Emoji。"
+    else
+        echo "未检测到 Noto Color Emoji，正在下载并安装..."
+        sudo mkdir -p "$noto_dir"
+        tmpf=$(mktemp)
+        wget -qO "$tmpf" "$FONT_NOTO_EMOJI_URL" || { echo "下载失败！"; rm -f "$tmpf"; return 1; }
+        sudo mv "$tmpf" "$noto_path"
+        sudo chmod 644 "$noto_path"
+        echo "Noto Color Emoji 安装完成。"
+    fi
+
+    # Symbola
+    echo -e "\n--- 检查 Symbola ---"
+    if dpkg -s fonts-symbola &>/dev/null; then
+        echo "已检测到 fonts-symbola。"
+    else
+        echo "未检测到 fonts-symbola，正在安装..."
+        sudo apt update && sudo apt install -y fonts-symbola || { echo "安装失败！"; return 1; }
+        echo "fonts-symbola 安装完成。"
+    fi
+
+    # 刷新缓存
+    echo -e "\n刷新字体缓存..."
+    sudo fc-cache -fv > /dev/null
+    echo -e "${GREEN}Emoji 相关字体安装/检查完毕。${NC}"
 }
 
 
