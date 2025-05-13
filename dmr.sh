@@ -892,7 +892,7 @@ delete_replays() {
 }
 
 
-# 在脚本全局已定义的颜色变量：RED, GREEN, YELLOW, BLUE, CYAN, NC, BOLD, NORMAL
+# ====== 字体安装相关函数 ======
 
 install_segoe_emoji() {
     echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji..."
@@ -927,7 +927,7 @@ refresh_font_cache() {
 
 install_fonts() {
     echo -e "${YELLOW}即将安装：微软雅黑 → Segoe UI Emoji → Noto Color Emoji → Symbola${NC}"
-    # 1. 微软雅黑（原逻辑）
+    # 1. 微软雅黑（保留原有逻辑）
     install_fonts_package "Microsoft YaHei" "ttf-mscorefonts-installer" || return 1
     # 2. Segoe UI Emoji
     install_segoe_emoji
@@ -942,7 +942,7 @@ install_fonts() {
 
 install_alibaba_fonts() {
     echo -e "${YELLOW}即将安装：阿里巴巴普惠体 → Segoe UI Emoji → Noto Color Emoji → Symbola${NC}"
-    # 1. 阿里巴巴普惠体（原逻辑）
+    # 1. 阿里巴巴普惠体（保留原有逻辑）
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
     sudo mkdir -p "$ali_dir"
     sudo curl -fsSL \
@@ -969,22 +969,30 @@ install_emoji_fonts() {
     echo -e "${GREEN}Emoji 和 Symbola 安装完成！${NC}"
 }
 
+# ====== 字体安装子菜单 ======
+
 font_menu() {
     require_installed || return 1
 
-    read -p "$(echo -e "${YELLOW}是否进入字体安装子菜单？(y/N): ${NC}")" font_confirm
-    font_confirm=${font_confirm:-n}
-    if [[ ! "$font_confirm" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}取消字体安装操作。${NC}"
+    # 进入子菜单前确认，防止误触
+    read -p "$(echo -e "${YELLOW}是否进入字体安装子菜单？(y/N): ${NC}")" _confirm
+    _confirm=${_confirm:-n}
+    if [[ ! "$_confirm" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消字体安装操作。${NC}"
         return 0
     fi
 
     while true; do
-        # 检测安装状态
+        # 检测各字体安装状态
         if fc-list | grep -qi "Microsoft YaHei"; then
             ms_status="${GREEN}已安装${NC}"
         else
             ms_status="${RED}未安装${NC}"
+        fi
+        if fc-list | grep -qi "Alibaba PuHuiTi"; then
+            ali_status="${GREEN}已安装${NC}"
+        else
+            ali_status="${RED}未安装${NC}"
         fi
         if fc-list | grep -qi "Segoe UI Emoji"; then
             seg_status="${GREEN}已安装${NC}"
@@ -1004,10 +1012,11 @@ font_menu() {
 
         clear
         echo -e "${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
-        echo -e " 微软雅黑:         ${ms_status}"
-        echo -e " Segoe UI Emoji:  ${seg_status}"
-        echo -e " Noto Color Emoji:${noto_status}"
-        echo -e " Symbola:         ${sym_status}"
+        echo -e " 微软雅黑:           ${ms_status}"
+        echo -e " 阿里巴巴普惠体:     ${ali_status}"
+        echo -e " Segoe UI Emoji:     ${seg_status}"
+        echo -e " Noto Color Emoji:   ${noto_status}"
+        echo -e " Symbola:            ${sym_status}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
@@ -1021,7 +1030,7 @@ font_menu() {
             2) install_alibaba_fonts ;;
             3) install_emoji_fonts ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
-            *) echo -e "${RED}无效选项 '$font_choice'！请输入 0 到 3。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}" ;;
         esac
 
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
