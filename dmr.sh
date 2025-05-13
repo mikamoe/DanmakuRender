@@ -916,8 +916,12 @@ install_noto_color_emoji() {
 
 install_symbola() {
     echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Symbola..."
-    sudo apt update
-    sudo apt install -y fonts-symbola
+    local font_dir="/usr/share/fonts/truetype/ancient-scripts"
+    sudo mkdir -p "$font_dir"
+    sudo curl -fsSL \
+        -o "$font_dir/Symbola_hint.ttf" \
+        "https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Symbola_hint.ttf?raw=true"
+    sudo chmod 644 "$font_dir/Symbola_hint.ttf"
 }
 
 refresh_font_cache() {
@@ -996,7 +1000,7 @@ font_menu() {
         else
             noto_status="${RED}未安装${NC}"
         fi
-        if fc-list | grep -qi "Symbola"; then
+        if fc-list | grep -qi "Symbola_hint"; then
             sym_status="${GREEN}已安装${NC}"
         else
             sym_status="${RED}未安装${NC}"
