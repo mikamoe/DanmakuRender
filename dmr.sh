@@ -974,14 +974,6 @@ install_emoji_fonts() {
 font_menu() {
     require_installed || return 1
 
-    # 进入子菜单前确认，防止误触
-    read -p "$(echo -e "${YELLOW}是否进入字体安装子菜单？(y/N): ${NC}")" _confirm
-    _confirm=${_confirm:-n}
-    if [[ ! "$_confirm" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}已取消字体安装操作。${NC}"
-        return 0
-    fi
-
     while true; do
         # 检测各字体安装状态
         if fc-list | grep -qi "Microsoft YaHei"; then
@@ -1026,11 +1018,40 @@ font_menu() {
         read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
 
         case $font_choice in
-            1) install_fonts ;;
-            2) install_alibaba_fonts ;;
-            3) install_emoji_fonts ;;
-            0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
-            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}" ;;
+            1)
+                read -p "$(echo -e "${YELLOW}确定要安装/更新 微软雅黑 + Emoji 系列？(y/N): ${NC}")" c1
+                c1=${c1:-n}
+                if [[ "$c1" =~ ^[Yy]$ ]]; then
+                    install_fonts
+                else
+                    echo -e "${YELLOW}已取消操作。${NC}"
+                fi
+                ;;
+            2)
+                read -p "$(echo -e "${YELLOW}确定要安装/更新 阿里巴巴普惠体 + Emoji 系列？(y/N): ${NC}")" c2
+                c2=${c2:-n}
+                if [[ "$c2" =~ ^[Yy]$ ]]; then
+                    install_alibaba_fonts
+                else
+                    echo -e "${YELLOW}已取消操作。${NC}"
+                fi
+                ;;
+            3)
+                read -p "$(echo -e "${YELLOW}确定要单独安装 Emoji + Symbola？(y/N): ${NC}")" c3
+                c3=${c3:-n}
+                if [[ "$c3" =~ ^[Yy]$ ]]; then
+                    install_emoji_fonts
+                else
+                    echo -e "${YELLOW}已取消操作。${NC}"
+                fi
+                ;;
+            0)
+                echo -e "${YELLOW}返回主菜单...${NC}"
+                break
+                ;;
+            *)
+                echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}"
+                ;;
         esac
 
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
