@@ -37,7 +37,7 @@ PURPLE='\033[0;35m'
 NC='\033[0m'
 BOLD=$(tput bold)
 NORMAL=$(tput sgr0)
-
+ORANGE='\033[38;5;208m'
 # Global variable for commit sha
 commit_sha=""
 
@@ -1546,7 +1546,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
         echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${LIGHT_GRAY}退出${NC}菜单"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # 读取用户选择
