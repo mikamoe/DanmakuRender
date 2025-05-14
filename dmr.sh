@@ -729,6 +729,22 @@ stop_dmr() {
     fi
 }
 
+# ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
+stop_extra_processes() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 “正在录制” 关键字的进程…"
+    # 列出所有包含 “正在录制” 的进程（排除 grep 自身），提取 PID 并尝试优雅终止
+    for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
+        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+    done
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 “ffmpeg” 关键字的进程…"
+    for pid in $(ps aux | grep -v grep | grep 'ffmpeg' | awk '{print $2}'); do
+        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+    done
+}
+
 # ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
@@ -1502,15 +1518,18 @@ require_installed() {
 
 # ===================== 主菜单 =====================
 main_menu() {
+    # 初始化
     echo "正在初始化脚本，请稍候..."
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
     fetch_github_times
     get_install_date
 
     while true; do
+        # 显示界面头部和状态
         show_header
         show_status
 
+        # 主菜单选项
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
         if pgrep -f "$DMR_CMD" > /dev/null; then
@@ -1530,14 +1549,21 @@ main_menu() {
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${RED}退出${NC} 脚本"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+        # 读取用户选择
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
         case $choice in
-            1) install_dmr ;;
+            1)
+                install_dmr
+                ;;
             2)
                 require_installed && {
                     if pgrep -f "$DMR_CMD" > /dev/null; then
+                        # 停止 DanmakuRender 主进程
                         stop_dmr
+                        # 停止所有带 “正在录制” 或 “ffmpeg” 关键字的进程
+                        stop_extra_processes
                     else
+                        # 如果未在运行，则启动
                         if ! check_config; then
                             echo -e "${RED}配置文件检查失败！请配置 ${DMR_DIR}/configs/ 下的 *DMR* 文件。${NC}"
                         else
@@ -1546,19 +1572,43 @@ main_menu() {
                     fi
                 }
                 ;;
-            3) view_log ;;
-            4) require_installed && manual_render ;;
-            5) require_installed && run_test ;;
-            6) require_installed && delete_replays ;;
-            7) require_installed && biliup_menu ;;
-            8) require_installed && font_menu ;;
-            9) install_js_engine ;;
-            10) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
-            11) require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; } ;;
-            0) echo -e "${YELLOW}退出脚本${NC}"; exit 0 ;;
-            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
+            3)
+                view_log
+                ;;
+            4)
+                require_installed && manual_render
+                ;;
+            5)
+                require_installed && run_test
+                ;;
+            6)
+                require_installed && delete_replays
+                ;;
+            7)
+                require_installed && biliup_menu
+                ;;
+            8)
+                require_installed && font_menu
+                ;;
+            9)
+                install_js_engine
+                ;;
+            10)
+                require_installed && { update_dmr; fetch_github_times; get_install_date; }
+                ;;
+            11)
+                require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; }
+                ;;
+            0)
+                echo -e "${YELLOW}退出脚本${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}"
+                ;;
         esac
 
+        # 等待按键返回主菜单
         echo
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
         echo
