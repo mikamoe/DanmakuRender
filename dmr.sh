@@ -1591,7 +1591,16 @@ main_menu() {
                 require_installed && font_menu
                 ;;
             9)
-                install_js_engine
+                require_installed && {
+                    # —— 在进入选项9前增加确认 —— 
+                    read -p "$(echo -e "${YELLOW}确定要安装 JavaScript 环境吗？(y/N): ${NC}")" js_confirm
+                    js_confirm=${js_confirm:-n}
+                    if [[ "$js_confirm" =~ ^[Yy]$ ]]; then
+                        install_js_engine
+                    else
+                        echo -e "${CYAN}已取消 JavaScript 环境安装。${NC}"
+                    fi
+                }
                 ;;
             10)
                 require_installed && { update_dmr; fetch_github_times; get_install_date; }
