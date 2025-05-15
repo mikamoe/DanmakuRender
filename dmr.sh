@@ -909,18 +909,27 @@ delete_replays() {
 
 
 # ====== 字体安装相关函数 ======
-# ====== 删除整个 install_symbola 函数 ======
-#function install_symbola() {
-#    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Symbola..."
-#    local font_dir="/usr/share/fonts/truetype/ancient-scripts"
-#    sudo mkdir -p "$font_dir"
-#    sudo curl -fsSL \
-#        -o "$font_dir/Symbola_hint.ttf" \
-#        "https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Symbola_hint.ttf?raw=true"
-#    sudo chmod 644 "$font_dir/Symbola_hint.ttf"
-#}
 
-# ====== 更新 install_fonts（去掉 Symbola） ======
+install_segoe_emoji() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji..."
+    local font_dir="/usr/share/fonts/truetype/microsoft"
+    sudo mkdir -p "$font_dir"
+    sudo curl -fsSL \
+        -o "$font_dir/seguiemj.ttf" \
+        "https://github.com/sillda76/DanmakuRender/blob/v5/fonts/seguiemj.ttf?raw=true"
+    sudo chmod 644 "$font_dir/seguiemj.ttf"
+}
+
+install_noto_color_emoji() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Noto Color Emoji..."
+    local font_dir="/usr/share/fonts/truetype/noto-emoji"
+    sudo mkdir -p "$font_dir"
+    sudo curl -fsSL \
+        -o "$font_dir/NotoColorEmoji.ttf" \
+        "https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf"
+    sudo chmod 644 "$font_dir/NotoColorEmoji.ttf"
+}
+
 install_fonts() {
     echo -e "${YELLOW}即将安装：微软雅黑 → Segoe UI Emoji → Noto Color Emoji${NC}"
     # 1. 微软雅黑
@@ -934,7 +943,6 @@ install_fonts() {
     echo -e "${GREEN}字体安装完成！${NC}"
 }
 
-# ====== 更新 install_alibaba_fonts（去掉 Symbola） ======
 install_alibaba_fonts() {
     echo -e "${YELLOW}即将安装：阿里巴巴普惠体 → Segoe UI Emoji → Noto Color Emoji${NC}"
     # 1. 阿里巴巴普惠体
@@ -953,16 +961,16 @@ install_alibaba_fonts() {
     echo -e "${GREEN}阿里巴巴普惠体系列字体安装完成！${NC}"
 }
 
-# ====== 更新 install_emoji_fonts（只安装 Emoji，无 Symbola） ======
 install_emoji_fonts() {
     echo -e "${YELLOW}即将单独安装：Segoe UI Emoji → Noto Color Emoji${NC}"
     install_segoe_emoji
     install_noto_color_emoji
     refresh_font_cache
-    echo -e "${GREEN}Emoji 安装完成！${NC}"
+    echo -e "${GREEN}Emoji 字体安装完成！${NC}"
 }
 
-# ====== 更新字体子菜单，删除 Symbola 状态检测 ======
+# ====== 字体安装子菜单 ======
+
 font_menu() {
     require_installed || return 1
 
@@ -998,7 +1006,7 @@ font_menu() {
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
-        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 Emoji 系列"
+        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 Emoji 字体"
         echo -e " ${BLUE}${BOLD}0.${NC} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
@@ -1023,7 +1031,7 @@ font_menu() {
                 fi
                 ;;
             3)
-                read -p "$(echo -e "${YELLOW}确定要单独安装 Emoji 系列？(y/N): ${NC}")" c3
+                read -p "$(echo -e "${YELLOW}确定要单独安装 Emoji 字体？(y/N): ${NC}")" c3
                 c3=${c3:-n}
                 if [[ "$c3" =~ ^[Yy]$ ]]; then
                     install_emoji_fonts
