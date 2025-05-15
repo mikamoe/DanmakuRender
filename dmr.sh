@@ -731,14 +731,14 @@ stop_dmr() {
 
 # ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
 stop_extra_processes() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 “正在录制” 关键字的进程…"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
     # 列出所有包含 “正在录制” 的进程（排除 grep 自身），提取 PID 并尝试优雅终止
     for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
         echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
         kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
     done
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 “ffmpeg” 关键字的进程…"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“ffmpeg”${NC}${NORMAL} 关键字的进程…"
     for pid in $(ps aux | grep -v grep | grep 'ffmpeg' | awk '{print $2}'); do
         echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
         kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
