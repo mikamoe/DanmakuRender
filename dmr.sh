@@ -1472,7 +1472,7 @@ show_header() {
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "${YELLOW}${BOLD}✨ 检测到项目有更新！建议运行选项 10 进行更新。 ✨${NC}"
+            echo -e "${YELLOW}${BOLD} 检测到项目有更新！建议运行选项 10 进行更新。 ${NC}"
             echo -e "${YELLOW}   最新提交说明: ${commit_message}${NC}"
         fi
     fi
@@ -1569,11 +1569,10 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
 
-        # 第7项：仅当本地已安装 biliup 时才检测更新
+        # 第7项：仅当本地已安装 biliup 时才检测更新，且换行显示提示
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
-            echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC} → ${RED}检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
-        else
-            echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
+            echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
 
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
