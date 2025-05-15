@@ -1516,6 +1516,30 @@ require_installed() {
     return 0
 }
 
+# ===================== 新增：biliup‑rs 版本检测函数 =====================
+fetch_biliup_times() {
+    # 检查本地 biliup 可执行文件
+    if [ -x "$BILIUP_DIR/biliup" ]; then
+        # 获取本地版本
+        local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
+        BILIUP_LOCAL_VERSION="$local_ver"
+
+        # 获取 GitHub 发布的最新版本
+        local latest_info
+        latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+        if [[ -n "$latest_info" ]]; then
+            remote_ver=$(jq -r '.tag_name // empty' <<< "$latest_info")
+            BILIUP_REMOTE_VERSION="$remote_ver"
+        else
+            BILIUP_REMOTE_VERSION=""
+        fi
+    else
+        # 未安装 biliup，跳过检测
+        BILIUP_LOCAL_VERSION=""
+        BILIUP_REMOTE_VERSION=""
+    fi
+}
+
 # ===================== 主菜单 =====================
 main_menu() {
     # 初始化
@@ -1525,6 +1549,9 @@ main_menu() {
     get_install_date
 
     while true; do
+        # 每次显示菜单前，检查 biliup‑rs 更新（若已安装）
+        fetch_biliup_times
+
         # 显示界面头部和状态
         show_header
         show_status
@@ -1541,7 +1568,14 @@ main_menu() {
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs${NC} 上传工具菜单"
+
+        # 第7项：仅当本地已安装 biliup 时才检测更新
+        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
+            echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC} → ${RED}检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
+        else
+            echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
+        fi
+
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
@@ -1552,18 +1586,13 @@ main_menu() {
         # 读取用户选择
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
         case $choice in
-            1)
-                install_dmr
-                ;;
+            1) install_dmr ;;
             2)
                 require_installed && {
                     if pgrep -f "$DMR_CMD" > /dev/null; then
-                        # 停止 DanmakuRender 主进程
                         stop_dmr
-                        # 停止所有带 “正在录制” 或 “ffmpeg” 关键字的进程
                         stop_extra_processes
                     else
-                        # 如果未在运行，则启动
                         if ! check_config; then
                             echo -e "${RED}配置文件检查失败！请配置 ${DMR_DIR}/configs/ 下的 *DMR* 文件。${NC}"
                         else
@@ -1572,27 +1601,14 @@ main_menu() {
                     fi
                 }
                 ;;
-            3)
-                view_log
-                ;;
-            4)
-                require_installed && manual_render
-                ;;
-            5)
-                require_installed && run_test
-                ;;
-            6)
-                require_installed && delete_replays
-                ;;
-            7)
-                require_installed && biliup_menu
-                ;;
-            8)
-                require_installed && font_menu
-                ;;
+            3) view_log ;;
+            4) require_installed && manual_render ;;
+            5) require_installed && run_test ;;
+            6) require_installed && delete_replays ;;
+            7) require_installed && biliup_menu ;;
+            8) require_installed && font_menu ;;
             9)
                 require_installed && {
-                    # —— 在进入选项9前增加确认 —— 
                     read -p "$(echo -e "${YELLOW}确定要安装 JavaScript 环境吗？(y/N): ${NC}")" js_confirm
                     js_confirm=${js_confirm:-n}
                     if [[ "$js_confirm" =~ ^[Yy]$ ]]; then
@@ -1602,19 +1618,10 @@ main_menu() {
                     fi
                 }
                 ;;
-            10)
-                require_installed && { update_dmr; fetch_github_times; get_install_date; }
-                ;;
-            11)
-                require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; }
-                ;;
-            0)
-                echo -e "${YELLOW}退出脚本${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}"
-                ;;
+            10) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
+            11) require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; } ;;
+            0) echo -e "${YELLOW}退出脚本${NC}" && exit 0 ;;
+            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
         esac
 
         # 等待按键返回主菜单
