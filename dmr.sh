@@ -1457,7 +1457,7 @@ biliup_menu() {
 
 show_header() {
     clear
-    local title="DanmakuRender v5 管理脚本"
+    # ##############################
     echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
@@ -1466,6 +1466,7 @@ show_header() {
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     fi
     echo -e "${CYAN}项目地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
+    # ##############################
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     # 更新提示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
