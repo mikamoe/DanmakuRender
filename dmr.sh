@@ -1490,25 +1490,28 @@ require_installed() {
     return 0
 }
 
-# ===================== 新增：biliup‑rs 版本检测函数 =====================
+# ========== 新增：biliup‑rs 版本检测函数 ==========
 fetch_biliup_times() {
-    # 检查本地 biliup 可执行文件
+    # 如果 biliup 可执行文件存在且可执行
     if [ -x "$BILIUP_DIR/biliup" ]; then
-        # 获取本地版本
+        # 获取本地版本号（假设输出类似 “biliup-cli 0.2.2”）
         local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
         BILIUP_LOCAL_VERSION="$local_ver"
 
-        # 获取 GitHub 发布的最新版本
+        # 从 GitHub API 获取最新 Release 信息
         local latest_info
         latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
         if [[ -n "$latest_info" ]]; then
-            remote_ver=$(jq -r '.tag_name // empty' <<< "$latest_info")
+            # 取 tag_name 作为远程最新版本号（如 “v0.2.3”）
+            remote_ver=$(echo "$latest_info" | jq -r '.tag_name // empty')
+            # 如有前缀 “v”，去掉以便对比（可选）
+            remote_ver="${remote_ver#v}"
             BILIUP_REMOTE_VERSION="$remote_ver"
         else
             BILIUP_REMOTE_VERSION=""
         fi
     else
-        # 未安装 biliup，跳过检测
+        # 未安装 biliup，清空版本变量
         BILIUP_LOCAL_VERSION=""
         BILIUP_REMOTE_VERSION=""
     fi
@@ -1523,10 +1526,10 @@ main_menu() {
     get_install_date
 
     while true; do
-        # 每次显示菜单前，检查 biliup‑rs 更新（若已安装）
+        # 每次显示菜单前，检查 biliup‑rs 本地和远程版本
         fetch_biliup_times
 
-        # 显示界面头部和状态
+        # 打印头部和状态
         show_header
         show_status
 
@@ -1542,13 +1545,11 @@ main_menu() {
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-
-        # 第7项：仅当本地已安装 biliup 时才检测更新，且换行显示提示
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
+        # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
-
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
@@ -1556,7 +1557,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        # 读取用户选择
+        # 读取用户选择并分发
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
         case $choice in
             1) install_dmr ;;
@@ -1597,11 +1598,12 @@ main_menu() {
             *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
         esac
 
-        # 等待按键返回主菜单
+        # 等待按键后刷新菜单
         echo
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
         echo
     done
 }
 
+# 启动主菜单
 main_menu
