@@ -310,163 +310,211 @@ install_biliup_rs() {
     return 0
 }
 
-# ===== 在脚本最前面，定义一个带时间戳的输出函数 =====
-log() {
-    # 输出格式：2025-05-22 13:19:48 - [INFO] 消息内容
-    echo -e "$(date '+%F %T') - $*"
-}
-
-
-# ===================== 安装 DanmakuRender v5 =====================
-install_dmr() {
-    local rollback_needed=true
-    trap '[[ "$rollback_needed" == true ]] && rollback_installation' EXIT
-
-    if [ -d "$DMR_DIR" ]; then
-        log "[INFO] DanmakuRender V5 似乎已经安装在 ${DMR_DIR}！"
-        # —— 修复点 1 —— 
-        read -p "$(date '+%F %T') - [PROMPT] DanmakuRender 已存在，是否重新安装 Python 依赖？(y/n, 默认n): " reinstall_choice
-        reinstall_choice=${reinstall_choice:-n}
-        if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
-            log "[INFO] 正在重新安装 Python 依赖..."
-            pushd "$DMR_DIR" > /dev/null || { log "[ERROR] 进入目录 $DMR_DIR 失败！"; return 1; }
-            if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
-                log "[ERROR] 虚拟环境 'venv' 不存在或不完整！"; popd > /dev/null; trap - EXIT; return 1
-            fi
-            if [ ! -f "requirements.txt" ]; then
-                log "[ERROR] 'requirements.txt' 文件不存在！"; popd > /dev/null; trap - EXIT; return 1
-            fi
-            log "[INFO] 激活虚拟环境..."
-            source venv/bin/activate || { log "[ERROR] 激活虚拟环境失败！"; popd > /dev/null; trap - EXIT; return 1; }
-            log "[INFO] 升级 pip..."
-            pip install --quiet --upgrade pip || log "[WARN] pip 升级失败，继续安装依赖..."
-            log "[INFO] 安装依赖..."
-            pip install -r requirements.txt || { log "[ERROR] Python 依赖安装失败！"; deactivate; popd > /dev/null; trap - EXIT; return 1; }
-            deactivate; popd > /dev/null
-            log "[INFO] Python 依赖重新安装完成！"
-            rollback_needed=false; trap - EXIT; return 0
-        else
-            log "[INFO] 已取消重新安装 Python 依赖。"
-            rollback_needed=false; trap - EXIT; return 0
-        fi
-    fi
-
-    log "[INFO] 开始全新安装 DanmakuRender v5..."
-    log "[INFO] 检查并安装必要的系统工具..."
-    check_install_tools || { log "[ERROR] 系统工具检查或安装失败！安装中止。"; return 1; }
-    log "[INFO] 系统工具检查/安装完成。"
-
-    log "[INFO] 使用 git clone 拉取 DanmakuRender ${GITHUB_BRANCH} 分支..."
-    if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
-        log "[ERROR] git clone 失败！请检查网络或仓库地址/分支。"; return 1
-    fi
-    log "[INFO] 代码拉取完成！"
-
-    pushd "$DMR_DIR" > /dev/null || { log "[ERROR] 进入目录 $DMR_DIR 失败！"; return 1; }
-    log "[INFO] 创建 Python 虚拟环境 (venv)..."
-    python3 -m venv venv || { log "[ERROR] 创建虚拟环境失败！"; popd > /dev/null; return 1; }
-
-    log "[INFO] 激活虚拟环境并安装 Python 依赖..."
-    source venv/bin/activate || { log "[ERROR] 激活虚拟环境失败！"; popd > /dev/null; return 1; }
-    pip install --quiet --upgrade pip || log "[WARN] pip 升级失败，继续安装依赖..."
-    if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt || { log "[ERROR] Python 依赖安装失败！"; deactivate; popd > /dev/null; return 1; }
-    else
-        log "[WARN] 未找到 requirements.txt，跳过依赖安装。"
-    fi
-    deactivate; log "[INFO] Python 依赖安装完成。"
-    popd > /dev/null
-
-    log "[INFO] 正在安装/更新 biliup-rs..."
-    install_biliup_rs || { log "[ERROR] biliup-rs 安装失败！"; return 1; }
-    log "[INFO] biliup-rs 安装/更新完成。"
-
-    # —— 修复点 2 —— 
-    read -p "$(date '+%F %T') - [PROMPT] 是否安装 JavaScript 环境？(y/N): " js_choice
-    js_choice=${js_choice:-n}
-    if [[ "$js_choice" =~ ^[Yy]$ ]]; then
-        install_js_engine || log "[WARN] JavaScript 环境安装遇到问题。"
-    fi
-
-    date +%s | sudo tee "$INSTALL_DATE_FILE" >/dev/null || log "[ERROR] 记录安装日期失败！"
-    log "[SUCCESS] DanmakuRender v5 安装完成！目录：${DMR_DIR}"
-
-    rollback_needed=false
-    trap - EXIT
-    return 0
-}
-
 # ===================== 更新 DanmakuRender v5 =====================
 update_dmr() {
     require_installed || return 1
 
-    log "[INFO] 检查 rsync 依赖..."
+    # 1. 确保 rsync 已安装
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查 rsync 依赖...${NC}"
     if ! command -v rsync &>/dev/null; then
-        log "[WARN] 未找到 rsync，正在安装..."
-        sudo apt update || { log "[ERROR] apt update 失败，请手动安装 rsync。"; return 1; }
-        sudo apt install -y rsync || { log "[ERROR] rsync 安装失败，请手动安装后重试。"; return 1; }
-        log "[INFO] rsync 安装完成！"
+        echo -e "${YELLOW}未找到 rsync，正在安装...${NC}"
+        sudo apt update || { echo -e "${RED}apt update 失败，请手动安装 rsync。${NC}"; return 1; }
+        sudo apt install -y rsync || { echo -e "${RED}rsync 安装失败，请手动安装后重试。${NC}"; return 1; }
+        echo -e "${GREEN}rsync 安装完成！${NC}"
     else
-        log "[INFO] rsync 已安装。"
+        echo -e "${GREEN}rsync 已安装。${NC}"
     fi
 
-    read -p "$(echo -e \"$(date '+%F %T') - [PROMPT] 是否确认更新 DanmakuRender v5？(y/n): \")" confirm_update
+    # 2. 询问确认更新
+    read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
     if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
-        log "[INFO] 已取消更新操作。"
+        echo -e "${YELLOW}已取消更新操作。${NC}"
         return 0
     fi
 
-    log "[INFO] 开始更新 DanmakuRender v5..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始更新 DanmakuRender v5...${NC}"
 
-    log "[INFO] 检查并停止运行中的进程..."
+    # 3. 停止运行中的进程
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并停止运行中的进程...${NC}"
     if pgrep -f "$DMR_CMD" > /dev/null; then
-        stop_dmr || { log "[ERROR] 停止进程失败！更新中止。"; return 1; }
-        log "[INFO] 已成功停止运行中的进程。"
+        stop_dmr || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止进程失败！更新中止。${NC}"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已成功停止运行中的进程。${NC}"
     else
-        log "[INFO] 当前没有运行中的进程。"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}当前没有运行中的进程。${NC}"
     fi
 
+    # 4. 创建完整备份目录
     local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
-    log "[INFO] 创建完整备份目录: ${backup_dir}"
-    sudo mkdir -p "$backup_dir" || { log "[ERROR] 创建备份目录失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
+    sudo mkdir -p "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建备份目录失败！${NC}"
+        return 1
+    }
 
+    # 5. 单独备份 configs 文件夹
     local configs_backup_root="${DMR_DIR}/configs_backups"
     local timestamp="$(date +%Y%m%d_%H%M%S)"
     local configs_backup="${configs_backup_root}/configs_backup_${timestamp}"
-    log "[INFO] 创建 configs 备份根目录（若不存在）: ${configs_backup_root}"
-    sudo mkdir -p "$configs_backup_root" || { log "[ERROR] 创建 configs_backups 根目录失败！"; return 1; }
-    log "[INFO] 备份配置文件到: ${configs_backup}"
-    sudo cp -r "$DMR_DIR/configs" "$configs_backup" || { log "[ERROR] 备份配置文件失败！"; return 1; }
 
-    log "[INFO] 备份整个 DMR 目录到 ${backup_dir}..."
-    sudo cp -r "$DMR_DIR" "$backup_dir" || { log "[ERROR] 备份 DMR 目录失败！"; return 1; }
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 configs 备份根目录（若不存在）: ${configs_backup_root}${NC}"
+    sudo mkdir -p "$configs_backup_root" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 configs_backups 根目录失败！${NC}"
+        return 1
+    }
 
-    log "[INFO] 拉取最新代码..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份配置文件到: ${configs_backup}${NC}"
+    sudo cp -r "$DMR_DIR/configs" "$configs_backup" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份配置文件失败！${NC}"
+        return 1
+    }
+
+    # 6. 备份整个 DMR 目录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
+    sudo cp -r "$DMR_DIR" "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
+        return 1
+    }
+
+    # 7. 拉取最新代码并覆盖
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
     if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
-        log "[ERROR] 克隆最新代码失败！"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！请检查网络、权限或仓库地址/分支。${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     fi
 
-    log "[INFO] 覆盖现有文件..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
     if ! sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"; then
-        log "[ERROR] 文件覆盖失败！"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     fi
     rm -rf "$tmp_dir"
 
-    log "[SUCCESS] 更新成功完成！"
-    log "[INFO] 配置文件备份存放于：${configs_backup}"
-    log "[INFO] 已删除临时备份目录：${backup_dir}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份存放于：${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新前的所有项目备份目录已自动删除: ${backup_dir}${NC}"
 
+    # 8. 删除完整备份并刷新安装日期
     sudo rm -rf "$backup_dir"
-    date +%s | sudo tee "$INSTALL_DATE_FILE" >/dev/null
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
     fetch_github_times
     get_install_date
 
+    return 0
+}
+
+install_dmr() {
+    local rollback_needed=true
+    # Setup trap to call rollback_installation on EXIT signal if rollback_needed is true
+    trap '[[ "$rollback_needed" == true ]] && rollback_installation' EXIT
+
+    if [ -d "$DMR_DIR" ]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 似乎已经安装在 ${DMR_DIR}！${NC}"
+        read -p "$(echo -e "${YELLOW}是否要重新安装 Python 依赖？(y/n, 默认n): ${NC}")" reinstall_choice
+        reinstall_choice=${reinstall_choice:-n}
+        if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装 Python 依赖...${NC}"
+            pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; trap - EXIT; return 1; } # Disable trap on early exit
+            # Check if virtual environment exists
+            if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
+                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}虚拟环境 'venv' 不存在或不完整！无法重新安装依赖。请尝试完整卸载后重新安装。${NC}"
+                 popd > /dev/null; trap - EXIT; return 1;
+            fi
+             # Check if requirements file exists
+            if [ ! -f "requirements.txt" ]; then
+                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'requirements.txt' 文件不存在！无法重新安装依赖。${NC}"
+                 popd > /dev/null; trap - EXIT; return 1;
+            fi
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
+            source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; trap - EXIT; return 1; }
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip...${NC}"
+            pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..." # Don't fail immediately
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}从 requirements.txt 安装依赖...${NC}"
+            # Use --force-reinstall maybe? Or just install? Let's stick to install for now.
+            pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; deactivate; popd > /dev/null; trap - EXIT; return 1; }
+            deactivate
+            popd > /dev/null
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖重新安装完成！${NC}"
+            # Successfully reinstalled deps, disable rollback and exit normally
+            rollback_needed=false
+            trap - EXIT
+            return 0
+        else
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消重新安装 Python 依赖。${NC}"
+            # Nothing to install, disable rollback and exit normally
+            rollback_needed=false
+            trap - EXIT
+            return 0
+        fi
+    fi
+
+    # If not installed, proceed with full installation
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始全新安装 DanmakuRender v5...${NC}"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并安装必要的系统工具...${NC}"
+    # Call the check/install function
+    check_install_tools || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}系统工具检查或安装失败！安装中止。${NC}"; return 1; } # Trap will handle rollback
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}系统工具检查/安装完成。${NC}"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 git clone 拉取 DanmakuRender ${GITHUB_BRANCH} 分支...${NC}"
+    # Clone with depth 1 for efficiency
+    if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
+         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}git clone 失败！请检查网络、权限或仓库地址/分支。${NC}"
+         return 1 # Trap will handle rollback
+    fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}代码拉取完成！${NC}"
+
+    pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入安装目录 $DMR_DIR 失败！"; return 1; } # Trap will handle rollback
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 Python 虚拟环境 (venv)...${NC}"
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 Python 虚拟环境失败！${NC}"; popd > /dev/null; return 1; } # Trap will handle rollback
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境并安装 Python 依赖...${NC}"
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; return 1; } # Trap will handle rollback
+
+    pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..." # Don't fail immediately
+
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！请检查 'requirements.txt' 或网络。${NC}"; deactivate; popd > /dev/null; return 1; } # Trap will handle rollback
+    else
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}未找到 requirements.txt 文件，跳过 Python 依赖安装。${NC}"
+    fi
+    deactivate
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖安装完成。${NC}"
+
+    # Go back to original directory before installing biliup-rs (it cds into its own dir)
+    popd > /dev/null
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装/更新 biliup-rs...${NC}"
+    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}biliup-rs 安装失败！${NC}"; return 1; } # Trap will handle rollback
+
+    # Ask about JS engine installation AFTER main components are installed
+    read -p "$(echo -e "${YELLOW}安装完成，是否额外安装 JavaScript 解释器 (Node.js) 和相关 Python 库 (quickjs)？(y/N): ${NC}")" js_choice
+    js_choice=${js_choice:-n}
+    if [[ "$js_choice" =~ ^[Yy]$ ]]; then
+         install_js_engine || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}JavaScript 环境安装过程中可能出现问题。${NC}" # Don't fail the whole install for optional part
+    fi
+
+    echo -e "\n${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装目录: ${GREEN}$DMR_DIR${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 如需渲染弹幕，请确保已安装合适的字体 (主菜单选项 8)。"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 首次运行前，请务必检查并修改 ${GREEN}${DMR_DIR}/configs/${NC} 目录下的配置文件！"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录安装日期..."
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！(权限问题？)${NC}"
+        # Don't trigger rollback for this minor failure, but inform user
+    }
+    get_install_date # Update the display variable
+
+    # Installation successful, disable the rollback trap
+    rollback_needed=false
+    trap - EXIT
     return 0
 }
 
@@ -860,8 +908,6 @@ delete_replays() {
 }
 
 
-# ====== 字体安装相关函数 ======
-
 # ===== 新增：刷新字体缓存函数（修复 refresh_font_cache 未定义问题） =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
@@ -871,7 +917,6 @@ refresh_font_cache() {
         log "[WARN] fc-cache 未找到，跳过刷新字体缓存。"
     fi
 }
-
 
 install_segoe_emoji() {
     echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji..."
