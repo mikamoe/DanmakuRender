@@ -919,12 +919,27 @@ refresh_font_cache() {
 }
 
 install_segoe_emoji() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji 字体"
+    # 让用户选择 Win10 还是 Win11 版本
+    echo " 1) Win10 版"
+    echo " 2) Win11 版"
+    read -p "$(echo -e "${CYAN}请选择要安装的版本 (1-2, 默认 2): ${NC}")" seg_choice
+    seg_choice=${seg_choice:-2}
+
+    local url
+    if [[ "$seg_choice" == "1" ]]; then
+        url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win10/seguiemj.ttf?raw=true"
+        echo -e "${BLUE}[INFO]${NC} 将安装 Win10 版 Segoe UI Emoji"
+    else
+        url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win11/seguiemj.ttf?raw=true"
+        echo -e "${BLUE}[INFO]${NC} 将安装 Win11 版 Segoe UI Emoji"
+    fi
+
     local font_dir="/usr/share/fonts/truetype/microsoft"
     sudo mkdir -p "$font_dir"
     sudo curl -fsSL \
         -o "$font_dir/seguiemj.ttf" \
-        "https://github.com/sillda76/DanmakuRender/blob/v5/fonts/seguiemj.ttf?raw=true"
+        "$url"
     sudo chmod 644 "$font_dir/seguiemj.ttf"
 }
 
