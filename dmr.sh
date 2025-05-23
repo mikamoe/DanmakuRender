@@ -324,7 +324,8 @@ install_dmr() {
 
     if [ -d "$DMR_DIR" ]; then
         log "[INFO] DanmakuRender V5 似乎已经安装在 ${DMR_DIR}！"
-        read -p "$(echo -e \"$(date '+%F %T') - [PROMPT] DanmakuRender 已存在，是否重新安装 Python 依赖？(y/n, 默认n): \")" reinstall_choice
+        # —— 修复点 1 —— 
+        read -p "$(date '+%F %T') - [PROMPT] DanmakuRender 已存在，是否重新安装 Python 依赖？(y/n, 默认n): " reinstall_choice
         reinstall_choice=${reinstall_choice:-n}
         if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
             log "[INFO] 正在重新安装 Python 依赖..."
@@ -380,7 +381,8 @@ install_dmr() {
     install_biliup_rs || { log "[ERROR] biliup-rs 安装失败！"; return 1; }
     log "[INFO] biliup-rs 安装/更新完成。"
 
-    read -p "$(echo -e \"$(date '+%F %T') - [PROMPT] 是否安装 JavaScript 环境？(y/N): \")" js_choice
+    # —— 修复点 2 —— 
+    read -p "$(date '+%F %T') - [PROMPT] 是否安装 JavaScript 环境？(y/N): " js_choice
     js_choice=${js_choice:-n}
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
         install_js_engine || log "[WARN] JavaScript 环境安装遇到问题。"
