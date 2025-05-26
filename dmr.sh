@@ -1475,11 +1475,11 @@ show_status() {
         echo -e "${YELLOW}${BOLD}配置文件：${RED}未安装${NC}${NORMAL}"
         echo -e "${YELLOW}${BOLD}运行状态：${RED}未安装${NC}${NORMAL}"
     else
-        echo -e "${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} (目录: $DMR_DIR)"
+        echo -e "${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} ($DMR_DIR)"
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到 (*DMR* in configs)${NC}${NORMAL}，共${streamers_count}位主播"
+            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到${NC}${NORMAL} 共${streamers_count}位主播"
         else
             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
         fi
