@@ -963,12 +963,11 @@ install_noto_color_emoji() {
 # ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
-    # 先通过包管理器装微软雅黑
+    # 通过包管理器安装微软雅黑
     install_fonts_package "Microsoft YaHei" "ttf-mscorefonts-installer"
-    # 再装 Emoji
+    # 安装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
-    # 刷新
     refresh_font_cache
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
@@ -983,10 +982,8 @@ install_alibaba_fonts() {
         "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
     sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
 
-    # 装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
-    # 刷新
     refresh_font_cache
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
@@ -1037,19 +1034,73 @@ font_menu() {
         echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 Emoji 字体"
+        echo -e " ${BLUE}${BOLD}4.${NC} 卸载 已安装字体"
         echo -e " ${BLUE}${BOLD}0.${NC} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
+        read -p "$(echo -e "${CYAN}请输入选项 (0-4): ${NC}")" font_choice
 
         case $font_choice in
             1) install_fonts ;;
             2) install_alibaba_fonts ;;
             3) install_emoji_fonts ;;
+            4)
+                # 构造已安装字体列表
+                installed=()
+                echo
+                echo -e "${CYAN}检测到已安装的字体：${NC}"
+                if fc-list | grep -qi "Microsoft YaHei"; then
+                    installed+=("Microsoft YaHei")
+                    echo " 1) Microsoft YaHei"
+                fi
+                if fc-list | grep -qi "Alibaba PuHuiTi"; then
+                    installed+=("AlibabaPuHuiTi")
+                    echo " 2) Alibaba PuHuiTi"
+                fi
+                if fc-list | grep -qi "Segoe UI Emoji"; then
+                    installed+=("SegoeUIEmoji")
+                    echo " 3) Segoe UI Emoji"
+                fi
+                if fc-list | grep -qi "Noto Color Emoji"; then
+                    installed+=("NotoColorEmoji")
+                    echo " 4) Noto Color Emoji"
+                fi
+
+                if [ ${#installed[@]} -eq 0 ]; then
+                    echo -e "${YELLOW}未检测到可卸载的字体。${NC}"
+                    read -n1 -s -r -p "按任意键返回字体菜单..."
+                else
+                    echo " 0) 取消"
+                    read -p "请输入要卸载的字体编号 (0-${#installed[@]}): " idx
+                    if [[ "$idx" =~ ^[1-9]$ ]] && [ "$idx" -le ${#installed[@]} ]; then
+                        choice="${installed[$((idx-1))]}"
+                        echo -e "${BLUE}正在卸载：$choice …${NC}"
+                        case $choice in
+                            "Microsoft YaHei")
+                                sudo apt remove -y ttf-mscorefonts-installer
+                                ;;
+                            "AlibabaPuHuiTi")
+                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi
+                                ;;
+                            "SegoeUIEmoji")
+                                sudo rm -rf /usr/share/fonts/truetype/microsoft/seguiemj.ttf
+                                ;;
+                            "NotoColorEmoji")
+                                sudo rm -rf /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
+                                ;;
+                        esac
+                        refresh_font_cache
+                        echo -e "${GREEN}卸载完成并已刷新字体缓存。${NC}"
+                        read -n1 -s -r -p "按任意键返回字体菜单..."
+                    else
+                        echo -e "${YELLOW}取消卸载。${NC}"
+                        read -n1 -s -r -p "按任意键返回字体菜单..."
+                    fi
+                fi
+                ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}" && break ;;
-            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 4。${NC}" ;;
         esac
 
-        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
         echo
     done
 }
