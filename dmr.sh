@@ -908,23 +908,29 @@ delete_replays() {
 }
 
 
-# ===== 新增：刷新字体缓存函数（修复 refresh_font_cache 未定义问题） =====
+# ===== 刷新字体缓存 =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
-        log "[INFO] 刷新字体缓存..."
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 刷新字体缓存..."
         sudo fc-cache -f
     else
-        log "[WARN] fc-cache 未找到，跳过刷新字体缓存。"
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} fc-cache 未找到，跳过刷新字体缓存。"
     fi
 }
 
+# ===== 安装 Segoe UI Emoji 字体 =====
 install_segoe_emoji() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Segoe UI Emoji 字体"
-    # 让用户选择 Win10 还是 Win11 版本
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
+    echo " 0) 返回字体菜单"
     echo " 1) Win10 版"
     echo " 2) Win11 版"
-    read -p "$(echo -e "${CYAN}请选择要安装的版本 (1-2, 默认 2): ${NC}")" seg_choice
+    read -p "$(echo -e "${CYAN}请选择要安装的版本 (0-2, 默认 2): ${NC}")" seg_choice
     seg_choice=${seg_choice:-2}
+
+    if [[ "$seg_choice" == "0" ]]; then
+        echo -e "${YELLOW}已取消，返回字体菜单${NC}"
+        return 0
+    fi
 
     local url
     if [[ "$seg_choice" == "1" ]]; then
@@ -943,8 +949,9 @@ install_segoe_emoji() {
     sudo chmod 644 "$font_dir/seguiemj.ttf"
 }
 
+# ===== 安装 Noto Color Emoji 字体 =====
 install_noto_color_emoji() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC} 安装 Noto Color Emoji..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Noto Color Emoji 字体"
     local font_dir="/usr/share/fonts/truetype/noto-emoji"
     sudo mkdir -p "$font_dir"
     sudo curl -fsSL \
@@ -953,41 +960,47 @@ install_noto_color_emoji() {
     sudo chmod 644 "$font_dir/NotoColorEmoji.ttf"
 }
 
-# ===== 字体安装相关函数（按原脚本顺序） =====
+# ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
-    log "[INFO] 准备安装 微软雅黑 + Emoji 系列 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
+    # 先通过包管理器装微软雅黑
     install_fonts_package "Microsoft YaHei" "ttf-mscorefonts-installer"
+    # 再装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
+    # 刷新
     refresh_font_cache
-    log "[SUCCESS] 微软雅黑 + Emoji 系列 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
 
+# ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
 install_alibaba_fonts() {
-    log "[INFO] 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
     sudo mkdir -p "$ali_dir"
     sudo curl -fsSL \
         -o "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf" \
         "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
     sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
-    log "[INFO] 阿里巴巴普惠体 安装完成。"
+
+    # 装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
+    # 刷新
     refresh_font_cache
-    log "[SUCCESS] 阿里巴巴普惠体系列字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
 
+# ===== 单独安装 Emoji 系列 字体 =====
 install_emoji_fonts() {
-    log "[INFO] 准备单独安装 Emoji 系列 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列 字体..."
     install_segoe_emoji
     install_noto_color_emoji
     refresh_font_cache
-    log "[SUCCESS] Emoji 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} Emoji 字体安装完成！"
 }
 
-# ====== 字体安装子菜单 ======
-
+# ===== 字体安装子菜单 =====
 font_menu() {
     require_installed || return 1
 
@@ -1029,47 +1042,17 @@ font_menu() {
         read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${NC}")" font_choice
 
         case $font_choice in
-            1)
-                read -p "$(echo -e "${YELLOW}确定要安装/更新 微软雅黑 + Emoji 系列？(y/N): ${NC}")" c1
-                c1=${c1:-n}
-                if [[ "$c1" =~ ^[Yy]$ ]]; then
-                    install_fonts
-                else
-                    echo -e "${YELLOW}已取消操作。${NC}"
-                fi
-                ;;
-            2)
-                read -p "$(echo -e "${YELLOW}确定要安装/更新 阿里巴巴普惠体 + Emoji 系列？(y/N): ${NC}")" c2
-                c2=${c2:-n}
-                if [[ "$c2" =~ ^[Yy]$ ]]; then
-                    install_alibaba_fonts
-                else
-                    echo -e "${YELLOW}已取消操作。${NC}"
-                fi
-                ;;
-            3)
-                read -p "$(echo -e "${YELLOW}确定要单独安装 Emoji 字体？(y/N): ${NC}")" c3
-                c3=${c3:-n}
-                if [[ "$c3" =~ ^[Yy]$ ]]; then
-                    install_emoji_fonts
-                else
-                    echo -e "${YELLOW}已取消操作。${NC}"
-                fi
-                ;;
-            0)
-                echo -e "${YELLOW}返回主菜单...${NC}"
-                break
-                ;;
-            *)
-                echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}"
-                ;;
+            1) install_fonts ;;
+            2) install_alibaba_fonts ;;
+            3) install_emoji_fonts ;;
+            0) echo -e "${YELLOW}返回主菜单...${NC}" && break ;;
+            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 3。${NC}" ;;
         esac
 
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回字体菜单...${NC}")"
         echo
     done
 }
-
 
 # ===================== biliup‑rs 相关函数 =====================
 
