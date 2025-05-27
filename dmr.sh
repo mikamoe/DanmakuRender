@@ -918,8 +918,19 @@ refresh_font_cache() {
     fi
 }
 
-# ===== 安装 Segoe UI Emoji 字体 =====
+# ===== 安装 Segoe UI Emoji 字体 （含已装检测与重装提示） =====
 install_segoe_emoji() {
+    # 检测安装状态
+    if fc-list | grep -qi "Segoe UI Emoji"; then
+        read -p "检测到已安装 Segoe UI Emoji，是否先卸载再重新安装？(y/N): " _c
+        if [[ ! "$_c" =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}跳过 Segoe UI Emoji 安装。${NC}"
+            return
+        fi
+        echo -e "${BLUE}[INFO]${NC} 卸载现有 Segoe UI Emoji..."
+        sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
     echo " 0) 返回字体菜单"
     echo " 1) Win10 版"
@@ -929,28 +940,37 @@ install_segoe_emoji() {
 
     if [[ "$seg_choice" == "0" ]]; then
         echo -e "${YELLOW}已取消，返回字体菜单${NC}"
-        return 0
+        return
     fi
 
     local url
     if [[ "$seg_choice" == "1" ]]; then
         url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win10/seguiemj.ttf?raw=true"
-        echo -e "${BLUE}[INFO]${NC} 将安装 Win10 版 Segoe UI Emoji"
+        echo -e "${BLUE}[INFO]${NC} 安装 Win10 版 Segoe UI Emoji"
     else
         url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win11/seguiemj.ttf?raw=true"
-        echo -e "${BLUE}[INFO]${NC} 将安装 Win11 版 Segoe UI Emoji"
+        echo -e "${BLUE}[INFO]${NC} 安装 Win11 版 Segoe UI Emoji"
     fi
 
     local font_dir="/usr/share/fonts/truetype/microsoft"
     sudo mkdir -p "$font_dir"
-    sudo curl -fsSL \
-        -o "$font_dir/seguiemj.ttf" \
-        "$url"
+    sudo curl -fsSL -o "$font_dir/seguiemj.ttf" "$url"
     sudo chmod 644 "$font_dir/seguiemj.ttf"
+    echo -e "${GREEN}Segoe UI Emoji 安装完成！${NC}"
 }
 
-# ===== 安装 Noto Color Emoji 字体 =====
+# ===== 安装 Noto Color Emoji 字体 （含已装检测与重装提示） =====
 install_noto_color_emoji() {
+    if fc-list | grep -qi "Noto Color Emoji"; then
+        read -p "检测到已安装 Noto Color Emoji，是否先卸载再重新安装？(y/N): " _c
+        if [[ ! "$_c" =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}跳过 Noto Color Emoji 安装。${NC}"
+            return
+        fi
+        echo -e "${BLUE}[INFO]${NC} 卸载现有 Noto Color Emoji..."
+        sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Noto Color Emoji 字体"
     local font_dir="/usr/share/fonts/truetype/noto-emoji"
     sudo mkdir -p "$font_dir"
@@ -958,22 +978,48 @@ install_noto_color_emoji() {
         -o "$font_dir/NotoColorEmoji.ttf" \
         "https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf"
     sudo chmod 644 "$font_dir/NotoColorEmoji.ttf"
+    echo -e "${GREEN}Noto Color Emoji 安装完成！${NC}"
 }
 
 # ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
+    # 微软雅黑
+    if fc-list | grep -qi "Microsoft YaHei"; then
+        read -p "检测到已安装 Microsoft YaHei，是否先卸载再重新安装？(y/N): " _c
+        if [[ "$_c" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}[INFO]${NC} 卸载 Microsoft YaHei（ttf-mscorefonts-installer）..."
+            sudo apt remove -y ttf-mscorefonts-installer
+        else
+            echo -e "${YELLOW}跳过 Microsoft YaHei 安装。${NC}"
+        fi
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
-    # 通过包管理器安装微软雅黑
-    install_fonts_package "Microsoft YaHei" "ttf-mscorefonts-installer"
+    # 安装微软雅黑
+    sudo apt update
+    sudo apt install -y ttf-mscorefonts-installer
+
     # 安装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
+
     refresh_font_cache
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
 
 # ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
 install_alibaba_fonts() {
+    # 阿里巴巴普惠体
+    if fc-list | grep -qi "Alibaba PuHuiTi"; then
+        read -p "检测到已安装 Alibaba PuHuiTi，是否先卸载再重新安装？(y/N): " _c
+        if [[ "$_c" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}[INFO]${NC} 卸载 Alibaba PuHuiTi..."
+            sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi
+        else
+            echo -e "${YELLOW}跳过 Alibaba PuHuiTi 安装。${NC}"
+        fi
+    fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
     sudo mkdir -p "$ali_dir"
@@ -982,8 +1028,10 @@ install_alibaba_fonts() {
         "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
     sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
 
+    # 安装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
+
     refresh_font_cache
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
@@ -1002,7 +1050,7 @@ font_menu() {
     require_installed || return 1
 
     while true; do
-        # 检测各字体安装状态
+        # 检测安装状态
         if fc-list | grep -qi "Microsoft YaHei"; then
             ms_status="${GREEN}已安装${NC}"
         else
@@ -1044,7 +1092,7 @@ font_menu() {
             2) install_alibaba_fonts ;;
             3) install_emoji_fonts ;;
             4)
-                # 构造已安装字体列表
+                # 列出并卸载
                 installed=()
                 echo
                 echo -e "${CYAN}检测到已安装的字体：${NC}"
@@ -1076,17 +1124,13 @@ font_menu() {
                         echo -e "${BLUE}正在卸载：$choice …${NC}"
                         case $choice in
                             "Microsoft YaHei")
-                                sudo apt remove -y ttf-mscorefonts-installer
-                                ;;
+                                sudo apt remove -y ttf-mscorefonts-installer ;;
                             "AlibabaPuHuiTi")
-                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi
-                                ;;
+                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi ;;
                             "SegoeUIEmoji")
-                                sudo rm -rf /usr/share/fonts/truetype/microsoft/seguiemj.ttf
-                                ;;
+                                sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf ;;
                             "NotoColorEmoji")
-                                sudo rm -rf /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
-                                ;;
+                                sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf ;;
                         esac
                         refresh_font_cache
                         echo -e "${GREEN}卸载完成并已刷新字体缓存。${NC}"
