@@ -64,7 +64,7 @@ check_dependencies() {
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
 
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ 发现新版本啦！"
+            echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
             echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
             echo -e "提交说明: ${CYAN}${commit_message}${NC}"
             if [ -n "$commit_sha" ]; then
@@ -72,7 +72,7 @@ check_dependencies() {
             else
                 echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
             fi
-            echo -e "(｡･ω･｡) 按任意键继续进入脚本..."
+            echo -e "按任意键继续进入脚本..."
             read -n 1 -s -r
         fi
     fi
