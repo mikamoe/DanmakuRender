@@ -42,7 +42,6 @@ ORANGE='\033[38;5;208m'
 commit_sha=""
 
 # ===================== 辅助函数 =====================
-
 check_dependencies() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
     local required_tools=("jq" "curl" "git")
@@ -55,6 +54,7 @@ check_dependencies() {
             }
         fi
     done
+
 
     # 更新检测提示
     echo -e "\n Check for updates..."
@@ -1616,13 +1616,15 @@ main_menu() {
     # 初始化
     echo "正在初始化脚本，请稍候..."
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
+
+    # 仅检测一次 GitHub 上的最新版本信息
     fetch_github_times
     get_install_date
 
-    while true; do
-        # 每次显示菜单前，检查 biliup‑rs 本地和远程版本
-        fetch_biliup_times
+    # 仅检测一次 biliup‑rs 的本地与远程版本
+    fetch_biliup_times
 
+    while true; do
         # 打印头部和状态
         show_header
         show_status
