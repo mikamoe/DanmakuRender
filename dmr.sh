@@ -1629,26 +1629,26 @@ main_menu() {
 
         # 主菜单选项
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${BOLD}${GREEN}安装${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}${BOLD}安装${NC} DanmakuRender v5"
         if pgrep -f "$DMR_CMD" > /dev/null; then
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${BOLD}${RED}停止${NC} 录制进程"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}${BOLD}停止${NC} 录制进程"
         else
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${BOLD}${GREEN}启动${NC} 录制进程 (后台运行)"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}${BOLD}启动${NC} 录制进程 (后台运行)"
         fi
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${BOLD}${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${BOLD}${PURPLE}手动渲染${NC} 视频"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${BOLD}${PURPLE}运行测试${NC}"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${BOLD}${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${BOLD}${PINK}biliup-rs 上传工具菜单${NC}"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}${BOLD}查看${NC} 实时日志 (按 'q' 退出)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}${BOLD}手动渲染${NC} 视频"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}${BOLD}运行测试${NC}"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}${BOLD}删除${NC} 回放/渲染的视频文件"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}${BOLD}biliup-rs 上传工具菜单${NC}"
         # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${BOLD}${CYAN}字体${NC} 安装菜单"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${BOLD}${LIGHT_BLUE}安装${NC} JavaScript 环境"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${BOLD}${YELLOW}更新${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${BOLD}${RED}卸载${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${BOLD}${ORANGE}退出${NC} 菜单"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体${NC} 安装菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}安装${NC} JavaScript 环境"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}${BOLD}退出${NC} 菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # 读取用户选择并分发
