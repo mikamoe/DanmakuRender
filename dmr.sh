@@ -1532,7 +1532,7 @@ show_header() {
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     fi
-    echo -e "${CYAN}项目地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
+    echo -e "${CYAN}${BOLD}原地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     # 更新提示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
@@ -1554,14 +1554,14 @@ show_status() {
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已找到${NC}${NORMAL} 共${streamers_count}位主播"
+            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已获取${NC}${NORMAL}共${streamers_count}位主播"
         else
             echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
         fi
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${GREEN}${BOLD}运行状态：${GREEN}正在运行 (PID: $pid)${NC}${NORMAL}"
+            echo -e "${GREEN}${BOLD}运行状态：${GREEN}${BOLD}当前正在运行 (PID: $pid)${NC}${NORMAL}"
         else
             echo -e "${YELLOW}${BOLD}运行状态：${RED}未运行${NC}${NORMAL}"
         fi
@@ -1651,7 +1651,7 @@ main_menu() {
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # 读取用户选择并分发
-        read -p "$(echo -e "${BOLD}${CYAN}请输入选项 (0-11): ${NC}")" choice
+        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-11): ${NC}")" choice
         case $choice in
             1) install_dmr ;;
             2)
