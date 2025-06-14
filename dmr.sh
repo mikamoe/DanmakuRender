@@ -1647,8 +1647,8 @@ main_menu() {
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体${NC} 安装菜单"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}安装${NC} JavaScript 环境"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}${BOLD}退出${NC} 菜单"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # 读取用户选择并分发
