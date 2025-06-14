@@ -43,7 +43,7 @@ commit_sha=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
+    # 静默检测依赖，保留安装逻辑
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
@@ -55,14 +55,11 @@ check_dependencies() {
         fi
     done
 
-
-    # 更新检测提示
-    echo -e "\n Check for updates..."
-    fetch_github_times # Ensure latest times are fetched before checking
+    # 静默 fetch，但仅在检测到新提交时才提示
+    fetch_github_times
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
             echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
             echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
@@ -371,10 +368,17 @@ update_dmr() {
         return 1
     }
 
-    # 6. 备份整个 DMR 目录
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
-    sudo cp -r "$DMR_DIR" "$backup_dir" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
+    # 6. 备份整个 DMR 目录，排除回放文件夹
+    local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
+    sudo mkdir -p "$backup_dir" || { echo -e "${RED}[ERROR] 创建备份目录失败！${NC}"; return 1; }
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}（跳过“直播回放”和“直播回放（弹幕版）”）...${NC}"
+    sudo rsync -a \
+        --exclude='直播回放' \
+        --exclude='直播回放（弹幕版）' \
+        "$DMR_DIR/" "$backup_dir/" || {
+        echo -e "${RED}[ERROR] 备份 DMR 目录失败！${NC}"
         return 1
     }
 
@@ -1613,47 +1617,37 @@ fetch_biliup_times() {
 
 # ===================== 主菜单 =====================
 main_menu() {
-    # 初始化
-    echo "正在初始化脚本，请稍候..."
-    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
-
-    # 仅检测一次 GitHub 上的最新版本信息
+    # 仅检测一次版本信息
     fetch_github_times
     get_install_date
-
-    # 仅检测一次 biliup‑rs 的本地与远程版本
     fetch_biliup_times
 
     while true; do
-        # 打印头部和状态
         show_header
         show_status
 
-        # 主菜单选项
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
+        echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NORMAL}"
+        echo -e "${BOLD}${BLUE}1.${NORMAL} ${BOLD}${GREEN}安装 DanmakuRender v5${NORMAL}"
         if pgrep -f "$DMR_CMD" > /dev/null; then
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
+            echo -e "${BOLD}${BLUE}2.${NORMAL} ${BOLD}${RED}停止 录制进程${NORMAL}"
         else
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+            echo -e "${BOLD}${BLUE}2.${NORMAL} ${BOLD}${GREEN}启动 录制进程 (后台运行)${NORMAL}"
         fi
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
-        # 仅当本地和远程版本都非空且不相等时才提示更新
+        echo -e "${BOLD}${BLUE}3.${NORMAL} ${BOLD}${CYAN}查看 实时日志 (按 'q' 退出)${NORMAL}"
+        echo -e "${BOLD}${BLUE}4.${NORMAL} ${BOLD}${PURPLE}手动渲染 视频 (render_only.py)${NORMAL}"
+        echo -e "${BOLD}${BLUE}5.${NORMAL} ${BOLD}${PURPLE}运行测试 (dryrun.py)${NORMAL}"
+        echo -e "${BOLD}${BLUE}6.${NORMAL} ${BOLD}${YELLOW}删除 回放/渲染的视频文件${NORMAL}"
+        echo -e "${BOLD}${BLUE}7.${NORMAL} ${BOLD}${PINK}biliup-rs 上传工具菜单${NORMAL}"
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
-            echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
+            echo -e "${BOLD}${YELLOW}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NORMAL}"
         fi
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${BOLD}${BLUE}8.${NORMAL} ${BOLD}${CYAN}字体 安装菜单${NORMAL}"
+        echo -e "${BOLD}${BLUE}9.${NORMAL} ${BOLD}${LIGHT_BLUE}安装 JavaScript 环境${NORMAL}"
+        echo -e "${BOLD}${BLUE}10.${NORMAL} ${BOLD}${YELLOW}更新 DanmakuRender v5${NORMAL}"
+        echo -e "${BOLD}${BLUE}11.${NORMAL} ${BOLD}${RED}卸载 DanmakuRender v5${NORMAL}"
+        echo -e "${BOLD}${BLUE}0.${NORMAL} ${BOLD}${ORANGE}退出 菜单${NORMAL}"
+        echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NORMAL}"
 
-        # 读取用户选择并分发
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
         case $choice in
             1) install_dmr ;;
@@ -1694,7 +1688,6 @@ main_menu() {
             *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
         esac
 
-        # 等待按键后刷新菜单
         echo
         read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
         echo
