@@ -1636,8 +1636,8 @@ main_menu() {
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
         fi
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC}"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
         # 仅当本地和远程版本都非空且不相等时才提示更新
