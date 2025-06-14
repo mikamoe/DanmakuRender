@@ -1617,7 +1617,14 @@ fetch_biliup_times() {
 
 # ===================== 主菜单 =====================
 main_menu() {
-    # 仅检测一次版本信息
+    # 在进入菜单前静默调用 check_dependencies，
+    # 只有在检测到新版本时才会有提示
+    check_dependencies || {
+        echo -e "${RED}[ERROR] 依赖检测或更新检测失败，请检查环境后重试！${NC}"
+        exit 1
+    }
+
+    # 检测 GitHub 发布/提交时间，记录上次安装日期，以及 biliup-rs 版本
     fetch_github_times
     get_install_date
     fetch_biliup_times
@@ -1639,7 +1646,7 @@ main_menu() {
         echo -e "${BOLD}${BLUE}6.${NORMAL} ${BOLD}${YELLOW}删除 回放/渲染的视频文件${NORMAL}"
         echo -e "${BOLD}${BLUE}7.${NORMAL} ${BOLD}${PINK}biliup-rs 上传工具菜单${NORMAL}"
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
-            echo -e "${BOLD}${YELLOW}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NORMAL}"
+            echo -e "${BOLD}${YELLOW}→ 检测到 biliup-rs 新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NORMAL}"
         fi
         echo -e "${BOLD}${BLUE}8.${NORMAL} ${BOLD}${CYAN}字体 安装菜单${NORMAL}"
         echo -e "${BOLD}${BLUE}9.${NORMAL} ${BOLD}${LIGHT_BLUE}安装 JavaScript 环境${NORMAL}"
