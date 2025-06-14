@@ -43,7 +43,6 @@ commit_sha=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
@@ -1620,22 +1619,13 @@ main_menu() {
     fetch_github_times
     get_install_date
 
-    # 仅检测一次 biliup-rs 的本地与远程版本
+    # 仅检测一次 biliup‑rs 的本地与远程版本
     fetch_biliup_times
 
     while true; do
-        # —— 去掉原有的头部和状态显示 —— 
-        # show_header
-        # show_status
-
-        # 只保留“检测到更新”提示逻辑
-        if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-            install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-                echo -e "${YELLOW}${BOLD}- 检测到项目有更新！建议运行选项 10 进行更新。${NC}"
-            fi
-        fi
+        # 打印头部和状态
+        show_header
+        show_status
 
         # 主菜单选项
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1650,6 +1640,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
+        # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
