@@ -1636,7 +1636,7 @@ main_menu() {
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}${BOLD}手动渲染${NC} 视频"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}${BOLD}手动渲染视频${NC}"
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}${BOLD}运行测试${NC}"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}${BOLD}删除回放/渲染的视频文件${NC}"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}${BOLD}biliup-rs上传菜单${NC}"
