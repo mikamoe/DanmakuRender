@@ -43,15 +43,17 @@ commit_sha=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
-            sudo apt install -y "$tool" || return 1
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
+            sudo apt install -y "$tool" || {
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
+                return 1
+            }
         fi
     done
-    fetch_github_times
-    return 0
-}
 
 
     # 更新检测提示
@@ -311,43 +313,98 @@ install_biliup_rs() {
 # ===================== 更新 DanmakuRender v5 =====================
 update_dmr() {
     require_installed || return 1
+
+    # 1. 确保 rsync 已安装
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查 rsync 依赖...${NC}"
+    if ! command -v rsync &>/dev/null; then
+        echo -e "${YELLOW}未找到 rsync，正在安装...${NC}"
+        sudo apt update || { echo -e "${RED}apt update 失败，请手动安装 rsync。${NC}"; return 1; }
+        sudo apt install -y rsync || { echo -e "${RED}rsync 安装失败，请手动安装后重试。${NC}"; return 1; }
+        echo -e "${GREEN}rsync 安装完成！${NC}"
+    else
+        echo -e "${GREEN}rsync 已安装。${NC}"
+    fi
+
+    # 2. 询问确认更新
     read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
-    [[ ! "$confirm_update" =~ ^[Yy]$ ]] && { echo -e "${YELLOW}已取消更新。${NC}"; return 0; }
+    if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消更新操作。${NC}"
+        return 0
+    fi
 
-    # 停止进程
-    pgrep -f "$DMR_CMD" &>/dev/null && stop_dmr
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始更新 DanmakuRender v5...${NC}"
 
-    # 创建备份目录
+    # 3. 停止运行中的进程
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并停止运行中的进程...${NC}"
+    if pgrep -f "$DMR_CMD" > /dev/null; then
+        stop_dmr || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}停止进程失败！更新中止。${NC}"
+            return 1
+        }
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已成功停止运行中的进程。${NC}"
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}当前没有运行中的进程。${NC}"
+    fi
+
+    # 4. 创建完整备份目录
     local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
-    sudo mkdir -p "$backup_dir"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
+    sudo mkdir -p "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建备份目录失败！${NC}"
+        return 1
+    }
 
-    # 备份整个 DMR 目录（跳过“直播回放”和“直播回放（弹幕版）”）
-    sudo rsync -a \
-        --exclude='直播回放' \
-        --exclude='直播回放（弹幕版）' \
-        "$DMR_DIR/" "$backup_dir/"
-
-    # 备份 configs
-    local configs_backup_root="$DMR_DIR/configs_backups"
+    # 5. 单独备份 configs 文件夹
+    local configs_backup_root="${DMR_DIR}/configs_backups"
     local timestamp="$(date +%Y%m%d_%H%M%S)"
-    local configs_backup="$configs_backup_root/configs_backup_$timestamp"
-    sudo mkdir -p "$configs_backup_root"
-    sudo cp -r "$DMR_DIR/configs" "$configs_backup"
+    local configs_backup="${configs_backup_root}/configs_backup_${timestamp}"
 
-    # 拉取最新代码并覆盖
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 configs 备份根目录（若不存在）: ${configs_backup_root}${NC}"
+    sudo mkdir -p "$configs_backup_root" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 configs_backups 根目录失败！${NC}"
+        return 1
+    }
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份配置文件到: ${configs_backup}${NC}"
+    sudo cp -r "$DMR_DIR/configs" "$configs_backup" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份配置文件失败！${NC}"
+        return 1
+    }
+
+    # 6. 备份整个 DMR 目录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
+    sudo cp -r "$DMR_DIR" "$backup_dir" || {
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
+        return 1
+    }
+
+    # 7. 拉取最新代码并覆盖
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir" || { rollback_update "$backup_dir" "$configs_backup"; return 1; }
-    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！请检查网络、权限或仓库地址/分支。${NC}"
+        rollback_update "$backup_dir" "$configs_backup"
+        return 1
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
+        rollback_update "$backup_dir" "$configs_backup"
+        return 1
+    fi
     rm -rf "$tmp_dir"
 
-    echo -e "${GREEN}更新完成，配置备份：${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份存放于：${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新前的所有项目备份目录已自动删除: ${backup_dir}${NC}"
 
-    # 刷新安装日期
-    date +%s | sudo tee "$INSTALL_DATE_FILE" &>/dev/null
+    # 8. 删除完整备份并刷新安装日期
+    sudo rm -rf "$backup_dir"
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
     fetch_github_times
     get_install_date
-}
 
     return 0
 }
@@ -1421,36 +1478,47 @@ update_biliup_rs() {
 
 biliup_menu() {
     require_installed || return 1
-    pushd "$BILIUP_DIR" > /dev/null
+    pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无法进入工具目录 $BILIUP_DIR"; return 1; }
 
     while true; do
         clear
-        echo -e "\n${PINK}${BOLD}=== biliup-rs 管理菜单 ===${NORMAL}${NC}"
-        echo -e "${CYAN}${BOLD}当前目录: $(pwd)${NORMAL}${NC}"
-        echo -e "${CYAN}${BOLD}biliup-rs 版本信息：${NORMAL}${NC}"
-        [ -x "./biliup" ] && ./biliup -V || echo -e "${RED}未找到 biliup${NC}"
-
-        echo -e " ${BOLD}1.${NC} 视频 上传 (新投稿)"
-        echo -e " ${BOLD}2.${NC} 视频 追加 (添加到已有投稿)"
-        echo -e " ${BOLD}3.${NC} 登录/更新 B站 Cookies"
-        echo -e " ${BOLD}9.${NC} 检查/更新 biliup-rs 工具"
-        echo -e " ${BOLD}0.${NC} 返回主菜单"
-
-        read -p "$(echo -e "${CYAN}请输入选项 (0-3,9): ${NC}")" sub_choice
+        echo -e "\n${PINK}=== biliup-rs 管理菜单 ===${NC}"
+        echo -e "${CYAN}当前目录: $(pwd)${NC}"
+        echo -e "${CYAN}biliup-rs 版本信息：${NC}"
+        if [ -f "./biliup" ] && [ -x "./biliup" ]; then
+            ./biliup -V
+        else
+            echo -e "${RED}biliup 工具未找到或不可执行！${NC}"
+        fi
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} 视频 ${GREEN}上传${NC} (新投稿)"
+        echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} 视频 ${GREEN}追加${NC} (添加到已有投稿)"
+        echo -e " ${BLUE}${BOLD}3.${NC}${NORMAL} ${YELLOW}登录/更新${NC} B站 Cookies (./biliup login)"
+        echo -e " ${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}检查/更新${NC} biliup-rs 工具"
+        echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} 返回主菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        read -p "$(echo -e "${CYAN}请输入 biliup 菜单选项 (0-3,9): ${NC}")" sub_choice
         case $sub_choice in
             1) biliup_upload ;;
             2) biliup_append ;;
-            3) ./biliup login ;;
+            3)
+                if [ -f "./biliup" ] && [ -x "./biliup" ]; then
+                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}执行 ./biliup login ...${NC}"
+                    ./biliup login
+                else
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'biliup' 工具不存在或不可执行！${NC}"
+                fi
+                ;;
             9) update_biliup_rs ;;
-            0) break ;;
-            *) echo -e "${RED}无效选项 '$sub_choice'！${NC}" ;;
+            0) echo -e "${YELLOW}返回主菜单...${NC}"; break ;;
+            *) echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效选项 '$sub_choice'！" ;;
         esac
 
-        echo; read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回 biliup 菜单...${NC}")"; echo
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回 biliup 菜单...${NC}")"
+        echo
     done
 
     popd > /dev/null
-}
     return 0
 }
 
@@ -1545,37 +1613,61 @@ fetch_biliup_times() {
 
 # ===================== 主菜单 =====================
 main_menu() {
-    check_dependencies
+    # 初始化
+    echo "正在初始化脚本，请稍候..."
+    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
+
+    # 仅检测一次 GitHub 上的最新版本信息
     fetch_github_times
     get_install_date
+
+    # 仅检测一次 biliup‑rs 的本地与远程版本
     fetch_biliup_times
 
     while true; do
+        # 打印头部和状态
         show_header
         show_status
 
-        echo -e "${BOLD}1.${NC} 安装 DanmakuRender v5"
-        echo -e "${BOLD}2.${NC} $(pgrep -f "$DMR_CMD" &>/dev/null && echo '停止录制进程' || echo '启动录制进程 (后台运行)')"
-        echo -e "${BOLD}3.${NC} 查看实时日志 (q 退出)"
-        echo -e "${BOLD}4.${NC} 手动渲染 视频"
-        echo -e "${BOLD}5.${NC} 运行测试"
-        echo -e "${BOLD}6.${NC} 删除回放/渲染文件"
-        echo -e "${BOLD}7.${NC} biliup-rs 上传工具菜单"
-        echo -e "${BOLD}8.${NC} 字体 安装菜单"
-        echo -e "${BOLD}9.${NC} 安装 JavaScript 环境"
-        echo -e "${BOLD}10.${NC} 更新 DanmakuRender v5"
-        echo -e "${BOLD}11.${NC} 卸载 DanmakuRender v5"
-        echo -e "${BOLD}0.${NC} 退出 菜单"
+        # 主菜单选项
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
+        if pgrep -f "$DMR_CMD" > /dev/null; then
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
+        else
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+        fi
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
+        # 仅当本地和远程版本都非空且不相等时才提示更新
+        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
+            echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
+        fi
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+        # 读取用户选择并分发
         read -p "$(echo -e "${CYAN}请输入选项 (0-11): ${NC}")" choice
         case $choice in
             1) install_dmr ;;
             2)
                 require_installed && {
-                    if pgrep -f "$DMR_CMD" &>/dev/null; then
-                        stop_dmr && stop_extra_processes
+                    if pgrep -f "$DMR_CMD" > /dev/null; then
+                        stop_dmr
+                        stop_extra_processes
                     else
-                        check_config && start_dmr || echo -e "${RED}请先配置 configs 后再启动。${NC}"
+                        if ! check_config; then
+                            echo -e "${RED}配置文件检查失败！请配置 ${DMR_DIR}/configs/ 下的 *DMR* 文件。${NC}"
+                        else
+                            start_dmr
+                        fi
                     fi
                 }
                 ;;
@@ -1586,15 +1678,26 @@ main_menu() {
             7) require_installed && biliup_menu ;;
             8) require_installed && font_menu ;;
             9)
-                require_installed && read -p "$(echo -e "${YELLOW}确定安装 JS 环境？(y/N): ${NC}")" js_confirm && [[ "$js_confirm" =~ ^[Yy]$ ]] && install_js_engine
+                require_installed && {
+                    read -p "$(echo -e "${YELLOW}确定要安装 JavaScript 环境吗？(y/N): ${NC}")" js_confirm
+                    js_confirm=${js_confirm:-n}
+                    if [[ "$js_confirm" =~ ^[Yy]$ ]]; then
+                        install_js_engine
+                    else
+                        echo -e "${CYAN}已取消 JavaScript 环境安装。${NC}"
+                    fi
+                }
                 ;;
-            10) require_installed && update_dmr ;;
-            11) require_installed && uninstall_dmr ;;
+            10) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
+            11) require_installed && { uninstall_dmr; install_date=""; commit_time="N/A"; release_version="N/A"; release_time="N/A"; commit_sha=""; } ;;
             0) echo -e "${YELLOW}退出脚本${NC}" && exit 0 ;;
             *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
         esac
 
-        echo; read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"; echo
+        # 等待按键后刷新菜单
+        echo
+        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
+        echo
     done
 }
 
