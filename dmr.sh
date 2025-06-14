@@ -43,15 +43,22 @@ commit_sha=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}Checking dependencies...${NC}"
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
             sudo apt install -y "$tool" || {
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
                 return 1
             }
         fi
     done
 
+
+    # 更新检测提示
+    echo -e "\n Check for updates..."
+    fetch_github_times # Ensure latest times are fetched before checking
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
@@ -109,7 +116,7 @@ rollback_installation() {
     fi
 }
 
-# ===================== 回滚更新（恢复备份） =====================
+# ===================== 回滚更新（恢复备份） =====================  # <<< 修改点 >>>
 rollback_update() {
     local backup_dir="$1"
     local configs_backup="$2"
@@ -364,9 +371,9 @@ update_dmr() {
         return 1
     }
 
-    # 6. 备份整个 DMR 目录（跳过直播回放和弹幕版目录）
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份 DMR 目录到 ${backup_dir} (跳过回放目录)...${NC}"
-    sudo rsync -a --exclude='直播回放' --exclude='直播回放（弹幕版）' "$DMR_DIR/" "$backup_dir/" || {
+    # 6. 备份整个 DMR 目录
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
+    sudo cp -r "$DMR_DIR" "$backup_dir" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
         return 1
     }
@@ -382,7 +389,7 @@ update_dmr() {
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
-    if ! sudo rsync -a --exclude='configs' --exclude='直播回放' --exclude='直播回放（弹幕版）' "$tmp_dir/" "$DMR_DIR/"; then
+    if ! sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
@@ -924,7 +931,7 @@ install_segoe_emoji() {
         sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 ${BOLD}Segoe UI Emoji${NORMAL} 字体"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
     echo " 0) 返回字体菜单"
     echo " 1) Win10 版"
     echo " 2) Win11 版"
@@ -964,7 +971,7 @@ install_noto_color_emoji() {
         sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 ${BOLD}Noto Color Emoji${NORMAL} 字体"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Noto Color Emoji 字体"
     local font_dir="/usr/share/fonts/truetype/noto-emoji"
     sudo mkdir -p "$font_dir"
     sudo curl -fsSL \
@@ -987,7 +994,7 @@ install_fonts() {
         fi
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 ${BOLD}微软雅黑 + Emoji 系列${NORMAL} 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
     # 安装微软雅黑
     sudo apt update
     sudo apt install -y ttf-mscorefonts-installer
@@ -997,7 +1004,7 @@ install_fonts() {
     install_noto_color_emoji
 
     refresh_font_cache
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${BOLD}微软雅黑 + Emoji 系列${NORMAL} 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
 
 # ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
@@ -1013,7 +1020,7 @@ install_alibaba_fonts() {
         fi
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 ${BOLD}阿里巴巴普惠体 + Emoji 系列${NORMAL} 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
     sudo mkdir -p "$ali_dir"
     sudo curl -fsSL \
@@ -1026,16 +1033,16 @@ install_alibaba_fonts() {
     install_noto_color_emoji
 
     refresh_font_cache
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${BOLD}阿里巴巴普惠体 + Emoji 系列${NORMAL} 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
 
 # ===== 单独安装 Emoji 系列 字体 =====
 install_emoji_fonts() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 ${BOLD}Emoji 系列${NORMAL} 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列 字体..."
     install_segoe_emoji
     install_noto_color_emoji
     refresh_font_cache
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${BOLD}Emoji${NORMAL} 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} Emoji 字体安装完成！"
 }
 
 # ===== 字体安装子菜单 =====
@@ -1072,9 +1079,9 @@ font_menu() {
         echo -e " Segoe UI Emoji:     ${seg_status}"
         echo -e " Noto Color Emoji:   ${noto_status}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 ${BOLD}微软雅黑 + Emoji 系列${NORMAL}"
-        echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 ${BOLD}阿里巴巴普惠体 + Emoji 系列${NORMAL}"
-        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 ${BOLD}Emoji 字体${NORMAL}"
+        echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
+        echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
+        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 Emoji 字体"
         echo -e " ${BLUE}${BOLD}4.${NC} 卸载 已安装字体"
         echo -e " ${BLUE}${BOLD}0.${NC} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1475,7 +1482,7 @@ biliup_menu() {
 
     while true; do
         clear
-        echo -e "\n${PINK}=== ${BOLD}biliup-rs 管理菜单${NORMAL} ===${NC}"
+        echo -e "\n${PINK}=== biliup-rs 管理菜单 ===${NC}"
         echo -e "${CYAN}当前目录: $(pwd)${NC}"
         echo -e "${CYAN}biliup-rs 版本信息：${NC}"
         if [ -f "./biliup" ] && [ -x "./biliup" ]; then
@@ -1519,8 +1526,8 @@ biliup_menu() {
 
 show_header() {
     clear
-    local title="${BOLD}DanmakuRender v5 管理脚本${NORMAL}"
-    echo -e "${BLUE}${title}${NC}"
+    local title="DanmakuRender v5 管理脚本"
+    echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
@@ -1581,7 +1588,7 @@ require_installed() {
 fetch_biliup_times() {
     # 如果 biliup 可执行文件存在且可执行
     if [ -x "$BILIUP_DIR/biliup" ]; then
-        # 获取本地版本号（假设输出类似 "biliup-cli 0.2.2"）
+        # 获取本地版本号（假设输出类似 “biliup-cli 0.2.2”）
         local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
         BILIUP_LOCAL_VERSION="$local_ver"
 
@@ -1589,9 +1596,9 @@ fetch_biliup_times() {
         local latest_info
         latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
         if [[ -n "$latest_info" ]]; then
-            # 取 tag_name 作为远程最新版本号（如 "v0.2.3"）
+            # 取 tag_name 作为远程最新版本号（如 “v0.2.3”）
             remote_ver=$(echo "$latest_info" | jq -r '.tag_name // empty')
-            # 如有前缀 "v"，去掉以便对比（可选）
+            # 如有前缀 “v”，去掉以便对比（可选）
             remote_ver="${remote_ver#v}"
             BILIUP_REMOTE_VERSION="$remote_ver"
         else
@@ -1607,6 +1614,7 @@ fetch_biliup_times() {
 # ===================== 主菜单 =====================
 main_menu() {
     # 初始化
+    echo "正在初始化脚本，请稍候..."
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
 
     # 仅检测一次 GitHub 上的最新版本信息
@@ -1623,26 +1631,26 @@ main_menu() {
 
         # 主菜单选项
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e " ${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}安装${NC} DanmakuRender v5"
         if pgrep -f "$DMR_CMD" > /dev/null; then
-            echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}停止${NC} 录制进程"
         else
-            echo -e " ${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
+            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}启动${NC} 录制进程 (后台运行)"
         fi
-        echo -e " ${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
-        echo -e " ${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
-        echo -e " ${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
-        echo -e " ${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
-        echo -e " ${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}${BOLD}biliup-rs 上传工具菜单${NORMAL}${NC}"
+        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}查看${NC} 实时日志 (按 'q' 退出)"
+        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}手动渲染${NC} 视频 (render_only.py)"
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}运行测试${NC} (dryrun.py)"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}删除${NC} 回放/渲染的视频文件"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}biliup-rs 上传工具菜单${NC}"
         # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
-        echo -e " ${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体${NORMAL}${NC} 安装菜单"
-        echo -e " ${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
-        echo -e " ${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
-        echo -e " ${BLUE}${BOLD}11.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
-        echo -e " ${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
+        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}字体${NC} 安装菜单"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}安装${NC} JavaScript 环境"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}更新${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}卸载${NC} DanmakuRender v5"
+        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}退出${NC} 菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         # 读取用户选择并分发
