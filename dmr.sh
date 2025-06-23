@@ -409,8 +409,8 @@ update_dmr() {
 
 install_dmr() {
     local rollback_needed=true
-    # Setup trap to call rollback_installation on EXIT signal if rollback_needed is true
-    trap '[[ "$rollback_needed" == true ]] && rollback_installation' EXIT
+    # 仅在非零退出码（出错或被 SIGHUP 杀掉）且 rollback_needed 仍为 true 时回滚
+    trap 'if [[ "$rollback_needed" == true && $? -ne 0 ]]; then rollback_installation; fi' EXIT
 
     if [ -d "$DMR_DIR" ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}DanmakuRender V5 似乎已经安装在 ${DMR_DIR}！${NC}"
@@ -418,85 +418,70 @@ install_dmr() {
         reinstall_choice=${reinstall_choice:-n}
         if [[ "$reinstall_choice" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在重新安装 Python 依赖...${NC}"
-            pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; trap - EXIT; return 1; } # Disable trap on early exit
-            # Check if virtual environment exists
+            pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; trap - EXIT; return 1; }
             if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
-                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}虚拟环境 'venv' 不存在或不完整！无法重新安装依赖。请尝试完整卸载后重新安装。${NC}"
-                 popd > /dev/null; trap - EXIT; return 1;
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}虚拟环境 'venv' 不存在或不完整！无法重新安装依赖。请尝试完整卸载后重新安装。${NC}"
+                popd > /dev/null; trap - EXIT; return 1
             fi
-             # Check if requirements file exists
             if [ ! -f "requirements.txt" ]; then
-                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'requirements.txt' 文件不存在！无法重新安装依赖。${NC}"
-                 popd > /dev/null; trap - EXIT; return 1;
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'requirements.txt' 文件不存在！无法重新安装依赖。${NC}"
+                popd > /dev/null; trap - EXIT; return 1
             fi
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
             source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; trap - EXIT; return 1; }
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip...${NC}"
-            pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..." # Don't fail immediately
+            pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..."
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}从 requirements.txt 安装依赖...${NC}"
-            # Use --force-reinstall maybe? Or just install? Let's stick to install for now.
             pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; deactivate; popd > /dev/null; trap - EXIT; return 1; }
             deactivate
             popd > /dev/null
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖重新安装完成！${NC}"
-            # Successfully reinstalled deps, disable rollback and exit normally
+            # 成功完成依赖安装后，取消回滚
             rollback_needed=false
             trap - EXIT
             return 0
         else
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消重新安装 Python 依赖。${NC}"
-            # Nothing to install, disable rollback and exit normally
             rollback_needed=false
             trap - EXIT
             return 0
         fi
     fi
 
-    # If not installed, proceed with full installation
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始全新安装 DanmakuRender v5...${NC}"
-
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查并安装必要的系统工具...${NC}"
-    # Call the check/install function
-    check_install_tools || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}系统工具检查或安装失败！安装中止。${NC}"; return 1; } # Trap will handle rollback
+    check_install_tools || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}系统工具检查或安装失败！安装中止。${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}系统工具检查/安装完成。${NC}"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 git clone 拉取 DanmakuRender ${GITHUB_BRANCH} 分支...${NC}"
-    # Clone with depth 1 for efficiency
     if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
-         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}git clone 失败！请检查网络、权限或仓库地址/分支。${NC}"
-         return 1 # Trap will handle rollback
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}git clone 失败！请检查网络、权限或仓库地址/分支。${NC}"
+        return 1
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}代码拉取完成！${NC}"
 
-    pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入安装目录 $DMR_DIR 失败！"; return 1; } # Trap will handle rollback
-
+    pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入安装目录 $DMR_DIR 失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 Python 虚拟环境 (venv)...${NC}"
-    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 Python 虚拟环境失败！${NC}"; popd > /dev/null; return 1; } # Trap will handle rollback
-
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 Python 虚拟环境失败！${NC}"; popd > /dev/null; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境并安装 Python 依赖...${NC}"
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; return 1; } # Trap will handle rollback
-
-    pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..." # Don't fail immediately
-
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; return 1; }
+    pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..."
     if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！请检查 'requirements.txt' 或网络。${NC}"; deactivate; popd > /dev/null; return 1; } # Trap will handle rollback
+        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！请检查 'requirements.txt' 或网络。${NC}"; deactivate; popd > /dev/null; return 1; }
     else
         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}未找到 requirements.txt 文件，跳过 Python 依赖安装。${NC}"
     fi
     deactivate
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖安装完成。${NC}"
-
-    # Go back to original directory before installing biliup-rs (it cds into its own dir)
     popd > /dev/null
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装/更新 biliup-rs...${NC}"
-    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}biliup-rs 安装失败！${NC}"; return 1; } # Trap will handle rollback
+    install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}biliup-rs 安装失败！${NC}"; return 1; }
 
-    # Ask about JS engine installation AFTER main components are installed
     read -p "$(echo -e "${YELLOW}安装完成，是否额外安装 JavaScript 解释器 (Node.js) 和相关 Python 库 (quickjs)？(y/N): ${NC}")" js_choice
     js_choice=${js_choice:-n}
     if [[ "$js_choice" =~ ^[Yy]$ ]]; then
-         install_js_engine || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}JavaScript 环境安装过程中可能出现问题。${NC}" # Don't fail the whole install for optional part
+        install_js_engine || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}JavaScript 环境安装过程中可能出现问题。${NC}"
     fi
 
     echo -e "\n${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} ${GREEN}${BOLD}DanmakuRender v5 安装完成！${NC}"
@@ -506,13 +491,13 @@ install_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在记录安装日期..."
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！(权限问题？)${NC}"
-        # Don't trigger rollback for this minor failure, but inform user
     }
-    get_install_date # Update the display variable
+    get_install_date
 
-    # Installation successful, disable the rollback trap
+    # 安装一切正常，取消回滚
     rollback_needed=false
     trap - EXIT
+
     return 0
 }
 
