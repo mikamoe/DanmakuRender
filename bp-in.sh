@@ -87,13 +87,22 @@ select_and_install(){
   info "检测到系统架构：${CYAN}$ARCH${RESET}"
   info "正在从 GitHub 拉取最新版本列表..."
 
+  # 修复：修改 jq 命令，确保每个版本只列出一次，并优先选择 .tar.gz 格式的下载链接
   mapfile -t lines < <(curl -s "$GITHUB_API" | \
     jq -r --arg arch "$ARCH" '
-      .[]
-      | {tag: .tag_name, date: .published_at, assets: .assets[]}
-      | select(.assets.name | test("linux";"i") and test($arch;"i"))
-      | "\(.tag) \(.date) \(.assets.browser_download_url)"
-    ' | sort -rV | uniq | head -n 10)
+      .[] | {
+        tag: .tag_name,
+        date: .published_at,
+        # 过滤出匹配架构的 Linux 资产，并优先将 .tar.gz 放在前面
+        assets: [
+          .assets[] | select(.name | test("linux";"i") and test($arch;"i"))
+        ] | sort_by(.name | test("\\.tar\\.gz$") | not)
+      } | select(.assets | length > 0) | {
+        tag: .tag,
+        date: .date,
+        url: (.assets[0].browser_download_url) # 取第一个（优先的）资产的下载链接
+      } | "\(.tag) \(.date) \(.url)"
+    ' | sort -rV | head -n 10) # 移除 uniq，因为 jq 已经确保了每个tag的唯一性
 
   if [[ ${#lines[@]} -eq 0 ]]; then
     error "未找到任何可用的 Linux/${RED}$ARCH${RESET} 版本"
