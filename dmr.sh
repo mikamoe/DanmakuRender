@@ -42,7 +42,6 @@ ORANGE='\033[38;5;208m'
 commit_sha=""
 
 # ===================== 辅助函数 =====================
-# check_dependencies: 检查并安装必要的系统工具，并在检测到新版本时提示用户。
 check_dependencies() {
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
@@ -78,7 +77,6 @@ check_dependencies() {
     return 0
 }
 
-# get_python_version: 获取系统安装的 Python 3 版本。
 get_python_version() {
     if command -v python3 &>/dev/null; then
         echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
@@ -87,13 +85,12 @@ get_python_version() {
     fi
 }
 
-# convert_to_beijing_time: 将 UTC 时间转换为北京时间。
 convert_to_beijing_time() {
     local raw_time="$1"
     if [ -z "$raw_time" ]; then
         echo "获取失败"
         return
-    }
+    fi
     local converted
     converted=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null)
     if [ -n "$converted" ]; then
@@ -108,7 +105,6 @@ convert_to_beijing_time() {
     fi
 }
 
-# rollback_installation: 在安装失败时回滚操作，删除安装目录。
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚...${NC}"
     if [ -d "$DMR_DIR" ]; then
@@ -118,7 +114,7 @@ rollback_installation() {
     fi
 }
 
-# rollback_update: 在更新失败时回滚操作，恢复备份。
+# ===================== 回滚更新（恢复备份） =====================  # <<< 修改点 >>>
 rollback_update() {
     local backup_dir="$1"
     local configs_backup="$2"
@@ -141,12 +137,11 @@ rollback_update() {
     if [ -d "$configs_backup" ]; then
         sudo rm -rf "$DMR_DIR/configs" 2>/dev/null
         sudo mv "$configs_backup" "$DMR_DIR/configs" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已恢复配置文件：$DMR_DIR/configs${NC}"
-    }
+    fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 回滚完成，请检查后重试。"
 }
 
-# check_config: 检查 DanmakuRender 的配置文件是否存在。
 check_config() {
     if [ ! -d "$DMR_DIR/configs" ]; then
         return 1
@@ -158,7 +153,6 @@ check_config() {
     fi
 }
 
-# fetch_github_times: 从 GitHub API 获取 DanmakuRender 项目的最新提交时间和发布版本信息。
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
@@ -187,7 +181,6 @@ fetch_github_times() {
     fi
 }
 
-# get_install_date: 从安装日期文件获取 DanmakuRender 的安装日期。
 get_install_date() {
     install_date=""
     if [ -f "$INSTALL_DATE_FILE" ]; then
@@ -210,10 +203,9 @@ get_install_date() {
 
 # ===================== 系统安装及更新函数 =====================
 
-# check_install_tools: 检查并安装 DanmakuRender 所需的系统工具。
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查系统依赖工具...${NC}"
-    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git" "rsync") # Added rsync here
+    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git")
     local missing_tools=()
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
@@ -236,7 +228,6 @@ check_install_tools() {
     return 0
 }
 
-# install_biliup_rs: 安装或更新 biliup-rs 工具。
 install_biliup_rs() {
     sudo mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"; return 1; }
     pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败: $BILIUP_DIR${NC}"; return 1; }
@@ -317,11 +308,20 @@ install_biliup_rs() {
     return 0
 }
 
-# update_dmr: 更新 DanmakuRender v5 到最新版本。
+# ===================== 更新 DanmakuRender v5 =====================
 update_dmr() {
     require_installed || return 1
 
-    # 1. 确保 rsync 已安装 (moved to check_install_tools)
+    # 1. 确保 rsync 已安装
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查 rsync 依赖...${NC}"
+    if ! command -v rsync &>/dev/null; then
+        echo -e "${YELLOW}未找到 rsync，正在安装...${NC}"
+        sudo apt update || { echo -e "${RED}apt update 失败，请手动安装 rsync。${NC}"; return 1; }
+        sudo apt install -y rsync || { echo -e "${RED}rsync 安装失败，请手动安装后重试。${NC}"; return 1; }
+        echo -e "${GREEN}rsync 安装完成！${NC}"
+    else
+        echo -e "${GREEN}rsync 已安装。${NC}"
+    fi
 
     # 2. 询问确认更新
     read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
@@ -407,7 +407,6 @@ update_dmr() {
     return 0
 }
 
-# install_dmr: 全新安装 DanmakuRender v5。
 install_dmr() {
     local rollback_needed=true
     # 仅在非零退出码（出错或被 SIGHUP 杀掉）且 rollback_needed 仍为 true 时回滚
@@ -502,7 +501,7 @@ install_dmr() {
     return 0
 }
 
-# uninstall_dmr: 卸载 DanmakuRender v5。
+
 uninstall_dmr() {
     require_installed || return 1
     echo -e "${RED}${BOLD}警告：这将永久删除 DanmakuRender v5 的所有文件，包括程序、配置、日志、工具和可能存在的备份！${NC}"
@@ -539,7 +538,6 @@ uninstall_dmr() {
 }
 
 # ===================== JavaScript 环境安装函数 ===============
-# install_js_engine: 安装 Node.js 和 quickjs Python 包。
 install_js_engine() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始安装 JavaScript 环境...${NC}"
     
@@ -575,7 +573,6 @@ install_js_engine() {
 }
 
 # ===================== 运行与测试管理函数 =====================
-# start_dmr: 启动 DanmakuRender 应用程序。
 start_dmr() {
     require_installed || return 1
     # 检查配置文件有效性
@@ -637,7 +634,6 @@ start_dmr() {
     fi
 }
 
-# stop_dmr: 停止 DanmakuRender 应用程序。
 stop_dmr() {
     require_installed || return 1
     local pid_file="$DMR_DIR/dmr.pid"
@@ -716,7 +712,7 @@ stop_dmr() {
     fi
 }
 
-# stop_extra_processes: 停止额外的录制/ffmpeg 相关进程。
+# ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
 stop_extra_processes() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
     # 列出所有包含 “正在录制” 的进程（排除 grep 自身），提取 PID 并尝试优雅终止
@@ -732,7 +728,7 @@ stop_extra_processes() {
     done
 }
 
-# view_log: 查看 DanmakuRender 的实时日志。
+# ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
@@ -761,7 +757,7 @@ view_log() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志查看已退出。"
 }
 
-# run_test: 运行 DanmakuRender 的测试脚本。
+
 run_test() {
     require_installed || return 1
     local test_script="dryrun.py"
@@ -794,7 +790,6 @@ run_test() {
     fi
 }
 
-# manual_render: 手动渲染视频。
 manual_render() {
     require_installed || return 1
     local render_script="render_only.py"
@@ -827,7 +822,7 @@ manual_render() {
     fi
 }
 
-# delete_replays: 删除直播回放和弹幕版回放目录中的视频文件。
+
 delete_replays() {
     require_installed || return 1
     local replay_dir_plain="$DMR_DIR/直播回放"
@@ -896,7 +891,7 @@ delete_replays() {
 }
 
 
-# refresh_font_cache: 刷新系统字体缓存。
+# ===== 刷新字体缓存 =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 刷新字体缓存..."
@@ -906,7 +901,7 @@ refresh_font_cache() {
     fi
 }
 
-# install_segoe_emoji: 安装 Segoe UI Emoji 字体。
+# ===== 安装 Segoe UI Emoji 字体 （含已装检测与重装提示） =====
 install_segoe_emoji() {
     # 检测安装状态
     if fc-list | grep -qi "Segoe UI Emoji"; then
@@ -947,14 +942,14 @@ install_segoe_emoji() {
     echo -e "${GREEN}Segoe UI Emoji 安装完成！${NC}"
 }
 
-# install_noto_color_emoji: 安装 Noto Color Emoji 字体。
+# ===== 安装 Noto Color Emoji 字体 （含已装检测与重装提示） =====
 install_noto_color_emoji() {
     if fc-list | grep -qi "Noto Color Emoji"; then
         read -p "检测到已安装 Noto Color Emoji，是否先卸载再重新安装？(y/N): " _c
         if [[ ! "$_c" =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}跳过 Noto Color Emoji 安装。${NC}"
             return
-        }
+        fi
         echo -e "${BLUE}[INFO]${NC} 卸载现有 Noto Color Emoji..."
         sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
     fi
@@ -969,7 +964,7 @@ install_noto_color_emoji() {
     echo -e "${GREEN}Noto Color Emoji 安装完成！${NC}"
 }
 
-# install_fonts: 安装“微软雅黑 + Emoji 系列”字体。
+# ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
     # 微软雅黑
     if fc-list | grep -qi "Microsoft YaHei"; then
@@ -995,7 +990,7 @@ install_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
 
-# install_alibaba_fonts: 安装“阿里巴巴普惠体 + Emoji 系列”字体。
+# ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
 install_alibaba_fonts() {
     # 阿里巴巴普惠体
     if fc-list | grep -qi "Alibaba PuHuiTi"; then
@@ -1024,7 +1019,7 @@ install_alibaba_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
 
-# install_emoji_fonts: 单独安装 Emoji 系列字体。
+# ===== 单独安装 Emoji 系列 字体 =====
 install_emoji_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列 字体..."
     install_segoe_emoji
@@ -1033,7 +1028,7 @@ install_emoji_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} Emoji 字体安装完成！"
 }
 
-# font_menu: 字体安装子菜单。
+# ===== 字体安装子菜单 =====
 font_menu() {
     require_installed || return 1
 
@@ -1137,9 +1132,10 @@ font_menu() {
     done
 }
 
+
+
 # ===================== 状态及主菜单 =====================
 
-# show_header: 显示脚本头部信息，包括项目名称、最新版本和提交信息。
 show_header() {
     clear
     local title="DanmakuRender v5 管理脚本"
@@ -1162,7 +1158,6 @@ show_header() {
     fi
 }
 
-# show_status: 显示 DanmakuRender 的安装和运行状态。
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
@@ -1192,7 +1187,6 @@ show_status() {
     fi
 }
 
-# require_installed: 检查 DanmakuRender 是否已安装，未安装则提示并返回错误。
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "\n${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装！${NC}"
@@ -1202,8 +1196,34 @@ require_installed() {
     return 0
 }
 
+# ========== 新增：biliup‑rs 版本检测函数 ==========
+fetch_biliup_times() {
+    # 如果 biliup 可执行文件存在且可执行
+    if [ -x "$BILIUP_DIR/biliup" ]; then
+        # 获取本地版本号（假设输出类似 “biliup-cli 0.2.2”）
+        local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
+        BILIUP_LOCAL_VERSION="$local_ver"
+
+        # 从 GitHub API 获取最新 Release 信息
+        local latest_info
+        latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+        if [[ -n "$latest_info" ]]; then
+            # 取 tag_name 作为远程最新版本号（如 “v0.2.3”）
+            remote_ver=$(echo "$latest_info" | jq -r '.tag_name // empty')
+            # 如有前缀 “v”，去掉以便对比（可选）
+            remote_ver="${remote_ver#v}"
+            BILIUP_REMOTE_VERSION="$remote_ver"
+        else
+            BILIUP_REMOTE_VERSION=""
+        fi
+    else
+        # 未安装 biliup，清空版本变量
+        BILIUP_LOCAL_VERSION=""
+        BILIUP_REMOTE_VERSION=""
+    fi
+}
+
 # ===================== 主菜单 =====================
-# main_menu: 显示主菜单并处理用户输入。
 main_menu() {
     # 初始化
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
@@ -1211,6 +1231,9 @@ main_menu() {
     # 仅检测一次 GitHub 上的最新版本信息
     fetch_github_times
     get_install_date
+
+    # 仅检测一次 biliup‑rs 的本地与远程版本
+    fetch_biliup_times
 
     while true; do
         # 打印头部和状态
@@ -1230,6 +1253,10 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}${BOLD}运行测试${NC}"
         echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}${BOLD}删除回放/渲染的视频文件${NC}"
         echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}${BOLD}biliup-rs上传菜单${NC}"
+        # 仅当本地和远程版本都非空且不相等时才提示更新
+        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
+            echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
+        fi
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体安装菜单${NC}"
         echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}安装JavaScript 环境${NC}"
         echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新DanmakuRender v5${NC}"
@@ -1252,7 +1279,8 @@ main_menu() {
                         else
                             start_dmr
                         fi
-                    }
+                    fi
+                }
                 ;;
             3) view_log ;;
             4) require_installed && manual_render ;;
@@ -1286,4 +1314,3 @@ main_menu() {
 
 # 启动主菜单
 main_menu
-
