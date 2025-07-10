@@ -1299,15 +1299,22 @@ main_menu() {
 
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-12): ${NC}")" choice
         case $choice in
-            1)
-                install_dmr && {
-                    # 复制脚本并创建快捷键
-                    cp -f "$0" "$DMR_DIR/$SCRIPT_NAME"
-                    chmod +x "$DMR_DIR/$SCRIPT_NAME"
-                    ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
-                    echo -e "${GREEN}快捷键 'd' 已创建，输入 d 即可启动管理脚本。${NC}"
-                }
-                ;;
+        1)
+    install_dmr && {
+        # 获取当前脚本的绝对路径
+        local SCRIPT_SOURCE
+        SCRIPT_SOURCE="$(readlink -f "${BASH_SOURCE[0]}")"
+
+        # 复制脚本到 DMR 主目录并赋予执行权限
+        sudo cp -f "$SCRIPT_SOURCE" "$DMR_DIR/$SCRIPT_NAME"
+        sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
+
+        # 创建或更新全局快捷键 'd'
+        sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
+
+        echo -e "${GREEN}快捷键 'd' 已创建，输入 'd' 即可启动管理脚本。${NC}"
+    }
+    ;;
             2)
                 require_installed && {
                     if pgrep -f "$DMR_CMD" &>/dev/null; then
