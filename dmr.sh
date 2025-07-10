@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-11A"
+VERSION="2025-07-11B"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1186,7 +1186,7 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}脚本版本: ${VERSION}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}${YELLOW}${BOLD}脚本版本: ${VERSION}${NC}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
@@ -1293,9 +1293,9 @@ main_menu() {
         echo -e "${BLUE}${BOLD}7.${NC} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
         echo -e "${BLUE}${BOLD}8.${NC} ${CYAN}${BOLD}字体安装菜单${NC}"
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
-        echo -e "${BLUE}${BOLD}10.${NC} ${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}11.${NC} ${RED}${BOLD}卸载 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC} ${GREEN}${BOLD}更新脚本${NC}"
+        echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -1354,7 +1354,7 @@ main_menu() {
                 }
                 ;;
             12) require_installed && update_script ;;
-            0) echo -e "${YELLOW}退出脚本${NC}" && exit 0 ;;
+             0) exit 0 ;;
             *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 12。${NC}" ;;
         esac
 
