@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-11"
+VERSION="2025-07-11A"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1186,7 +1186,7 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}   脚本版本: ${VERSION}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}脚本版本: ${VERSION}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
@@ -1275,46 +1275,47 @@ fetch_biliup_times() {
 main_menu() {
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
     fetch_github_times; get_install_date; fetch_biliup_times
+
     while true; do
         show_header; show_status
+
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
         if pgrep -f "$DMR_CMD" &>/dev/null; then
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}${BOLD}停止录制${NC}"
+            echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC}"
         else
-            echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
+            echo -e "${BLUE}${BOLD}2.${NC} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
-        echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
-        echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}${BOLD}手动渲染视频${NC}"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${YELLOW}${BOLD}运行测试${NC}"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${PINK}${BOLD}删除回放/渲染的视频文件${NC}"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
-        echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体安装菜单${NC}"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL}${GREEN}${BOLD}更新脚本${NC}"
-        echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}${BOLD}退出菜单${NC}"
+        echo -e "${BLUE}${BOLD}3.${NC} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
+        echo -e "${BLUE}${BOLD}4.${NC} ${PURPLE}${BOLD}手动渲染视频${NC}"
+        echo -e "${BLUE}${BOLD}5.${NC} ${YELLOW}${BOLD}运行测试${NC}"
+        echo -e "${BLUE}${BOLD}6.${NC} ${PINK}${BOLD}删除回放/渲染的视频文件${NC}"
+        echo -e "${BLUE}${BOLD}7.${NC} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
+        echo -e "${BLUE}${BOLD}8.${NC} ${CYAN}${BOLD}字体安装菜单${NC}"
+        echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
+        echo -e "${BLUE}${BOLD}10.${NC} ${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}11.${NC} ${RED}${BOLD}卸载 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC} ${GREEN}${BOLD}更新脚本${NC}"
+        echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-12): ${NC}")" choice
         case $choice in
-        1)
-    install_dmr && {
-        # 获取当前脚本的绝对路径
-        local SCRIPT_SOURCE
-        SCRIPT_SOURCE="$(readlink -f "${BASH_SOURCE[0]}")"
+            1)
+                install_dmr && {
+                    # 确保目标目录存在
+                    sudo mkdir -p "$DMR_DIR"
 
-        # 复制脚本到 DMR 主目录并赋予执行权限
-        sudo cp -f "$SCRIPT_SOURCE" "$DMR_DIR/$SCRIPT_NAME"
-        sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
+                    # 自动下载最新脚本到 DMR 主目录
+                    sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
+                    sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
 
-        # 创建或更新全局快捷键 'd'
-        sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
+                    # 在全局创建 'd' 快捷键
+                    sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
 
-        echo -e "${GREEN}快捷键 'd' 已创建，输入 'd' 即可启动管理脚本。${NC}"
-    }
-    ;;
+                    echo -e "${GREEN}脚本已下载到 ${DMR_DIR}/${SCRIPT_NAME} 并创建快捷键 'd'，输入 d 即可启动管理脚本。${NC}"
+                }
+                ;;
             2)
                 require_installed && {
                     if pgrep -f "$DMR_CMD" &>/dev/null; then
@@ -1348,8 +1349,7 @@ main_menu() {
             11)
                 require_installed && {
                     uninstall_dmr
-                    # 移除快捷键
-                    rm -f /usr/local/bin/d
+                    sudo rm -f /usr/local/bin/d
                     echo "快捷键 'd' 已移除。"
                 }
                 ;;
@@ -1363,7 +1363,6 @@ main_menu() {
         echo
     done
 }
-
 
 # 启动主菜单
 main_menu
