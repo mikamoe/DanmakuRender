@@ -1291,6 +1291,10 @@ main_menu() {
         echo -e "${BLUE}${BOLD}5.${NC} ${YELLOW}${BOLD}运行测试${NC}"
         echo -e "${BLUE}${BOLD}6.${NC} ${PINK}${BOLD}删除回放/渲染的视频文件${NC}"
         echo -e "${BLUE}${BOLD}7.${NC} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
+        # 仅当本地和远程版本都非空且不相等时才提示更新
+        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
+            echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
+        fi
         echo -e "${BLUE}${BOLD}8.${NC} ${CYAN}${BOLD}字体安装菜单${NC}"
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
         echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
