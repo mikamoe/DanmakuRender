@@ -1,14 +1,12 @@
-#!/usr/bin/env bash
-# ===================== 配置变量 =====================
-# 设置 Bash 严格模式：
-# -e: 任何命令失败时立即退出。
-# -u: 尝试使用未设置的变量时报错并退出。
-# -o pipefail: 管道命令中任何一个命令失败时，整个管道返回非零状态码。
-set -euo pipefail
+#!/bin/bash
+# 版本号
+VERSION="2025-07-11"
 
+# ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
 DMR_CMD="python3 main.py"
+SCRIPT_NAME="dmr.sh"
 LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
@@ -18,64 +16,63 @@ INSTALL_DATE_FILE="$DMR_DIR/install_date"
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
+DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
 
-# biliup-rs 项目信息（用于动态获取最新版本）
+# biliup-rs 项目信息
 BILIUP_OWNER="biliup"
 BILIUP_REPO="biliup-rs"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
 
-# GitHub 克隆地址
-DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
-
-# 字体下载链接配置（使用 GitHub raw 链接）
-FONT_MSYH_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf" # 未直接使用，但保留
-FONT_ALIBABA_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf" # 未直接使用，但保留
+# 脚本更新 URL
+SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh"
 
 # ANSI 颜色和样式设置
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-LIGHT_BLUE='\033[1;34m'
-CYAN='\033[0;36m'
-PINK='\033[1;35m'
-PURPLE='\033[0;35m'
-NC='\033[0m'
-BOLD=$(tput bold)
-NORMAL=$(tput sgr0)
-ORANGE='\033[38;5;208m'
+RED='\033[0;31m'   GREEN='\033[0;32m'  YELLOW='\033[0;33m'
+BLUE='\033[0;34m'  LIGHT_BLUE='\033[1;34m' CYAN='\033[0;36m'
+PINK='\033[1;35m' PURPLE='\033[0;35m' NC='\033[0m'
+BOLD=$(tput bold) NORMAL=$(tput sgr0) ORANGE='\033[38;5;208m'
 
-# Global variables for GitHub info
-commit_sha=""
-commit_time=""
-commit_message=""
-release_version=""
-release_time=""
-install_date="" # Track installation date for display
-
-# Global variables for biliup-rs version info
-BILIUP_LOCAL_VERSION=""
-BILIUP_REMOTE_VERSION=""
+# 全局变量
+commit_sha="" commit_time="" commit_message=""
+release_version="" release_time="" install_date=""
+BILIUP_LOCAL_VERSION="" BILIUP_REMOTE_VERSION=""
 
 # ===================== 辅助函数 =====================
-
-# 检查并安装必要的系统依赖工具
 check_dependencies() {
     local required_tools=("jq" "curl" "git")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
-            # 尝试安装，如果失败则退出
-            sudo apt update && sudo apt install -y "$tool" || {
-                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！请手动安装后重试。${NC}"
+            sudo apt install -y "$tool" || {
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
                 return 1
             }
         fi
     done
+
+
+    # 更新检测提示
+    fetch_github_times # Ensure latest times are fetched before checking
+    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
+        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+
+        if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
+            echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
+            echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
+            echo -e "提交说明: ${CYAN}${commit_message}${NC}"
+            if [ -n "$commit_sha" ]; then
+                echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
+            else
+                echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
+            fi
+            echo -e "按任意键继续进入脚本..."
+            read -n 1 -s -r
+        fi
+    fi
     return 0
 }
 
-# 获取 Python 版本信息
 get_python_version() {
     if command -v python3 &>/dev/null; then
         echo "Python $(python3 -V 2>&1 | awk '{print $2}')"
@@ -84,7 +81,6 @@ get_python_version() {
     fi
 }
 
-# 将 UTC 时间转换为北京时间
 convert_to_beijing_time() {
     local raw_time="$1"
     if [ -z "$raw_time" ]; then
@@ -92,12 +88,10 @@ convert_to_beijing_time() {
         return
     fi
     local converted
-    # 尝试使用 Asia/Shanghai 时区转换
     converted=$(TZ=Asia/Shanghai date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null)
     if [ -n "$converted" ]; then
         echo "$converted"
     else
-        # 如果失败，尝试使用系统默认时区转换
         converted=$(date -d "$raw_time" +"%Y-%m-%d %H:%M:%S" 2>/dev/null)
         if [ -n "$converted" ]; then
             echo "$converted (可能为服务器本地时间)"
@@ -107,7 +101,6 @@ convert_to_beijing_time() {
     fi
 }
 
-# 回滚安装（用于全新安装失败时清理）
 rollback_installation() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装过程中出错，正在回滚...${NC}"
     if [ -d "$DMR_DIR" ]; then
@@ -117,14 +110,26 @@ rollback_installation() {
     fi
 }
 
-# 回滚更新（恢复备份）
+# ===================== 更新脚本函数 =====================
+update_script() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载并更新脚本到 ${DMR_DIR}/${SCRIPT_NAME} …"
+    if curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/${SCRIPT_NAME}"; then
+        chmod +x "$DMR_DIR/${SCRIPT_NAME}"
+        echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 脚本已更新，请退出并使用新的脚本版本 (${VERSION}) 重新启动。"
+    else
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 脚本更新失败，请检查网络或 URL。"
+    fi
+}
+
+
+# ===================== 回滚更新（恢复备份） =====================  # <<< 修改点 >>>
 rollback_update() {
     local backup_dir="$1"
     local configs_backup="$2"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新失败，正在回滚更新...${NC}"
 
-    # 删除可能已拉下来的新目录（如果 rsync 失败，可能存在部分新文件）
+    # 删除可能已拉下来的新目录
     if [ -d "$DMR_DIR" ]; then
         sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除临时目录：$DMR_DIR${NC}"
     fi
@@ -138,28 +143,24 @@ rollback_update() {
 
     # 恢复 configs（如果存在）
     if [ -d "$configs_backup" ]; then
-        # 确保先删除可能存在的新configs目录，再恢复旧的
-        sudo rm -rf "$DMR_DIR/configs" 2>/dev/null || true # 忽略删除不存在目录的错误
+        sudo rm -rf "$DMR_DIR/configs" 2>/dev/null
         sudo mv "$configs_backup" "$DMR_DIR/configs" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已恢复配置文件：$DMR_DIR/configs${NC}"
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 回滚完成，请检查后重试。"
 }
 
-# 检查配置文件是否存在且包含 DanmakuRender 相关文件
 check_config() {
     if [ ! -d "$DMR_DIR/configs" ]; then
         return 1
     fi
-    # 检查 configs 目录下是否有以 "DMR" 结尾的文件
-    if find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" -print -quit | grep -q .; then
+    if find "$DMR_DIR/configs" -maxdepth 1 -name "*DMR*" -print -quit | grep -q .; then
         return 0
     else
         return 1
     fi
 }
 
-# 从 GitHub API 获取 DanmakuRender 的最新提交和发布信息
 fetch_github_times() {
     local branch_info
     branch_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
@@ -188,7 +189,6 @@ fetch_github_times() {
     fi
 }
 
-# 获取本地安装日期
 get_install_date() {
     install_date=""
     if [ -f "$INSTALL_DATE_FILE" ]; then
@@ -208,36 +208,9 @@ get_install_date() {
     fi
 }
 
-# 从 GitHub API 获取 biliup-rs 的本地和远程版本信息
-fetch_biliup_times() {
-    # 如果 biliup 可执行文件存在且可执行
-    if [ -x "$BILIUP_DIR/biliup" ]; then
-        # 获取本地版本号（假设输出类似 “biliup-cli 0.2.2”）
-        local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
-        BILIUP_LOCAL_VERSION="$local_ver"
-
-        # 从 GitHub API 获取最新 Release 信息
-        local latest_info
-        latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
-        if [[ -n "$latest_info" ]]; then
-            # 取 tag_name 作为远程最新版本号（如 “v0.2.3”）
-            remote_ver=$(echo "$latest_info" | jq -r '.tag_name // empty')
-            # 如有前缀 “v”，去掉以便对比（可选，但通常版本号对比时会去掉）
-            remote_ver="${remote_ver#v}"
-            BILIUP_REMOTE_VERSION="$remote_ver"
-        else
-            BILIUP_REMOTE_VERSION=""
-        fi
-    else
-        # 未安装 biliup，清空版本变量
-        BILIUP_LOCAL_VERSION=""
-        BILIUP_REMOTE_VERSION=""
-    fi
-}
 
 # ===================== 系统安装及更新函数 =====================
 
-# 检查并安装 DanmakuRender 运行所需的系统工具
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查系统依赖工具...${NC}"
     local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git")
@@ -263,7 +236,6 @@ check_install_tools() {
     return 0
 }
 
-# 安装或更新 biliup-rs 工具
 install_biliup_rs() {
     sudo mkdir -p "$BILIUP_DIR" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建工具目录失败: $BILIUP_DIR${NC}"; return 1; }
     pushd "$BILIUP_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}进入工具目录失败: $BILIUP_DIR${NC}"; return 1; }
@@ -272,7 +244,7 @@ install_biliup_rs() {
     latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
     if [ -z "$latest_info" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}获取 biliup-rs 最新版本信息失败！${NC}"
-        popd > /dev/null || true
+        popd > /dev/null
         return 1
     fi
 
@@ -280,15 +252,14 @@ install_biliup_rs() {
     latest_version=$(jq -r '.tag_name' <<< "$latest_info")
     if [ -z "$latest_version" ] || [ "$latest_version" == "null" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解析 biliup-rs 版本失败！${NC}"
-        popd > /dev/null || true
+        popd > /dev/null
         return 1
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}最新 biliup-rs 版本：${GREEN}${latest_version}${NC}"
 
-    # 检查当前版本是否已是最新
     if [ -f "./biliup" ] && ./biliup -V 2>/dev/null | grep -q "$latest_version"; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已经是最新版本 biliup-rs (${latest_version})。${NC}"
-        popd > /dev/null || true
+        popd > /dev/null
         return 0
     fi
 
@@ -305,14 +276,14 @@ install_biliup_rs() {
                 asset_suffix="x86_64-linux.tar.xz"
             fi
             ;;
-        *)  echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}不支持的架构：$arch${NC}"; popd > /dev/null || true; return 1 ;;
+        *)  echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}不支持的架构：$arch${NC}"; popd > /dev/null; return 1 ;;
     esac
 
     # 从 API 响应中查找正确的资源下载 URL
     local download_url
     download_url=$(jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url' <<< "$latest_info")
 
-    if [ -z "$download_url" ] || [ "$download_url" == "null" ]; then
+    if [ -z "$download_url" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未找到适用于架构 ${arch} (${asset_suffix}) 的资源文件！${NC}"
         # 回退到推测的 URL
         local asset_file="biliup-${latest_version}-${asset_suffix}"
@@ -326,43 +297,26 @@ install_biliup_rs() {
     asset_filename=$(basename "$download_url")
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在下载 biliup-rs (${asset_filename})...${NC}"
-    curl -fLo "$asset_filename" "$download_url" || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup-rs 失败！${NC}"
-        rm -f "$asset_filename" || true
-        popd > /dev/null || true
-        rollback_installation # 下载失败也尝试回滚
-        return 1
-    }
+    curl -fLo "$asset_filename" "$download_url" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 biliup-rs 失败！${NC}"; rm -f "$asset_filename"; popd > /dev/null; rollback_installation; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在解压 ${asset_filename}...${NC}"
-    tar -xJf "$asset_filename" --strip-components=1 || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup-rs 失败！${NC}"
-        rm -f "$asset_filename" || true
-        popd > /dev/null || true
-        rollback_installation # 解压失败也尝试回滚
-        return 1
-    }
-    rm -f "$asset_filename" || true
+    tar -xJf "$asset_filename" --strip-components=1 || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 biliup-rs 失败！${NC}"; rm -f "$asset_filename"; popd > /dev/null; rollback_installation; return 1; }
+    rm -f "$asset_filename"
 
     if [ ! -f "./biliup" ]; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压后未找到 'biliup' 可执行文件！${NC}"
-        popd > /dev/null || true
+        popd > /dev/null
         rollback_installation
         return 1
     fi
-    chmod +x ./biliup || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 'biliup' 权限失败！${NC}"
-        popd > /dev/null || true
-        rollback_installation
-        return 1
-    }
+    chmod +x ./biliup || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}设置 'biliup' 权限失败！${NC}"; popd > /dev/null; rollback_installation; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}安装/更新 biliup-rs 完成！${NC}"
-    popd > /dev/null || true
+    popd > /dev/null
     return 0
 }
 
-# 更新 DanmakuRender v5
+# ===================== 更新 DanmakuRender v5 =====================
 update_dmr() {
     require_installed || return 1
 
@@ -398,9 +352,9 @@ update_dmr() {
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}当前没有运行中的进程。${NC}"
     fi
 
-    # 4. 创建完整备份目录 (临时备份，更新成功后删除)
+    # 4. 创建完整备份目录
     local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建临时完整备份目录: ${backup_dir}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建完整备份目录: ${backup_dir}${NC}"
     sudo mkdir -p "$backup_dir" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建备份目录失败！${NC}"
         return 1
@@ -423,7 +377,7 @@ update_dmr() {
         return 1
     }
 
-    # 6. 备份整个 DMR 目录到临时备份目录
+    # 6. 备份整个 DMR 目录
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}备份整个 DMR 目录到 ${backup_dir}...${NC}"
     sudo cp -r "$DMR_DIR" "$backup_dir" || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}备份 DMR 目录失败！${NC}"
@@ -434,41 +388,33 @@ update_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}拉取最新代码...${NC}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    # 确保临时目录在函数退出时被清理
-    trap "rm -rf '$tmp_dir'" EXIT
-
-    if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
+    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}克隆最新代码失败！请检查网络、权限或仓库地址/分支。${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}覆盖现有文件...${NC}"
-    # 使用 rsync 排除 configs 目录，以保留用户配置
     if ! sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/"; then
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}文件覆盖失败！${NC}"
         rollback_update "$backup_dir" "$configs_backup"
         return 1
     fi
-    # 临时目录将在 trap 触发时清理
+    rm -rf "$tmp_dir"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}更新成功完成！${NC}"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}配置文件备份存放于：${configs_backup}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}更新前的所有项目备份目录已自动删除: ${backup_dir}${NC}"
 
-    # 8. 删除临时完整备份并刷新安装日期
-    sudo rm -rf "$backup_dir" || true # 忽略删除失败的错误
-    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！(权限问题？)${NC}"
-    }
-    # 刷新全局变量
+    # 8. 删除完整备份并刷新安装日期
+    sudo rm -rf "$backup_dir"
+    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
     fetch_github_times
     get_install_date
 
-    trap - EXIT # 成功后移除 trap
     return 0
 }
 
-# 全新安装 DanmakuRender v5
 install_dmr() {
     local rollback_needed=true
     # 仅在非零退出码（出错或被 SIGHUP 杀掉）且 rollback_needed 仍为 true 时回滚
@@ -483,21 +429,20 @@ install_dmr() {
             pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; trap - EXIT; return 1; }
             if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}虚拟环境 'venv' 不存在或不完整！无法重新安装依赖。请尝试完整卸载后重新安装。${NC}"
-                popd > /dev/null || true; trap - EXIT; return 1
+                popd > /dev/null; trap - EXIT; return 1
             fi
             if [ ! -f "requirements.txt" ]; then
                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}'requirements.txt' 文件不存在！无法重新安装依赖。${NC}"
-                popd > /dev/null || true; trap - EXIT; return 1
+                popd > /dev/null; trap - EXIT; return 1
             fi
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-            # shellcheck source=/dev/null
-            source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null || true; trap - EXIT; return 1; }
+            source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; trap - EXIT; return 1; }
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}升级 pip...${NC}"
             pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..."
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}从 requirements.txt 安装依赖...${NC}"
-            pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; deactivate || true; popd > /dev/null || true; trap - EXIT; return 1; }
-            deactivate || true
-            popd > /dev/null || true
+            pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！${NC}"; deactivate; popd > /dev/null; trap - EXIT; return 1; }
+            deactivate
+            popd > /dev/null
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖重新安装完成！${NC}"
             # 成功完成依赖安装后，取消回滚
             rollback_needed=false
@@ -525,20 +470,18 @@ install_dmr() {
 
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入安装目录 $DMR_DIR 失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 Python 虚拟环境 (venv)...${NC}"
-    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 Python 虚拟环境失败！${NC}"; popd > /dev/null || true; return 1; }
+    python3 -m venv venv || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}创建 Python 虚拟环境失败！${NC}"; popd > /dev/null; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境并安装 Python 依赖...${NC}"
-    # shellcheck source=/dev/null
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null || true; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}激活虚拟环境失败！${NC}"; popd > /dev/null; return 1; }
     pip install --quiet --upgrade pip || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} pip 升级失败，尝试继续..."
     if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！请检查 'requirements.txt' 或网络。${NC}"; deactivate || true; popd > /dev/null || true; return 1; }
+        pip install -r requirements.txt || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Python 依赖安装失败！请检查 'requirements.txt' 或网络。${NC}"; deactivate; popd > /dev/null; return 1; }
     else
         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}未找到 requirements.txt 文件，跳过 Python 依赖安装。${NC}"
     fi
-    deactivate || true
-    popd > /dev/null || true
-
+    deactivate
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Python 依赖安装完成。${NC}"
+    popd > /dev/null
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装/更新 biliup-rs...${NC}"
     install_biliup_rs || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}biliup-rs 安装失败！${NC}"; return 1; }
@@ -559,12 +502,6 @@ install_dmr() {
     }
     get_install_date
 
-    # 提示用户添加快捷键
-    echo -e "\n${CYAN}${BOLD}提示：您可以为本脚本添加一个快捷键 'd'。${NC}"
-    echo -e "${CYAN}在您的 shell 配置文件 (例如 ~/.bashrc 或 ~/.zshrc) 中添加以下行：${NC}"
-    echo -e "  ${GREEN}alias d='bash $(readlink -f "$0")'${NC}"
-    echo -e "${CYAN}然后运行 'source ~/.bashrc' (或对应的文件) 使其生效。${NC}"
-
     # 安装一切正常，取消回滚
     rollback_needed=false
     trap - EXIT
@@ -572,39 +509,35 @@ install_dmr() {
     return 0
 }
 
-# 卸载 DanmakuRender v5
+
 uninstall_dmr() {
     require_installed || return 1
     echo -e "${RED}${BOLD}警告：这将永久删除 DanmakuRender v5 的所有文件，包括程序、配置、日志、工具和可能存在的备份！${NC}"
     echo -e "${RED}${BOLD}此操作不会删除 '直播回放' 或 '直播回放（弹幕版）' 目录中的视频文件。${NC}"
     read -p "$(echo -e "${YELLOW}确定要完全卸载 DanmakuRender v5 吗？(请输入 'yes' 确认): ${NC}")" confirm
-    # 严格确认，必须输入 'yes'
+    # Stricter confirmation
     if [[ "$confirm" != "yes" ]]; then
          echo -e "${YELLOW}输入不匹配 'yes'，取消卸载。${NC}"
          return 1
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在停止可能在运行的 DanmakuRender 进程...${NC}"
-    # 停止进程
+    # Stop the process if it's running
     if pgrep -f "$DMR_CMD" > /dev/null; then
         stop_dmr || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}停止进程时遇到问题，将继续尝试卸载。${NC}"
-        sleep 1 # 稍作等待
+        sleep 1 # Give it a moment
     else
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}DanmakuRender 未在运行。${NC}"
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在删除安装目录: ${DMR_DIR}...${NC}"
-    # 使用 sudo 删除目录
+    # Use sudo to remove the directory
     sudo rm -rf "$DMR_DIR"
-    # 验证删除
+    # Verify removal
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}DanmakuRender v5 卸载完成！${NC}"
-        # 重置安装日期显示变量
+        # Reset install date display variable
         install_date=""
-        # 提示用户移除快捷键
-        echo -e "\n${CYAN}${BOLD}提示：如果您之前添加了 'd' 快捷键，请在您的 shell 配置文件中移除以下行：${NC}"
-        echo -e "  ${RED}alias d='bash $(readlink -f "$0")'${NC}"
-        echo -e "${CYAN}然后运行 'source ~/.bashrc' (或对应的文件) 使其生效。${NC}"
         return 0
     else
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}卸载失败！目录 ${DMR_DIR} 仍然存在。请检查权限或手动删除。${NC}"
@@ -615,11 +548,10 @@ uninstall_dmr() {
 # ===================== JavaScript 环境安装函数 ===============
 install_js_engine() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始安装 JavaScript 环境...${NC}"
-    
+    
     # 安装 Node.js
     if ! command -v node &>/dev/null; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 Node.js，正在安装...${NC}"
-        # 使用 NodeSource 官方脚本安装 LTS 版本 Node.js
         curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
         sudo apt install -y nodejs || {
             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js 安装失败！${NC}"
@@ -633,18 +565,17 @@ install_js_engine() {
     # 安装 quickjs Python 包
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在安装 quickjs Python 包...${NC}"
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
-    # shellcheck source=/dev/null
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null || true; return 1; }
-    
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
+    
     pip install quickjs || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}quickjs 安装失败！${NC}"
-        deactivate || true
-        popd > /dev/null || true
+        deactivate
+        popd > /dev/null
         return 1
     }
-    
-    deactivate || true
-    popd > /dev/null || true
+    
+    deactivate
+    popd > /dev/null
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}JavaScript 环境安装完成！${NC}"
     return 0
 }
@@ -669,56 +600,48 @@ start_dmr() {
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-    # shellcheck source=/dev/null
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null || true; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用 nohup 在后台启动 ${DMR_CMD}...${NC}"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${DMR_DIR}/${LOG_FILE}${NC}"
     # 使用nohup后台启动程序
-    nohup "$DMR_CMD" > "$LOG_FILE" 2>&1 &
+    nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     local pid=$! # 获取后台进程PID
 
     # 检查进程是否启动成功
     sleep 1 # 等待1秒防止误判
-    if ps -p "$pid" > /dev/null; then
+    if ps -p $pid > /dev/null; then
         # 将PID写入文件
-        echo "$pid" > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
+        echo $pid > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！进程 PID: $pid${NC}"
-        
+        
         # 实时显示日志功能
         echo -e "\n${CYAN}正在实时显示日志 (按 q 退出查看)...${NC}"
         tail -f "$LOG_FILE" &  # 后台运行tail命令
         local tail_pid=$!
-        
+        
         # 监听键盘输入
         while true; do
-            # read -t 1 -n 1 key: 尝试读取一个字符，超时1秒。-n 1 表示只读取一个字符，-s 表示不回显，-r 表示原始输入（不处理反斜杠）
-            # 注意：在某些终端环境下，-t 1 可能导致 CPU 占用较高。对于简单的退出机制，通常可以接受。
-            read -t 1 -n 1 key || true # 允许 read 失败（超时）
-            if [[ "$key" == "q" ]]; then
-                kill "$tail_pid" 2>/dev/null || true # 停止tail进程，忽略错误
-                break
-            fi
-            # 如果 tail 进程已经退出，也结束循环
-            if ! ps -p "$tail_pid" > /dev/null; then
+            read -t 1 -n 1 key
+            if [[ $key == "q" ]]; then
+                kill $tail_pid 2>/dev/null  # 停止tail进程
                 break
             fi
         done
-        
-        deactivate || true
-        popd > /dev/null || true
+        
+        deactivate
+        popd > /dev/null
         return 0 # 返回成功状态
     else
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}启动失败！进程未能成功运行。请检查 ${LOG_FILE} 获取错误信息。${NC}"
         # 清理可能创建的pid文件
-        rm -f "$DMR_DIR/dmr.pid" || true
-        deactivate || true
-        popd > /dev/null || true
+        rm -f "$DMR_DIR/dmr.pid"
+        deactivate
+        popd > /dev/null
         return 1 # 返回失败状态
     fi
 }
 
-# 停止 DanmakuRender 进程
 stop_dmr() {
     require_installed || return 1
     local pid_file="$DMR_DIR/dmr.pid"
@@ -731,11 +654,11 @@ stop_dmr() {
         if [[ "$pid_to_kill" =~ ^[0-9]+$ ]]; then
             # 检查进程是否存在
             if ps -p "$pid_to_kill" > /dev/null; then
-                # 检查进程命令是否匹配（基础验证，防止误杀）
+                # 检查进程命令是否匹配（基础验证）
                  if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
                     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
                     # 先尝试发送TERM信号优雅停止
-                    kill "$pid_to_kill" || true # 允许失败
+                    kill "$pid_to_kill"
                     sleep 1 # 等待1秒
                     if ! ps -p "$pid_to_kill" > /dev/null; then
                         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (TERM)。${NC}"
@@ -743,7 +666,7 @@ stop_dmr() {
                     else
                         # TERM无效时强制KILL
                         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}进程 $pid_to_kill 未响应 TERM 信号，强制停止 (KILL)...${NC}"
-                        kill -9 "$pid_to_kill" || true # 允许失败
+                        kill -9 "$pid_to_kill"
                         sleep 1
                         if ! ps -p "$pid_to_kill" > /dev/null; then
                              echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
@@ -765,7 +688,7 @@ stop_dmr() {
              pid_to_kill="" # 重置pid_to_kill
         fi
         # 无论是否成功停止，都清理pid文件
-        rm -f "$pid_file" || true
+        rm -f "$pid_file"
     fi
 
     # 如果通过pid文件未能停止，尝试使用pkill作为备用方案
@@ -774,7 +697,7 @@ stop_dmr() {
         # 先用pgrep检查是否有匹配进程
         if pgrep -f "$DMR_CMD" > /dev/null; then
             # 使用pkill根据命令字符串停止
-            pkill -f "$DMR_CMD" || true # 允许失败
+            pkill -f "$DMR_CMD"
             sleep 1
             # 检查是否已停止
             if ! pgrep -f "$DMR_CMD" > /dev/null; then
@@ -797,23 +720,23 @@ stop_dmr() {
     fi
 }
 
-# 停止额外录制/ffmpeg 相关进程
+# ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
 stop_extra_processes() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
     # 列出所有包含 “正在录制” 的进程（排除 grep 自身），提取 PID 并尝试优雅终止
     for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
         echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
-        kill "$pid" || true && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
     done
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“ffmpeg”${NC}${NORMAL} 关键字的进程…"
     for pid in $(ps aux | grep -v grep | grep 'ffmpeg' | awk '{print $2}'); do
         echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
-        kill "$pid" || true && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
     done
 }
 
-# 日志查看函数（修复 q 无法退出问题）
+# ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
@@ -822,16 +745,13 @@ view_log() {
     tail -n 50 -F "$DMR_DIR/$LOG_FILE" &
     local tail_pid=$!
 
-    # 确保在退出时恢复终端设置
-    trap "stty echo icanon; wait '$tail_pid' 2>/dev/null || true" EXIT
-
     # 切换终端到无缓冲模式，实时读取单字符
     stty -echo -icanon time 0 min 0
     while true; do
         # 读取一个字符（如果有）
-        IFS= read -r -n1 key || true # 允许 read 失败（超时）
-        if [[ "$key" == "q" ]]; then
-            kill "$tail_pid" 2>/dev/null || true # 停止tail进程，忽略错误
+        IFS= read -r -n1 key
+        if [[ $key == "q" ]]; then
+            kill "$tail_pid" 2>/dev/null
             break
         fi
         # 如果 tail 进程已经退出，也结束循环
@@ -839,12 +759,13 @@ view_log() {
             break
         fi
     done
-    # 恢复终端设置（由 trap 处理）
+    # 恢复终端设置
+    stty echo icanon
+    wait "$tail_pid" 2>/dev/null
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志查看已退出。"
-    trap - EXIT # 成功退出后移除 trap
 }
 
-# 运行 DanmakuRender 的测试脚本
+
 run_test() {
     require_installed || return 1
     local test_script="dryrun.py"
@@ -854,29 +775,21 @@ run_test() {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}测试脚本 ${test_script_path} 不存在！${NC}"; return 1;
     fi
 
-    # 增加确认提示
-    read -p "$(echo -e "${YELLOW}是否确认运行测试脚本？(y/n): ${NC}")" confirm_test
-    if [[ ! "$confirm_test" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}已取消测试运行。${NC}"
-        return 0
-    fi
-
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}准备运行测试脚本: ${test_script}...${NC}"
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-    # shellcheck source=/dev/null
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null || true; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在运行 ${test_script}...${NC}"
-    # 执行脚本
+    # Execute the script
     python3 "$test_script"
-    local exit_code=$? # 捕获测试脚本的退出码
+    local exit_code=$? # Capture exit code of the test script
 
-    deactivate || true
-    popd > /dev/null || true
+    deactivate
+    popd > /dev/null
 
-    if [ "$exit_code" -eq 0 ]; then
+    if [ $exit_code -eq 0 ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}测试运行完成 (退出码: 0)。${NC}"
         return 0
     else
@@ -885,7 +798,6 @@ run_test() {
     fi
 }
 
-# 手动渲染视频
 manual_render() {
     require_installed || return 1
     local render_script="render_only.py"
@@ -899,18 +811,17 @@ manual_render() {
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
-    # shellcheck source=/dev/null
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null || true; return 1; }
+    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在运行 ${render_script}... (这可能需要一些时间)${NC}"
-    # 执行脚本
+    # Execute the script
     python3 "$render_script"
-    local exit_code=$? # 捕获退出码
+    local exit_code=$? # Capture exit code
 
-    deactivate || true
-    popd > /dev/null || true
+    deactivate
+    popd > /dev/null
 
-    if [ "$exit_code" -eq 0 ]; then
+    if [ $exit_code -eq 0 ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}手动渲染运行完成 (退出码: 0)。${NC}"
         return 0
     else
@@ -919,123 +830,126 @@ manual_render() {
     fi
 }
 
-# 删除回放及弹幕视频文件
+# ===================== 删除回放函数（按序号选择删除） =====================
 delete_replays() {
-    require_installed || return 1
-    local replay_dir_plain="$DMR_DIR/直播回放"
-    local replay_dir_danmaku="$DMR_DIR/直播回放（弹幕版）"
-    local -a files_to_delete=() # Array to store full paths of files
-    local file_index=0
-    local found_any_files=false
+    local dirs=("$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）")
+    local files=()
+    echo -e "${BLUE}检测到以下可删除文件：${NC}"
+    for d in "${dirs[@]}"; do
+        [ -d "$d" ] || continue
+        for f in "$d"/*; do
+            [ -f "$f" ] || continue
+            files+=("$f")
+        done
+    done
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}检查目录内容:${NC}"
-    echo "----------------------------------------"
-
-    # Function to list files from a directory
-    list_files_in_dir() {
-        local dir="$1"
-        if [ -d "$dir" ]; then
-            echo -e "${PURPLE}目录: ${dir}${NC}"
-            local files_in_current_dir=0
-            # Using find to get files and iterate, safer than ls for parsing
-            while IFS= read -r -d $'\0' file; do
-                if [ -f "$file" ]; then # Ensure it's a regular file
-                    files_to_delete+=("$file")
-                    echo " $((++file_index))) $(basename "$file")"
-                    found_any_files=true
-                    ((files_in_current_dir++))
-                fi
-            done < <(find "$dir" -maxdepth 1 -type f -print0)
-
-            if [ "$files_in_current_dir" -eq 0 ]; then
-                echo "(空)"
-            fi
-        else
-            echo -e "${YELLOW}目录不存在: ${dir}${NC}"
-        fi
-        echo "----------------------------------------"
-    }
-
-    list_files_in_dir "$replay_dir_plain"
-    list_files_in_dir "$replay_dir_danmaku"
-
-    if [ "$found_any_files" = false ]; then
-         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}两个回放目录均为空或不存在，无需删除。${NC}"
-         return 0
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "无可删除文件。"
+        return 0
     fi
 
-    echo -e "\n${YELLOW}请选择操作：${NC}"
-    echo -e " ${RED}${BOLD}y/Y${NC}${YELLOW}: 删除 ${RED}所有${NC}${YELLOW}列出的视频文件 (不可恢复!)"
-    echo -e " ${CYAN}数字 (如: 1 3 5)${NC}${YELLOW}: 删除指定序号的视频文件"
-    echo -e " ${ORANGE}0${NC}${YELLOW}: 取消操作"
-    read -p "$(echo -e "${CYAN}请输入您的选择 (默认取消): ${NC}")" confirm_or_select
-    confirm_or_select=${confirm_or_select:-0} # Default to 0 (cancel)
+    # 列表显示
+    for i in "${!files[@]}"; do
+        printf "%2d) %s\n" $((i+1)) "${files[i]}"
+    done
 
-    local delete_success=true
-
-    case "$confirm_or_select" in
-        [yY])
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}正在删除所有文件...${NC}"
-            for file_path in "${files_to_delete[@]}"; do
-                sudo rm -f "$file_path" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 ${file_path} 失败！"; delete_success=false; }
-            done
-            ;;
-        0)
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消删除操作。${NC}"
-            return 1 # Indicate cancellation
-            ;;
-        *)
-            local selected_indices=()
-            # Split input by space and validate
-            for num_str in $confirm_or_select; do
-                if [[ "$num_str" =~ ^[0-9]+$ ]]; then
-                    local idx=$((num_str - 1)) # Convert to 0-based index
-                    if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#files_to_delete[@]}" ]; then
-                        selected_indices+=("$idx")
-                    else
-                        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效的序号: $num_str。请重新输入。${NC}"
-                        return 1 # Invalid input, exit
-                    fi
-                else
-                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无效输入: '$num_str'。请输入 'y/Y' 或数字序号。${NC}"
-                    return 1 # Invalid input, exit
-                fi
-            done
-
-            if [ ${#selected_indices[@]} -eq 0 ]; then
-                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未选择任何有效文件。${NC}"
-                return 1
-            fi
-
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}正在删除选定的文件...${NC}"
-            for idx in "${selected_indices[@]}"; do
-                local file_path="${files_to_delete[$idx]}"
-                sudo rm -f "$file_path" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 ${file_path} 失败！"; delete_success=false; }
-            done
-            ;;
-    esac
-
-    if [ "$delete_success" = true ]; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除指定文件。${NC}"
-        return 0
+    read -p "请输入要删除的序号(空格分隔)，或输入 Y 删除全部(默认N): " sel
+    sel=${sel:-N}
+    if [[ "$sel" =~ ^[Yy]$ ]]; then
+        for f in "${files[@]}"; do rm -f "$f"; done
+        echo "所有文件已删除。"
     else
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除过程中发生错误。${NC}"
-        return 1
+        # 按序号删除
+        for idx in $sel; do
+            if [[ "$idx" =~ ^[0-9]+$ ]] && [ "$idx" -ge 1 ] && [ "$idx" -le ${#files[@]} ]; then
+                rm -f "${files[$((idx-1))]}" && echo "已删除：${files[$((idx-1))]}"
+            else
+                echo "跳过无效序号：$idx"
+            fi
+        done
     fi
 }
 
 
-# 刷新字体缓存
+delete_replays() {
+    require_installed || return 1
+    local replay_dir_plain="$DMR_DIR/直播回放"
+    local replay_dir_danmaku="$DMR_DIR/直播回放（弹幕版）"
+    local found_files=false
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}检查目录内容:${NC}"
+    echo "----------------------------------------"
+    if [ -d "$replay_dir_plain" ]; then
+        echo -e "${PURPLE}目录: ${replay_dir_plain}${NC}"
+        # Use find to count files, safer for large numbers of files than ls
+        local file_count_plain=$(find "$replay_dir_plain" -maxdepth 1 -type f | wc -l)
+        if [ "$file_count_plain" -gt 0 ]; then
+            ls -lh "$replay_dir_plain" # List details only if not empty
+            found_files=true
+        else
+            echo "(空)"
+        fi
+    else
+        echo -e "${YELLOW}目录不存在: ${replay_dir_plain}${NC}"
+    fi
+    echo "----------------------------------------"
+     if [ -d "$replay_dir_danmaku" ]; then
+        echo -e "${PURPLE}目录: ${replay_dir_danmaku}${NC}"
+        local file_count_danmaku=$(find "$replay_dir_danmaku" -maxdepth 1 -type f | wc -l)
+         if [ "$file_count_danmaku" -gt 0 ]; then
+            ls -lh "$replay_dir_danmaku"
+            found_files=true
+        else
+            echo "(空)"
+        fi
+    else
+        echo -e "${YELLOW}目录不存在: ${replay_dir_danmaku}${NC}"
+    fi
+    echo "----------------------------------------"
+
+    if [ "$found_files" = false ]; then
+         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}两个回放目录均为空或不存在，无需删除。${NC}"
+         return 0
+    fi
+
+    read -p "$(echo -e "\n${YELLOW}是否要删除 ${RED}${BOLD}这两个目录中的所有文件${NC}${YELLOW}？ (此操作不可恢复! y/N): ${NC}")" confirm
+    confirm=${confirm:-n} # Default to 'n'
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}正在删除文件...${NC}"
+        local delete_success=true
+        if [ -d "$replay_dir_plain" ]; then
+            # Remove contents, not the directory itself, more flexible
+            sudo rm -rf "$replay_dir_plain"/* || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 ${replay_dir_plain} 内容失败！"; delete_success=false; }
+        fi
+        if [ -d "$replay_dir_danmaku" ]; then
+             sudo rm -rf "$replay_dir_danmaku"/* || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 删除 ${replay_dir_danmaku} 内容失败！"; delete_success=false; }
+        fi
+
+        if [ "$delete_success" = true ]; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已删除指定目录下的所有文件。${NC}"
+            return 0
+        else
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}删除过程中发生错误。${NC}"
+            return 1
+        fi
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已取消删除操作。${NC}"
+        return 1 # Indicate cancellation
+    fi
+}
+
+
+# ===== 刷新字体缓存 =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 刷新字体缓存..."
-        sudo fc-cache -f || true # 允许失败
+        sudo fc-cache -f
     else
         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} fc-cache 未找到，跳过刷新字体缓存。"
     fi
 }
 
-# 安装 Segoe UI Emoji 字体 （含已装检测与重装提示）
+# ===== 安装 Segoe UI Emoji 字体 （含已装检测与重装提示） =====
 install_segoe_emoji() {
     # 检测安装状态
     if fc-list | grep -qi "Segoe UI Emoji"; then
@@ -1045,7 +959,7 @@ install_segoe_emoji() {
             return
         fi
         echo -e "${BLUE}[INFO]${NC} 卸载现有 Segoe UI Emoji..."
-        sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf || true # 允许文件不存在
+        sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
@@ -1070,13 +984,13 @@ install_segoe_emoji() {
     fi
 
     local font_dir="/usr/share/fonts/truetype/microsoft"
-    sudo mkdir -p "$font_dir" || { echo -e "${RED}创建字体目录失败！${NC}"; return 1; }
-    sudo curl -fsSL -o "$font_dir/seguiemj.ttf" "$url" || { echo -e "${RED}下载字体失败！${NC}"; return 1; }
-    sudo chmod 644 "$font_dir/seguiemj.ttf" || { echo -e "${RED}设置字体权限失败！${NC}"; return 1; }
+    sudo mkdir -p "$font_dir"
+    sudo curl -fsSL -o "$font_dir/seguiemj.ttf" "$url"
+    sudo chmod 644 "$font_dir/seguiemj.ttf"
     echo -e "${GREEN}Segoe UI Emoji 安装完成！${NC}"
 }
 
-# 安装 Noto Color Emoji 字体 （含已装检测与重装提示）
+# ===== 安装 Noto Color Emoji 字体 （含已装检测与重装提示） =====
 install_noto_color_emoji() {
     if fc-list | grep -qi "Noto Color Emoji"; then
         read -p "检测到已安装 Noto Color Emoji，是否先卸载再重新安装？(y/N): " _c
@@ -1085,27 +999,27 @@ install_noto_color_emoji() {
             return
         fi
         echo -e "${BLUE}[INFO]${NC} 卸载现有 Noto Color Emoji..."
-        sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf || true # 允许文件不存在
+        sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Noto Color Emoji 字体"
     local font_dir="/usr/share/fonts/truetype/noto-emoji"
-    sudo mkdir -p "$font_dir" || { echo -e "${RED}创建字体目录失败！${NC}"; return 1; }
+    sudo mkdir -p "$font_dir"
     sudo curl -fsSL \
         -o "$font_dir/NotoColorEmoji.ttf" \
-        "https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf" || { echo -e "${RED}下载字体失败！${NC}"; return 1; }
-    sudo chmod 644 "$font_dir/NotoColorEmoji.ttf" || { echo -e "${RED}设置字体权限失败！${NC}"; return 1; }
+        "https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf"
+    sudo chmod 644 "$font_dir/NotoColorEmoji.ttf"
     echo -e "${GREEN}Noto Color Emoji 安装完成！${NC}"
 }
 
-# 安装“微软雅黑 + Emoji 系列”
+# ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
     # 微软雅黑
     if fc-list | grep -qi "Microsoft YaHei"; then
         read -p "检测到已安装 Microsoft YaHei，是否先卸载再重新安装？(y/N): " _c
         if [[ "$_c" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}[INFO]${NC} 卸载 Microsoft YaHei（ttf-mscorefonts-installer）..."
-            sudo apt remove -y ttf-mscorefonts-installer || true # 允许卸载失败
+            sudo apt remove -y ttf-mscorefonts-installer
         else
             echo -e "${YELLOW}跳过 Microsoft YaHei 安装。${NC}"
         fi
@@ -1113,8 +1027,8 @@ install_fonts() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
     # 安装微软雅黑
-    sudo apt update || { echo -e "${RED}apt update 失败！${NC}"; return 1; }
-    sudo apt install -y ttf-mscorefonts-installer || { echo -e "${RED}安装 ttf-mscorefonts-installer 失败！${NC}"; return 1; }
+    sudo apt update
+    sudo apt install -y ttf-mscorefonts-installer
 
     # 安装 Emoji
     install_segoe_emoji
@@ -1124,14 +1038,14 @@ install_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
 }
 
-# 安装“阿里巴巴普惠体 + Emoji 系列”
+# ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
 install_alibaba_fonts() {
     # 阿里巴巴普惠体
     if fc-list | grep -qi "Alibaba PuHuiTi"; then
         read -p "检测到已安装 Alibaba PuHuiTi，是否先卸载再重新安装？(y/N): " _c
         if [[ "$_c" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}[INFO]${NC} 卸载 Alibaba PuHuiTi..."
-            sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi || true # 允许删除失败
+            sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi
         else
             echo -e "${YELLOW}跳过 Alibaba PuHuiTi 安装。${NC}"
         fi
@@ -1139,11 +1053,11 @@ install_alibaba_fonts() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
-    sudo mkdir -p "$ali_dir" || { echo -e "${RED}创建字体目录失败！${NC}"; return 1; }
+    sudo mkdir -p "$ali_dir"
     sudo curl -fsSL \
         -o "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf" \
-        "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf" || { echo -e "${RED}下载字体失败！${NC}"; return 1; }
-    sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf" || { echo -e "${RED}设置字体权限失败！${NC}"; return 1; }
+        "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
+    sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
 
     # 安装 Emoji
     install_segoe_emoji
@@ -1153,7 +1067,7 @@ install_alibaba_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
 }
 
-# 单独安装 Emoji 系列 字体
+# ===== 单独安装 Emoji 系列 字体 =====
 install_emoji_fonts() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列 字体..."
     install_segoe_emoji
@@ -1162,23 +1076,32 @@ install_emoji_fonts() {
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} Emoji 字体安装完成！"
 }
 
-# 字体安装子菜单
+# ===== 字体安装子菜单 =====
 font_menu() {
     require_installed || return 1
 
     while true; do
         # 检测安装状态
-        local ms_status="${RED}未安装${NC}"
-        if fc-list | grep -qi "Microsoft YaHei"; then ms_status="${GREEN}已安装${NC}"; fi
-
-        local ali_status="${RED}未安装${NC}"
-        if fc-list | grep -qi "Alibaba PuHuiTi"; then ali_status="${GREEN}已安装${NC}"; fi
-
-        local seg_status="${RED}未安装${NC}"
-        if fc-list | grep -qi "Segoe UI Emoji"; then seg_status="${GREEN}已安装${NC}"; fi
-
-        local noto_status="${RED}未安装${NC}"
-        if fc-list | grep -qi "Noto Color Emoji"; then noto_status="${GREEN}已安装${NC}"; fi
+        if fc-list | grep -qi "Microsoft YaHei"; then
+            ms_status="${GREEN}已安装${NC}"
+        else
+            ms_status="${RED}未安装${NC}"
+        fi
+        if fc-list | grep -qi "Alibaba PuHuiTi"; then
+            ali_status="${GREEN}已安装${NC}"
+        else
+            ali_status="${RED}未安装${NC}"
+        fi
+        if fc-list | grep -qi "Segoe UI Emoji"; then
+            seg_status="${GREEN}已安装${NC}"
+        else
+            seg_status="${RED}未安装${NC}"
+        fi
+        if fc-list | grep -qi "Noto Color Emoji"; then
+            noto_status="${GREEN}已安装${NC}"
+        else
+            noto_status="${RED}未安装${NC}"
+        fi
 
         clear
         echo -e "${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
@@ -1195,55 +1118,50 @@ font_menu() {
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         read -p "$(echo -e "${CYAN}请输入选项 (0-4): ${NC}")" font_choice
 
-        case "$font_choice" in
+        case $font_choice in
             1) install_fonts ;;
             2) install_alibaba_fonts ;;
             3) install_emoji_fonts ;;
             4)
                 # 列出并卸载
-                local installed_fonts=()
+                installed=()
                 echo
                 echo -e "${CYAN}检测到已安装的字体：${NC}"
-                local i=1
                 if fc-list | grep -qi "Microsoft YaHei"; then
-                    installed_fonts+=("Microsoft YaHei")
-                    echo " $i) Microsoft YaHei"
-                    ((i++))
+                    installed+=("Microsoft YaHei")
+                    echo " 1) Microsoft YaHei"
                 fi
                 if fc-list | grep -qi "Alibaba PuHuiTi"; then
-                    installed_fonts+=("AlibabaPuHuiTi")
-                    echo " $i) Alibaba PuHuiTi"
-                    ((i++))
+                    installed+=("AlibabaPuHuiTi")
+                    echo " 2) Alibaba PuHuiTi"
                 fi
                 if fc-list | grep -qi "Segoe UI Emoji"; then
-                    installed_fonts+=("SegoeUIEmoji")
-                    echo " $i) Segoe UI Emoji"
-                    ((i++))
+                    installed+=("SegoeUIEmoji")
+                    echo " 3) Segoe UI Emoji"
                 fi
                 if fc-list | grep -qi "Noto Color Emoji"; then
-                    installed_fonts+=("NotoColorEmoji")
-                    echo " $i) Noto Color Emoji"
-                    ((i++))
+                    installed+=("NotoColorEmoji")
+                    echo " 4) Noto Color Emoji"
                 fi
 
-                if [ ${#installed_fonts[@]} -eq 0 ]; then
+                if [ ${#installed[@]} -eq 0 ]; then
                     echo -e "${YELLOW}未检测到可卸载的字体。${NC}"
                     read -n1 -s -r -p "按任意键返回字体菜单..."
                 else
                     echo " 0) 取消"
-                    read -p "请输入要卸载的字体编号 (0-${#installed_fonts[@]}): " idx
-                    if [[ "$idx" =~ ^[1-9]$ ]] && [ "$idx" -le ${#installed_fonts[@]} ]; then
-                        local choice_font="${installed_fonts[$((idx-1))]}"
-                        echo -e "${BLUE}正在卸载：$choice_font …${NC}"
-                        case "$choice_font" in
+                    read -p "请输入要卸载的字体编号 (0-${#installed[@]}): " idx
+                    if [[ "$idx" =~ ^[1-9]$ ]] && [ "$idx" -le ${#installed[@]} ]; then
+                        choice="${installed[$((idx-1))]}"
+                        echo -e "${BLUE}正在卸载：$choice …${NC}"
+                        case $choice in
                             "Microsoft YaHei")
-                                sudo apt remove -y ttf-mscorefonts-installer || true ;;
+                                sudo apt remove -y ttf-mscorefonts-installer ;;
                             "AlibabaPuHuiTi")
-                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi || true ;;
+                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi ;;
                             "SegoeUIEmoji")
-                                sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf || true ;;
+                                sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf ;;
                             "NotoColorEmoji")
-                                sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf || true ;;
+                                sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf ;;
                         esac
                         refresh_font_cache
                         echo -e "${GREEN}卸载完成并已刷新字体缓存。${NC}"
@@ -1263,34 +1181,31 @@ font_menu() {
 }
 
 
+
 # ===================== 状态及主菜单 =====================
 
-# 显示脚本头部信息
 show_header() {
     clear
-    local title="DanmakuRender v5 管理脚本"
-    echo -e "${BLUE}${BOLD}${title}${NORMAL}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}   脚本版本: ${VERSION}"
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
     fi
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     fi
-    echo -e "${CYAN}${BOLD}原地址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
+    echo -e "${CYAN}${BOLD}原址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     # 更新提示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        local install_epoch
-        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null || true)
-        local commit_epoch
-        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null || true)
+        install_epoch=$(cat "$INSTALL_DATE_FILE")
+        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "${YELLOW}${BOLD}-检测到项目有更新！建议运行选项 10 进行更新。 ${NC}"
+            echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
         fi
     fi
 }
 
-# 显示 DanmakuRender 的当前状态
+
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
@@ -1320,7 +1235,6 @@ show_status() {
     fi
 }
 
-# 检查 DanmakuRender 是否已安装，未安装则提示并返回非零
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "\n${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装！${NC}"
@@ -1330,111 +1244,119 @@ require_installed() {
     return 0
 }
 
-# 主菜单循环
+# ========== 新增：biliup‑rs 版本检测函数 ==========
+fetch_biliup_times() {
+    # 如果 biliup 可执行文件存在且可执行
+    if [ -x "$BILIUP_DIR/biliup" ]; then
+        # 获取本地版本号（假设输出类似 “biliup-cli 0.2.2”）
+        local_ver=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
+        BILIUP_LOCAL_VERSION="$local_ver"
+
+        # 从 GitHub API 获取最新 Release 信息
+        local latest_info
+        latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
+        if [[ -n "$latest_info" ]]; then
+            # 取 tag_name 作为远程最新版本号（如 “v0.2.3”）
+            remote_ver=$(echo "$latest_info" | jq -r '.tag_name // empty')
+            # 如有前缀 “v”，去掉以便对比（可选）
+            remote_ver="${remote_ver#v}"
+            BILIUP_REMOTE_VERSION="$remote_ver"
+        else
+            BILIUP_REMOTE_VERSION=""
+        fi
+    else
+        # 未安装 biliup，清空版本变量
+        BILIUP_LOCAL_VERSION=""
+        BILIUP_REMOTE_VERSION=""
+    fi
+}
+
+# ===================== 主菜单 =====================
 main_menu() {
-    # 初始化：检查基础依赖，并获取 GitHub 和 biliup-rs 的最新版本信息
-    check_dependencies || { echo -e "${RED}[ERROR] 基础依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
-
-    fetch_github_times
-    get_install_date
-    fetch_biliup_times
-
+    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
+    fetch_github_times; get_install_date; fetch_biliup_times
     while true; do
-        # 打印头部和状态
-        show_header
-        show_status
-
-        # 主菜单选项
+        show_header; show_status
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}${BOLD}安装DanmakuRender v5${NC}"
-        if pgrep -f "$DMR_CMD" > /dev/null; then
+        echo -e "${BLUE}${BOLD}1.${NC}${NORMAL} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
+        if pgrep -f "$DMR_CMD" &>/dev/null; then
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${RED}${BOLD}停止录制${NC}"
         else
             echo -e "${BLUE}${BOLD}2.${NC}${NORMAL} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
         echo -e "${BLUE}${BOLD}3.${NC}${NORMAL} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
         echo -e "${BLUE}${BOLD}4.${NC}${NORMAL} ${PURPLE}${BOLD}手动渲染视频${NC}"
-        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${PURPLE}${BOLD}运行测试${NC}"
-        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${YELLOW}${BOLD}删除回放/渲染的视频文件${NC}"
-        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${PINK}${BOLD}biliup-rs上传菜单${NC}"
-        # 仅当本地和远程版本都非空且不相等时才提示更新
-        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
-            echo -e "${YELLOW}${BOLD}→ 检测到 biliup-rs 新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
-        fi
+        echo -e "${BLUE}${BOLD}5.${NC}${NORMAL} ${YELLOW}${BOLD}运行测试${NC}"
+        echo -e "${BLUE}${BOLD}6.${NC}${NORMAL} ${PINK}${BOLD}删除回放/渲染的视频文件${NC}"
+        echo -e "${BLUE}${BOLD}7.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
         echo -e "${BLUE}${BOLD}8.${NC}${NORMAL} ${CYAN}${BOLD}字体安装菜单${NC}"
-        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${LIGHT_BLUE}${BOLD}安装JavaScript 环境${NC}"
-        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}9.${NC}${NORMAL} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
+        echo -e "${BLUE}${BOLD}10.${NC}${NORMAL}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}11.${NC}${NORMAL}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${NORMAL}${GREEN}${BOLD}更新脚本${NC}"
         echo -e "${BLUE}${BOLD}0.${NC}${NORMAL} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        # 读取用户选择并分发
-        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-11): ${NC}")" choice
-        case "$choice" in
-            1) install_dmr ;;
+        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-12): ${NC}")" choice
+        case $choice in
+            1)
+                install_dmr && {
+                    # 复制脚本并创建快捷键
+                    cp -f "$0" "$DMR_DIR/$SCRIPT_NAME"
+                    chmod +x "$DMR_DIR/$SCRIPT_NAME"
+                    ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
+                    echo -e "${GREEN}快捷键 'd' 已创建，输入 d 即可启动管理脚本。${NC}"
+                }
+                ;;
             2)
-                if require_installed; then
-                    if pgrep -f "$DMR_CMD" > /dev/null; then
-                        stop_dmr
-                        stop_extra_processes
+                require_installed && {
+                    if pgrep -f "$DMR_CMD" &>/dev/null; then
+                        stop_dmr; stop_extra_processes
                     else
-                        if ! check_config; then
-                            echo -e "${RED}配置文件检查失败！请配置 ${DMR_DIR}/configs/ 下的 *DMR* 文件。${NC}"
-                        else
-                            start_dmr
-                        fi
+                        check_config && start_dmr
                     fi
-                fi
+                }
                 ;;
             3) view_log ;;
             4) require_installed && manual_render ;;
-            5) require_installed && run_test ;;
+            5)
+                require_installed && {
+                    read -p "确定要运行测试脚本吗？(y/N): " yn
+                    if [[ "$yn" =~ ^[Yy]$ ]]; then
+                        run_test
+                    else
+                        echo "已取消测试。"
+                    fi
+                }
+                ;;
             6) require_installed && delete_replays ;;
             7) require_installed && bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/bp-in.sh) ;;
             8) require_installed && font_menu ;;
             9)
-                if require_installed; then
-                    read -p "$(echo -e "${YELLOW}确定要安装 JavaScript 环境吗？(y/N): ${NC}")" js_confirm
-                    js_confirm=${js_confirm:-n}
-                    if [[ "$js_confirm" =~ ^[Yy]$ ]]; then
-                        install_js_engine
-                    else
-                        echo -e "${CYAN}已取消 JavaScript 环境安装。${NC}"
-                    fi
-                fi
+                require_installed
+                read -p "确定要安装 JavaScript 环境吗？(y/N): " js_confirm
+                [[ "$js_confirm" =~ ^[Yy]$ ]] && install_js_engine || echo "已取消。"
                 ;;
-            10)
-                if require_installed; then
-                    update_dmr
-                    fetch_github_times # 刷新显示信息
-                    get_install_date   # 刷新安装日期
-                fi
-                ;;
+            10) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
             11)
-                if require_installed; then
+                require_installed && {
                     uninstall_dmr
-                    # 卸载后清空状态显示
-                    install_date=""
-                    commit_time="N/A"
-                    release_version="N/A"
-                    release_time="N/A"
-                    commit_sha=""
-                    BILIUP_LOCAL_VERSION=""
-                    BILIUP_REMOTE_VERSION=""
-                fi
+                    # 移除快捷键
+                    rm -f /usr/local/bin/d
+                    echo "快捷键 'd' 已移除。"
+                }
                 ;;
+            12) require_installed && update_script ;;
             0) echo -e "${YELLOW}退出脚本${NC}" && exit 0 ;;
-            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 11。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 12。${NC}" ;;
         esac
 
-        # 等待按键后刷新菜单
         echo
-        read -n 1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
+        read -n1 -s -r -p "$(echo -e "${CYAN}按任意键返回主菜单...${NC}")"
         echo
     done
 }
 
+
 # 启动主菜单
 main_menu
-
-
