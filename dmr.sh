@@ -39,12 +39,12 @@ BILIUP_LOCAL_VERSION="" BILIUP_REMOTE_VERSION=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
-    local required_tools=("jq" "curl" "git")
+    local required_tools=("curl")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 $tool，正在安装...${NC}"
+            echo -e "${BLUE}${BOLD}[INFO]${NC} ${YELLOW}未找到 $tool，正在安装...${NC}"
             sudo apt install -y "$tool" || {
-                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${RED}$tool 安装失败！${NC}"
+                echo -e "${RED}${BOLD}[ERROR]${NC} ${RED}$tool 安装失败！${NC}"
                 return 1
             }
         fi
@@ -112,12 +112,15 @@ rollback_installation() {
 
 # ===================== 更新脚本函数 =====================
 update_script() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载并更新脚本到 ${DMR_DIR}/${SCRIPT_NAME} …"
+    echo -e "${BLUE}${BOLD}[INFO]${NC} 正在下载并更新脚本到 ${DMR_DIR}/${SCRIPT_NAME} …"
     if curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/${SCRIPT_NAME}"; then
         chmod +x "$DMR_DIR/${SCRIPT_NAME}"
-        echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 脚本已更新，请退出并使用新的脚本版本 (${VERSION}) 重新启动。"
+        echo -e "${GREEN}${BOLD}[SUCCESS]${NC} 脚本已更新至版本 ${VERSION}"
+        echo -e "${CYAN}按任意键返回菜单并加载新脚本...${NC}"
+        read -n1 -s -r
+        exec "$DMR_DIR/${SCRIPT_NAME}" "$@"   # 重新执行更新后的脚本
     else
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 脚本更新失败，请检查网络或 URL。"
+        echo -e "${RED}${BOLD}[ERROR]${NC} 脚本更新失败 (N/A)，请检查网络或 URL"
     fi
 }
 
@@ -1186,12 +1189,18 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}${YELLOW}${BOLD}脚本版本: ${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}脚本版本: ${VERSION}${NC}"
+    # 最新发布版本
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
+    else
+        echo -e "${CYAN}最新发布版本: ${RED}N/A (获取失败，请检查网络)${NC}"
     fi
+    # 最新代码提交
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
+    else
+        echo -e "${CYAN}最新代码提交: ${RED}N/A (获取失败，请检查网络)${NC}"
     fi
     echo -e "${CYAN}${BOLD}原址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -1208,29 +1217,27 @@ show_header() {
 
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${YELLOW}${BOLD}程序状态：${RED}未安装${NC}${NORMAL}"
-        echo -e "${YELLOW}${BOLD}配置文件：${RED}未安装${NC}${NORMAL}"
-        echo -e "${YELLOW}${BOLD}运行状态：${RED}未安装${NC}${NORMAL}"
+        echo -e "${MENU_TEXT_COLOR}程序状态：${RED}未安装${MENU_RESET}"
+        echo -e "${MENU_TEXT_COLOR}配置文件：${RED}未安装${MENU_RESET}"
+        echo -e "${MENU_TEXT_COLOR}运行状态：${RED}未安装${MENU_RESET}"
     else
-        echo -e "${GREEN}${BOLD}程序状态：${GREEN}已安装${NC}${NORMAL} ($DMR_DIR)"
+        echo -e "${MENU_TEXT_COLOR}程序状态：${GREEN}已安装${MENU_RESET} (${DMR_DIR})"
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${GREEN}${BOLD}配置文件：${GREEN}已获取${NC}${NORMAL}共${streamers_count}位主播"
+            echo -e "${MENU_TEXT_COLOR}配置文件：${GREEN}已获取${MENU_RESET} 共${streamers_count}位主播"
         else
-            echo -e "${YELLOW}${BOLD}配置文件：${RED}未找到或未配置！${NC}${NORMAL} (请检查目录/configs/)"
+            echo -e "${MENU_TEXT_COLOR}配置文件：${RED}未配置！${MENU_RESET}"
         fi
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${GREEN}${BOLD}运行状态：${GREEN}${BOLD}当前正在运行 (PID: $pid)${NC}${NORMAL}"
+            echo -e "${MENU_TEXT_COLOR}运行状态：${GREEN}正在运行 (PID: ${pid})${MENU_RESET}"
         else
-            echo -e "${YELLOW}${BOLD}运行状态：${RED}未运行${NC}${NORMAL}"
+            echo -e "${MENU_TEXT_COLOR}运行状态：${RED}未运行${MENU_RESET}"
         fi
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
-            echo -e "${CYAN}${BOLD}上一次安装/更新：${PINK}${install_date}${NC}${NORMAL}"
-        elif [ -f "$INSTALL_DATE_FILE" ]; then
-            echo -e "${CYAN}${BOLD}上一次安装/更新：${RED}日期记录无效${NC}${NORMAL}"
+            echo -e "${MENU_TEXT_COLOR}上一次安装/更新：${ORANGE}${install_date}${MENU_RESET}"
         fi
     fi
 }
