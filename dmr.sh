@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13"
+VERSION="2025-07-13A"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -837,9 +837,14 @@ manual_render() {
 delete_replays() {
     local dirs=("$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）")
     local files=()
-    echo -e "${BLUE}检测到以下可删除文件：${NC}"
+
+    echo -e "${BLUE}${BOLD}检测到以下可删除文件：${NC}"
+    # 按目录分组列出，并显示每个目录的总大小
     for d in "${dirs[@]}"; do
         [ -d "$d" ] || continue
+        local dir_size
+        dir_size=$(du -sh "$d" 2>/dev/null | awk '{print $1}')
+        echo -e "${PURPLE}${BOLD}目录：$(basename "$d")${NC} ${ORANGE}(${dir_size})${NC}"
         for f in "$d"/*; do
             [ -f "$f" ] || continue
             files+=("$f")
@@ -847,27 +852,45 @@ delete_replays() {
     done
 
     if [ ${#files[@]} -eq 0 ]; then
-        echo "无可删除文件。"
+        echo -e "${YELLOW}无可删除文件。${NC}"
         return 0
     fi
 
-    # 列表显示
+    # 列出所有文件，显示序号、文件名和大小
     for i in "${!files[@]}"; do
-        printf "%2d) %s\n" $((i+1)) "${files[i]}"
+        local filepath="${files[i]}"
+        local fname="$(basename "$filepath")"
+        local fsize
+        fsize=$(du -h "$filepath" | awk '{print $1}')
+        printf "%2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" $((i+1)) "$fname" "$fsize"
     done
 
-    read -p "请输入要删除的序号(空格分隔)，或输入 Y 删除全部(默认N): " sel
+    # 选择要删除的文件
+    read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
+
+    # 增加最终确认
+    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
+    confirm=${confirm:-N}
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}已取消删除操作。${NC}"
+        return 0
+    fi
+
     if [[ "$sel" =~ ^[Yy]$ ]]; then
-        for f in "${files[@]}"; do rm -f "$f"; done
-        echo "所有文件已删除。"
+        # 删除全部
+        for f in "${files[@]}"; do
+            rm -f "$f" && echo -e "  ${RED}已删除${NC}：$(basename "$f")"
+        done
+        echo -e "${GREEN}${BOLD}所有文件已删除。${NC}"
     else
         # 按序号删除
         for idx in $sel; do
             if [[ "$idx" =~ ^[0-9]+$ ]] && [ "$idx" -ge 1 ] && [ "$idx" -le ${#files[@]} ]; then
-                rm -f "${files[$((idx-1))]}" && echo "已删除：${files[$((idx-1))]}"
+                local target="${files[$((idx-1))]}"
+                rm -f "$target" && echo -e "  ${RED}已删除${NC}：$(basename "$target")"
             else
-                echo "跳过无效序号：$idx"
+                echo -e "${YELLOW}跳过无效序号：${idx}${NC}"
             fi
         done
     fi
@@ -1227,9 +1250,9 @@ main_menu() {
         fi
         echo -e "${BLUE}${BOLD}3.${NC} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
         echo -e "${BLUE}${BOLD}4.${NC} ${PURPLE}${BOLD}手动渲染视频${NC}"
-        echo -e "${BLUE}${BOLD}5.${NC} ${YELLOW}${BOLD}运行测试${NC}"
-        echo -e "${BLUE}${BOLD}6.${NC} ${PINK}${BOLD}删除回放/渲染的视频文件${NC}"
-        echo -e "${BLUE}${BOLD}7.${NC} ${LIGHT_BLUE}${BOLD}biliup-rs 上传菜单${NC}"
+        echo -e "${BLUE}${BOLD}5.${NC} ${GREEN}${BOLD}运行测试${NC}"
+        echo -e "${BLUE}${BOLD}6.${NC} ${YELLOW}${BOLD}删除回放/渲染的视频文件${NC}"
+        echo -e "${BLUE}${BOLD}7.${NC} ${PINK}${BOLD}biliup-rs 上传菜单${NC}"
         # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
