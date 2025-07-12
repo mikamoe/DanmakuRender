@@ -115,8 +115,8 @@ update_script() {
     echo -e "${BLUE}${BOLD}[INFO]${NC} 正在下载并更新脚本到 ${DMR_DIR}/${SCRIPT_NAME} …"
     if curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/${SCRIPT_NAME}"; then
         chmod +x "$DMR_DIR/${SCRIPT_NAME}"
-        echo -e "${GREEN}${BOLD}[SUCCESS]${NC} 脚本已更新至版本 ${VERSION}"
-        echo -e "${CYAN}按任意键返回菜单并加载新脚本...${NC}"
+        echo -e "${GREEN}${BOLD}[SUCCESS]${NC} 脚本已完成更新"
+        echo -e "${CYAN}按任意键返回并加载新脚本...${NC}"
         read -n1 -s -r
         exec "$DMR_DIR/${SCRIPT_NAME}" "$@"   # 重新执行更新后的脚本
     else
@@ -1189,7 +1189,7 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}Version: ${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}V.${VERSION}${NC}"
     # 最新发布版本
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
