@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13B"
+VERSION="2025-07-13 C"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -837,12 +837,13 @@ manual_render() {
 delete_replays() {
     local dirs=("$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）")
     local files=()
-    local group_indices=()  # 记录每组起始的序号（用于添加目录分隔）
+    local group_indices=()
     local current_index=0
 
     echo -e "${BLUE}${BOLD}检测到以下可删除文件：${NC}"
-    echo -e "${LIGHTBLUE}路径1：${NC}${GRAY}${dirs[0]}${NC}"
-    echo -e "${LIGHTBLUE}路径2：${NC}${GRAY}${dirs[1]}${NC}"
+    for i in "${!dirs[@]}"; do
+        echo -e "${LIGHTBLUE}${BOLD}${dirs[$i]}${NC}"
+    done
     echo
 
     for d in "${dirs[@]}"; do
@@ -861,7 +862,6 @@ delete_replays() {
         if [ $group_start -eq $current_index ]; then
             echo -e "${YELLOW}(无视频文件)${NC}"
         else
-            # 列出本目录下的文件
             for ((i=group_start; i<current_index; i++)); do
                 local filepath="${files[i]}"
                 local fname="$(basename "$filepath")"
@@ -869,7 +869,6 @@ delete_replays() {
                 printf "  %2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" $((i+1)) "$fname" "$fsize"
             done
         fi
-        echo
     done
 
     if [ ${#files[@]} -eq 0 ]; then
@@ -877,11 +876,9 @@ delete_replays() {
         return 0
     fi
 
-    # 用户输入
     read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
 
-    # 删除确认
     read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
     confirm=${confirm:-N}
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -905,6 +902,7 @@ delete_replays() {
         done
     fi
 }
+
 
 # ===== 刷新字体缓存 =====
 refresh_font_cache() {
@@ -1153,7 +1151,7 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}V.${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}版本${VERSION}${NC}"
     # 最新发布版本
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
