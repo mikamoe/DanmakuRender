@@ -883,7 +883,7 @@ delete_replays() {
     read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
 
-    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
+    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N 默认N): ${NC}")" confirm
     confirm=${confirm:-N}
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}已取消删除操作。${NC}"
