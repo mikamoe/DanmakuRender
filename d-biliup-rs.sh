@@ -417,7 +417,7 @@ upload_video(){
             upload_cmd_parts+=("--topic-id" "$topic_id_val")
         else
             warning "无效的话题ID，跳过设置。"
-        F
+        fi # Corrected: Changed 'F' to 'fi'
     fi
 
     # 延时发布视频时间
