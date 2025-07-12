@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 H" # 更新版本号以示修改
+VERSION="2025-07-13 I" # 更新版本号以示修改
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -866,11 +866,7 @@ delete_replays() {
                 local fname="$(basename "$filepath")"
                 local fsize=$(du -h "$filepath" | awk '{print $1}')
                 local index=$((i + 1))
-                if [ $index -lt 10 ]; then
-                    printf " %2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
-                else
-                    printf "%2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
-                fi
+                printf "%2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
             done
         fi
     done
@@ -880,10 +876,10 @@ delete_replays() {
         return 0
     fi
 
-    read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
+    read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y/y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N/n): ${NC}")" sel
     sel=${sel:-N}
 
-    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N 默认N): ${NC}")" confirm
+    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/y/N/n, 默认N/n): ${NC}")" confirm
     confirm=${confirm:-N}
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}已取消删除操作。${NC}"
