@@ -49,30 +49,7 @@ check_dependencies() {
             }
         fi
     done
-
-    # 更新检测提示 - 直接使用已获取的全局变量
-    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-        # 确保 commit_time 已经被 fetch_github_times 填充
-        if [ -z "$commit_time" ] || [ "$commit_time" == "获取失败" ]; then
-            echo -e "${YELLOW}${BOLD}[WARN]${NC} 无法获取最新 GitHub 提交时间，跳过更新提示。${NC}"
-            return 0
-        fi
-        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-
-        if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
-            echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
-            echo -e "提交说明: ${CYAN}${commit_message}${NC}"
-            if [ -n "$commit_sha" ]; then
-                echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
-            else
-                echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
-            fi
-            echo -e "按任意键继续进入脚本..."
-            read -n 1 -s -r
-        fi
-    fi
+    # 移除原先在 check_dependencies 中的更新检测提示，该逻辑已移至 show_header
     return 0
 }
 
@@ -511,6 +488,15 @@ install_dmr() {
     }
     get_install_date # 刷新安装日期全局变量
 
+    # 自动下载最新脚本到 DMR 主目录
+    sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
+    sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
+
+    # 在全局创建 'd' 快捷键
+    sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
+
+    echo -e "${GREEN}脚本已下载到 ${DMR_DIR}/${SCRIPT_NAME} 并创建快捷键 'd'，输入 d 即可启动管理脚本。${NC}"
+
     # 安装一切正常，取消回滚
     rollback_needed=false
     trap - EXIT
@@ -623,20 +609,6 @@ start_dmr() {
         # 将PID写入文件
         echo $pid > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！进程 PID: $pid${NC}"
-        
-        # 实时显示日志功能
-        echo -e "\n${CYAN}正在实时显示日志 (按 q 退出查看)...${NC}"
-        tail -f "$LOG_FILE" &  # 后台运行tail命令
-        local tail_pid=$!
-        
-        # 监听键盘输入
-        while true; do
-            read -t 1 -n 1 key
-            if [[ $key == "q" ]]; then
-                kill $tail_pid 2>/dev/null  # 停止tail进程
-                break
-            fi
-        done
         
         deactivate
         popd > /dev/null
@@ -1177,16 +1149,23 @@ show_header() {
     fi
     echo -e "${CYAN}${BOLD}原址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    # 更新提示
+    # 更新提示 - 仅在 commit_time 已获取的情况下显示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE")
-        # 再次确认 commit_time 是否已获取
-        if [ -z "$commit_time" ] || [ "$commit_time" == "获取失败" ]; then
-            echo -e "${YELLOW}${BOLD}[WARN]${NC} 无法获取最新 GitHub 提交时间，跳过更新提示。${NC}"
-        else
+        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null) # 使用 2>/dev/null 避免错误输出
+        if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
             commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
             if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
                 echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
+                echo -e "(˶╹ꇴ╹˶)发现新版本啦！" # 额外提示
+                echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
+                echo -e "提交说明: ${CYAN}${commit_message}${NC}"
+                if [ -n "$commit_sha" ]; then
+                    echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
+                else
+                    echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
+                fi
+                echo -e "按任意键继续进入脚本..."
+                read -n 1 -s -r
             fi
         fi
     fi
@@ -1195,27 +1174,27 @@ show_header() {
 
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${MENU_TEXT_COLOR}程序状态：${RED}未安装${MENU_RESET}"
-        echo -e "${MENU_TEXT_COLOR}配置文件：${RED}未安装${MENU_RESET}"
-        echo -e "${MENU_TEXT_COLOR}运行状态：${RED}未安装${MENU_RESET}"
+        echo -e "${RED}程序状态：${RED}未安装${NC}"
+        echo -e "${RED}配置文件：${RED}未安装${NC}"
+        echo -e "${RED}运行状态：${RED}未安装${NC}"
     else
-        echo -e "${MENU_TEXT_COLOR}程序状态：${GREEN}已安装${MENU_RESET} (${DMR_DIR})"
+        echo -e "${GREEN}程序状态：${GREEN}已安装${NC} (${DMR_DIR})"
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${MENU_TEXT_COLOR}配置文件：${GREEN}已获取${MENU_RESET} 共${streamers_count}位主播"
+            echo -e "${GREEN}配置文件：${GREEN}已获取${NC} 共${streamers_count}位主播"
         else
-            echo -e "${MENU_TEXT_COLOR}配置文件：${RED}未配置！${MENU_RESET}"
+            echo -e "${RED}配置文件：${RED}未配置！${NC}"
         fi
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${MENU_TEXT_COLOR}运行状态：${GREEN}正在运行 (PID: ${pid})${MENU_RESET}"
+            echo -e "${GREEN}运行状态：${GREEN}正在运行 (PID: ${pid})${NC}"
         else
-            echo -e "${MENU_TEXT_COLOR}运行状态：${RED}未运行${MENU_RESET}"
+            echo -e "${RED}运行状态：${RED}未运行${NC}"
         fi
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
-            echo -e "${MENU_TEXT_COLOR}上一次安装/更新：${ORANGE}${install_date}${MENU_RESET}"
+            echo -e "${ORANGE}上一次安装/更新：${ORANGE}${install_date}${NC}"
         fi
     fi
 }
@@ -1258,14 +1237,16 @@ fetch_biliup_times() {
 
 # ===================== 主菜单 =====================
 main_menu() {
-    # 在进入主菜单循环前，只执行一次全局信息获取
-    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
+    # 1. 确保核心依赖（curl, jq）已安装
+    check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl。${NC}"; exit 1; }
+
+    # 2. 获取所有全局信息（GitHub 项目信息、安装日期、biliup-rs 版本）
     fetch_github_times
     get_install_date
     fetch_biliup_times
 
     while true; do
-        show_header
+        show_header # 此时 show_header 可以正确显示 GitHub 信息和更新提示
         show_status
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -1295,19 +1276,7 @@ main_menu() {
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-12): ${NC}")" choice
         case $choice in
             1)
-                install_dmr && {
-                    # 确保目标目录存在
-                    sudo mkdir -p "$DMR_DIR"
-
-                    # 自动下载最新脚本到 DMR 主目录
-                    sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
-                    sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
-
-                    # 在全局创建 'd' 快捷键
-                    sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
-
-                    echo -e "${GREEN}脚本已下载到 ${DMR_DIR}/${SCRIPT_NAME} 并创建快捷键 'd'，输入 d 即可启动管理脚本。${NC}"
-                }
+                install_dmr
                 ;;
             2)
                 require_installed && {
