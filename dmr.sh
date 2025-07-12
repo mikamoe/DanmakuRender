@@ -172,6 +172,27 @@ fetch_github_times() {
         release_time="获取失败"
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
+
+    # 这里添加更新检查代码
+    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
+        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
+            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
+                echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
+                echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
+                echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
+                echo -e "提交说明: ${CYAN}${commit_message}${NC}"
+                if [ -n "$commit_sha" ]; then
+                    echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
+                else
+                    echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
+                fi
+                echo -e "按任意键继续..."
+                read -n 1 -s -r
+            fi
+        fi
+    fi
 }
 
 get_install_date() {
@@ -1131,7 +1152,6 @@ font_menu() {
 
 
 # ===================== 状态及主菜单 =====================
-
 show_header() {
     clear
     echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}版本${VERSION}${NC}"
@@ -1149,26 +1169,6 @@ show_header() {
     fi
     echo -e "${CYAN}${BOLD}原址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    # 更新提示 - 仅在 commit_time 已获取的情况下显示
-    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null) # 使用 2>/dev/null 避免错误输出
-        if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
-            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-                echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
-                echo -e "(˶╹ꇴ╹˶)发现新版本啦！" # 额外提示
-                echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
-                echo -e "提交说明: ${CYAN}${commit_message}${NC}"
-                if [ -n "$commit_sha" ]; then
-                    echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
-                else
-                    echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
-                fi
-                echo -e "按任意键继续进入脚本..."
-                read -n 1 -s -r
-            fi
-        fi
-    fi
 }
 
 
