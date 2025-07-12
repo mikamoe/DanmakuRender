@@ -194,8 +194,10 @@ select_video_files() {
 
     echo -e "\n${BOLD}可用视频文件列表：${RESET}"
     for file_path in "${files[@]}"; do
-        # 使用 printf 进行格式化，确保编号对齐
-        printf " %2d) ${RESET}%s\n" "$i" "$(basename "$file_path")"
+        local file_name=$(basename "$file_path")
+        # 获取文件大小并格式化为人类可读的格式
+        local file_size=$(du -h "$file_path" | cut -f1)
+        printf " %2d) ${RESET}%s ${DARK_GRAY}(%s)${RESET}\n" "$i" "$file_name" "$file_size"
         ((i++))
     done
 
@@ -248,7 +250,7 @@ select_video_files() {
 upload_video(){
     highlight "正在准备上传视频..."
 
-    local upload_cmd="$BINARY_PATH upload"
+    local upload_cmd_parts=("$BINARY_PATH" "upload") # 使用数组构建命令，避免eval
     local submit_val="client"
     local line_val="bda"
     local limit_val="3"
@@ -282,7 +284,7 @@ upload_video(){
     else
         warning "无效的提交接口选择，使用默认值: ${CYAN}$submit_val${RESET}"
     fi
-    upload_cmd+=" --submit $submit_val"
+    upload_cmd_parts+=("--submit" "$submit_val")
 
     # 上传线路
     echo
@@ -299,7 +301,7 @@ upload_video(){
     else
         warning "无效的上传线路选择，使用默认值: ${CYAN}$line_val${RESET}"
     fi
-    upload_cmd+=" --line $line_val"
+    upload_cmd_parts+=("--line" "$line_val")
 
     # 单文件最大并发数
     echo
@@ -311,7 +313,7 @@ upload_video(){
     else
         warning "无效的并发数，使用默认值: ${CYAN}$limit_val${RESET}"
     fi
-    upload_cmd+=" --limit $limit_val"
+    upload_cmd_parts+=("--limit" "$limit_val")
 
     # 是否转载
     echo
@@ -324,7 +326,7 @@ upload_video(){
     else
         warning "无效的转载选项，使用默认值: ${CYAN}$copyright_val${RESET}"
     fi
-    upload_cmd+=" --copyright $copyright_val"
+    upload_cmd_parts+=("--copyright" "$copyright_val")
 
     if [[ "$copyright_val" == "2" ]]; then
         echo
@@ -332,7 +334,7 @@ upload_video(){
         read -p "$(echo -e "${CYAN}请输入字符串: ${RESET}")" source_input
         if [[ -n "$source_input" ]]; then
             source_val="$source_input"
-            upload_cmd+=" --source \"$source_val\""
+            upload_cmd_parts+=("--source" "$source_val")
         else
             warning "未输入转载来源，可能导致上传失败。"
         fi
@@ -349,7 +351,7 @@ upload_video(){
     else
         warning "无效的分区ID，使用默认值: ${CYAN}$tid_val${RESET}"
     fi
-    upload_cmd+=" --tid $tid_val"
+    upload_cmd_parts+=("--tid" "$tid_val")
 
     # 视频封面
     echo
@@ -358,7 +360,7 @@ upload_video(){
     if [[ -n "$cover_input" ]]; then
         if [[ -f "$cover_input" ]]; then
             cover_val="$cover_input"
-            upload_cmd+=" --cover \"$cover_val\""
+            upload_cmd_parts+=("--cover" "$cover_val")
         else
             warning "封面文件不存在或不是常规文件，跳过设置封面。"
         fi
@@ -388,17 +390,19 @@ upload_video(){
         dynamic_val="$dynamic_input"
     fi
 
-    # 视频标签 (强制输入)
+    # 视频标签 (强制输入，增加默认值)
     echo
     while true; do
         echo -e "${CYAN}请输入视频标签${RESET}"
-        read -p "$(echo -e "${CYAN}请输入标签（必填，逗号分隔多个tag）: ${RESET}")" tag_input
-        if [[ -z "$tag_input" ]]; then
+        local tag_input_raw
+        read -p "$(echo -e "${CYAN}请输入标签（必填，逗号分隔多个tag） [默认: 直播回放]: ${RESET}")" tag_input_raw
+        tag_val="${tag_input_raw:-直播回放}" # 如果用户输入为空，则使用默认值
+
+        if [[ -z "$tag_val" ]]; then
             error "视频标签不能为空，请重新输入。"
             echo # Add a blank line for better separation
         else
-            tag_val="$tag_input"
-            upload_cmd+=" --tag \"$tag_val\""
+            upload_cmd_parts+=("--tag" "$tag_val")
             break # Exit the loop if tag is provided
         fi
     done
@@ -410,10 +414,10 @@ upload_video(){
     if [[ -n "$topic_id_input" ]]; then
         if [[ "$topic_id_input" =~ ^[0-9]+$ ]]; then
             topic_id_val="$topic_id_input"
-            upload_cmd+=" --topic-id $topic_id_val"
+            upload_cmd_parts+=("--topic-id" "$topic_id_val")
         else
             warning "无效的话题ID，跳过设置。"
-        fi
+        F
     fi
 
     # 延时发布视频时间
@@ -424,7 +428,7 @@ upload_video(){
     if [[ -n "$dtime_input" ]]; then
         if [[ "$dtime_input" =~ ^[0-9]+$ && "$dtime_input" -ge 14400 ]]; then
             dtime_val=$(($(date +%s) + dtime_input))
-            upload_cmd+=" --dtime $dtime_val"
+            upload_cmd_parts+=("--dtime" "$dtime_val")
         else
             warning "无效的延时发布时间（必须为数字且大于等于14400），跳过设置延时发布。"
         fi
@@ -438,7 +442,7 @@ upload_video(){
     if [[ -n "$dolby_input" ]]; then
         if [[ "$dolby_input" == "0" || "$dolby_input" == "1" ]]; then
             dolby_val="$dolby_input"
-            upload_cmd+=" --dolby $dolby_val"
+            upload_cmd_parts+=("--dolby" "$dolby_val")
         else
             warning "无效的杜比音效选项，跳过设置。"
         fi
@@ -452,7 +456,7 @@ upload_video(){
     if [[ -n "$hires_input" ]]; then
         if [[ "$hires_input" == "0" || "$hires_input" == "1" ]]; then
             hires_val="$hires_input"
-            upload_cmd+=" --hires $hires_val"
+            upload_cmd_parts+=("--hires" "$hires_val")
         else
             warning "无效的 Hi-Res 选项，跳过设置。"
         fi
@@ -469,7 +473,7 @@ upload_video(){
     else
         warning "无效的允许转载选项，使用默认值: ${CYAN}$no_reprint_val${RESET}"
     fi
-    upload_cmd+=" --no-reprint $no_reprint_val"
+    upload_cmd_parts+=("--no-reprint" "$no_reprint_val")
 
     # 是否开启充电
     echo
@@ -482,7 +486,7 @@ upload_video(){
     else
         warning "无效的充电选项，使用默认值: ${CYAN}$open_elec_val${RESET}"
     fi
-    upload_cmd+=" --open-elec $open_elec_val"
+    upload_cmd_parts+=("--open-elec" "$open_elec_val")
 
     # 仅提交接口为app时需要交互的内容
     if [[ "$submit_val" == "app" ]]; then
@@ -493,15 +497,15 @@ upload_video(){
         echo -e "${CYAN}是否开启精选评论${RESET}"
         read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_selection_reply_input
         if [[ -n "$up_selection_reply_input" ]]; then
-            upload_cmd+=" --up-selection-reply"
+            upload_cmd_parts+=("--up-selection-reply")
         fi
 
         # 是否关闭评论
         echo
         echo -e "${CYAN}是否关闭评论${RESET}"
-        read -p "$(echo -e "${CYYAN}回车则默认无: ${RESET}")" up_close_reply_input
+        read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_close_reply_input
         if [[ -n "$up_close_reply_input" ]]; then
-            upload_cmd+=" --up-close-reply"
+            upload_cmd_parts+=("--up-close-reply")
         fi
 
         # 是否关闭弹幕
@@ -509,7 +513,7 @@ upload_video(){
         echo -e "${CYAN}是否关闭弹幕${RESET}"
         read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_close_danmu_input
         if [[ -n "$up_close_danmu_input" ]]; then
-            upload_cmd+=" --up-close-danmu"
+            upload_cmd_parts+=("--up-close-danmu")
         fi
     fi
 
@@ -521,9 +525,8 @@ upload_video(){
         echo -e " 1. 从 ${CYAN}$DMR_DIR/直播回放${NC} 目录选择"
         echo -e " 2. 从 ${CYAN}$DMR_DIR/直播回放（弹幕版）${NC} 目录选择"
         echo -e " 3. 手动输入视频文件绝对路径"
-        echo -e " 99. 重新选择视频路径 (返回上一级菜单)" # 新增选项
         echo -e " 0. 返回 biliup 菜单"
-        read -p "$(echo -e "${CYAN}请输入选项 (0-3, 99): ${RESET}")" type_choice
+        read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${RESET}")" type_choice
 
         local current_video_dir=""
         declare -a current_video_paths=() # 使用临时数组进行当前选择尝试
@@ -552,7 +555,6 @@ upload_video(){
                 fi
                 ;;
             0) warning "返回 biliup 菜单..."; return 0 ;; # 退出整个函数
-            99) warning "重新选择视频路径..."; continue ;; # 循环回视频选择菜单
             *) error "无效选项 '${RED}$type_choice${RESET}'！"; continue ;; # 循环回视频选择菜单
         esac
 
@@ -585,17 +587,18 @@ upload_video(){
 
     # 将视频文件路径添加到命令中
     for file_path in "${video_paths_to_upload[@]}"; do
-        upload_cmd+=" \"$file_path\""
+        upload_cmd_parts+=("$file_path")
     done
 
     info "即将执行的上传命令："
-    highlight "$upload_cmd"
+    # 打印命令数组，确保每个元素都正确引用
+    printf "%s " "${upload_cmd_parts[@]}" | highlight "$(cat)"
     echo
 
     read -p "$(echo -e "${CYAN}确认执行上传？ (y/N): ${RESET}")" confirm_upload
     if [[ "$confirm_upload" =~ ^[Yy]$ ]]; then
         # 切换到安装目录执行命令，确保配置文件等能被找到
-        (cd "$INSTALL_DIR" && eval "$upload_cmd")
+        (cd "$INSTALL_DIR" && "${upload_cmd_parts[@]}")
         if [ $? -eq 0 ]; then
             info "视频上传命令执行成功。"
         else
@@ -612,7 +615,7 @@ upload_video(){
 append_video(){
     highlight "正在准备追加视频..."
 
-    local append_cmd="$BINARY_PATH append"
+    local append_cmd_parts=("$BINARY_PATH" "append") # 使用数组构建命令，避免eval
     local line_val="bda"
     local limit_val="3"
     local bv=""
@@ -632,7 +635,7 @@ append_video(){
     else
         warning "无效的上传线路选择，使用默认值: ${CYAN}$line_val${RESET}"
     fi
-    append_cmd+=" --line $line_val"
+    append_cmd_parts+=("--line" "$line_val")
 
     # 单文件最大并发数
     echo
@@ -644,7 +647,7 @@ append_video(){
     else
         warning "无效的并发数，使用默认值: ${CYAN}$limit_val${RESET}"
     fi
-    append_cmd+=" --limit $limit_val"
+    append_cmd_parts+=("--limit" "$limit_val")
 
     # BV号选择逻辑
     local recent_bvs=()
@@ -707,7 +710,7 @@ append_video(){
     fi
 
     info "将追加视频到: ${GREEN}$selected_bv${RESET}"
-    append_cmd+=" --vid $selected_bv" # 使用 --vid 参数
+    append_cmd_parts+=("--vid" "$selected_bv") # 使用 --vid 参数
 
     local video_selection_successful=false
     declare -a video_paths_to_append=() # 局部数组，用于本次追加
@@ -717,9 +720,8 @@ append_video(){
         echo -e " 1. 从 ${CYAN}$DMR_DIR/直播回放${NC} 目录选择"
         echo -e " 2. 从 ${CYAN}$DMR_DIR/直播回放（弹幕版）${NC} 目录选择"
         echo -e " 3. 手动输入视频文件绝对路径"
-        echo -e " 99. 重新选择视频路径 (返回上一级菜单)" # 新增选项
         echo -e " 0. 返回 biliup 菜单"
-        read -p "$(echo -e "${CYAN}请输入选项 (0-3, 99): ${RESET}")" type_choice
+        read -p "$(echo -e "${CYAN}请输入选项 (0-3): ${RESET}")" type_choice
 
         local current_video_dir=""
         declare -a current_video_paths=() # 使用临时数组进行当前选择尝试
@@ -748,7 +750,6 @@ append_video(){
                 fi
                 ;;
             0) warning "返回 biliup 菜单..."; return 0 ;; # 退出整个函数
-            99) warning "重新选择视频路径..."; continue ;; # 循环回视频选择菜单
             *) error "无效选项 '${RED}$type_choice${RESET}'！"; continue ;; # 循环回视频选择菜单
         esac
 
@@ -781,17 +782,18 @@ append_video(){
 
     # 将视频文件路径添加到命令中
     for file_path in "${video_paths_to_append[@]}"; do
-        append_cmd+=" \"$file_path\""
+        append_cmd_parts+=("$file_path")
     done
 
     info "即将执行的追加命令："
-    highlight "$append_cmd"
+    # 打印命令数组，确保每个元素都正确引用
+    printf "%s " "${append_cmd_parts[@]}" | highlight "$(cat)"
     echo
 
     read -p "$(echo -e "${CYAN}确认执行追加？ (y/N): ${RESET}")" confirm_append
     if [[ "$confirm_append" =~ ^[Yy]$ ]]; then
         # 切换到安装目录执行命令，确保配置文件等能被找到
-        (cd "$INSTALL_DIR" && eval "$append_cmd")
+        (cd "$INSTALL_DIR" && "${append_cmd_parts[@]}")
         if [ $? -eq 0 ]; then
             info "视频追加命令执行成功。"
         else
@@ -857,14 +859,14 @@ while true; do
   echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
   show_version_and_dir
   echo
-  echo -e "${CYAN}${BOLD}1)${RESET}${CYAN} 重新选择 biliup-rs 版本并安装${RESET}"
-  echo -e "${CYAN}${BOLD}2)${RESET}${CYAN} 登录 B 站并保存登录信息${RESET}"
-  echo -e "${CYAN}${BOLD}3)${RESET}${CYAN} 手动验证并刷新登录信息${RESET}"
-  echo -e "${CYAN}${BOLD}4)${RESET}${CYAN} 上传视频${RESET}"
-  echo -e "${CYAN}${BOLD}5)${RESET}${CYAN} 对稿件追加视频${RESET}"
-  echo -e "${CYAN}${BOLD}6)${RESET}${CYAN} 打印视频详情${RESET}" # 新增选项
-  echo -e "${CYAN}${BOLD}7)${RESET}${CYAN} 列出所有已上传视频${RESET}" # 新增选项
-  echo -e "${CYAN}${BOLD}0)${RESET}${CYAN} 退出${RESET}"
+  echo -e "${GREEN}${BOLD}1)${RESET}${GREEN} 重新选择 biliup-rs 版本并安装${RESET}"
+  echo -e "${YELLOW}${BOLD}2)${RESET}${YELLOW} 登录 B 站并保存登录信息${RESET}"
+  echo -e "${YELLOW}${BOLD}3)${RESET}${YELLOW} 手动验证并刷新登录信息${RESET}"
+  echo -e "${BLUE}${BOLD}4)${RESET}${BLUE} 上传视频${RESET}"
+  echo -e "${BLUE}${BOLD}5)${RESET}${BLUE} 对稿件追加视频${RESET}"
+  echo -e "${PURPLE}${BOLD}6)${RESET}${PURPLE} 打印视频详情${RESET}"
+  echo -e "${PURPLE}${BOLD}7)${RESET}${PURPLE} 列出所有已上传视频${RESET}"
+  echo -e "${RED}${BOLD}0)${RESET}${RED} 退出${RESET}"
   echo
   read -p "请输入选项编号：" opt
   case "$opt" in
@@ -873,8 +875,8 @@ while true; do
     3) renew_biliup; read -p $'\n按回车继续...';;
     4) upload_video; read -p $'\n按回车继续...';;
     5) append_video; read -p $'\n按回车继续...';;
-    6) show_video_details; read -p $'\n按回车继续...';; # 调用新增函数
-    7) list_uploaded_videos; read -p $'\n按回车继续...';; # 调用新增函数
+    6) show_video_details; read -p $'\n按回车继续...';;
+    7) list_uploaded_videos; read -p $'\n按回车继续...';;
     0) exit 0;;
     *) warning "无效选项，请重新输入"; read -p $'\n按回车继续...';;
   esac
