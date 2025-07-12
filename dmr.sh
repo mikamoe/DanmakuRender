@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 C"
+VERSION="2025-07-13 D"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -866,7 +866,12 @@ delete_replays() {
                 local filepath="${files[i]}"
                 local fname="$(basename "$filepath")"
                 local fsize=$(du -h "$filepath" | awk '{print $1}')
-                printf "  %2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" $((i+1)) "$fname" "$fsize"
+                local index=$((i + 1))
+                if [ $index -lt 10 ]; then
+                    printf "  %d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
+                else
+                    printf "%d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
+                fi
             done
         fi
     done
