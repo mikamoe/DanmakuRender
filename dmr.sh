@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13A"
+VERSION="2025-07-13B"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -837,18 +837,39 @@ manual_render() {
 delete_replays() {
     local dirs=("$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）")
     local files=()
+    local group_indices=()  # 记录每组起始的序号（用于添加目录分隔）
+    local current_index=0
 
     echo -e "${BLUE}${BOLD}检测到以下可删除文件：${NC}"
-    # 按目录分组列出，并显示每个目录的总大小
+    echo -e "${LIGHTBLUE}路径1：${NC}${GRAY}${dirs[0]}${NC}"
+    echo -e "${LIGHTBLUE}路径2：${NC}${GRAY}${dirs[1]}${NC}"
+    echo
+
     for d in "${dirs[@]}"; do
         [ -d "$d" ] || continue
-        local dir_size
-        dir_size=$(du -sh "$d" 2>/dev/null | awk '{print $1}')
-        echo -e "${PURPLE}${BOLD}目录：$(basename "$d")${NC} ${ORANGE}(${dir_size})${NC}"
+        local dir_name=$(basename "$d")
+        local dir_size=$(du -sh "$d" 2>/dev/null | awk '{print $1}')
+        echo -e "${PURPLE}${BOLD}${dir_name}${NC} ${ORANGE}(${dir_size})${NC}"
+
+        local group_start=$current_index
         for f in "$d"/*; do
             [ -f "$f" ] || continue
             files+=("$f")
+            ((current_index++))
         done
+
+        if [ $group_start -eq $current_index ]; then
+            echo -e "${YELLOW}(无视频文件)${NC}"
+        else
+            # 列出本目录下的文件
+            for ((i=group_start; i<current_index; i++)); do
+                local filepath="${files[i]}"
+                local fname="$(basename "$filepath")"
+                local fsize=$(du -h "$filepath" | awk '{print $1}')
+                printf "  %2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" $((i+1)) "$fname" "$fsize"
+            done
+        fi
+        echo
     done
 
     if [ ${#files[@]} -eq 0 ]; then
@@ -856,20 +877,11 @@ delete_replays() {
         return 0
     fi
 
-    # 列出所有文件，显示序号、文件名和大小
-    for i in "${!files[@]}"; do
-        local filepath="${files[i]}"
-        local fname="$(basename "$filepath")"
-        local fsize
-        fsize=$(du -h "$filepath" | awk '{print $1}')
-        printf "%2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" $((i+1)) "$fname" "$fsize"
-    done
-
-    # 选择要删除的文件
+    # 用户输入
     read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
 
-    # 增加最终确认
+    # 删除确认
     read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
     confirm=${confirm:-N}
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -878,13 +890,11 @@ delete_replays() {
     fi
 
     if [[ "$sel" =~ ^[Yy]$ ]]; then
-        # 删除全部
         for f in "${files[@]}"; do
             rm -f "$f" && echo -e "  ${RED}已删除${NC}：$(basename "$f")"
         done
         echo -e "${GREEN}${BOLD}所有文件已删除。${NC}"
     else
-        # 按序号删除
         for idx in $sel; do
             if [[ "$idx" =~ ^[0-9]+$ ]] && [ "$idx" -ge 1 ] && [ "$idx" -le ${#files[@]} ]; then
                 local target="${files[$((idx-1))]}"
@@ -895,7 +905,6 @@ delete_replays() {
         done
     fi
 }
-
 
 # ===== 刷新字体缓存 =====
 refresh_font_cache() {
