@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-11 D"
+VERSION="2025-07-13"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1189,7 +1189,7 @@ font_menu() {
 
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}脚本版本: ${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}Version: ${VERSION}${NC}"
     # 最新发布版本
     if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
         echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
@@ -1349,7 +1349,7 @@ main_menu() {
                 }
                 ;;
             6) require_installed && delete_replays ;;
-            7) require_installed && bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/bp-in.sh) ;;
+            7) require_installed && bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/d-biliup-rs.sh) ;;
             8) require_installed && font_menu ;;
             9)
                 require_installed
