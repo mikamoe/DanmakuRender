@@ -839,7 +839,7 @@ delete_replays() {
     local group_indices=()
     local current_index=0
 
-    echo -e "${BLUE}${BOLD}检测到以下可删除文件：${NC}"
+    echo -e "${BLUE}${BOLD}检测视频文件：${NC}"
     for i in "${!dirs[@]}"; do
         echo -e "${LIGHTBLUE}${BOLD}${dirs[$i]}${NC}"
     done
@@ -876,10 +876,10 @@ delete_replays() {
         return 0
     fi
 
-    read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y/y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N/n): ${NC}")" sel
+    read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
 
-    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/y/N/n, 默认N/n): ${NC}")" confirm
+    read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
     confirm=${confirm:-N}
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}已取消删除操作。${NC}"
