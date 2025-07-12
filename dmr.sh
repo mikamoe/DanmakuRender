@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 E"
+VERSION="2025-07-13 F" # 更新版本号以示修改
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -39,7 +39,7 @@ BILIUP_LOCAL_VERSION="" BILIUP_REMOTE_VERSION=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
-    local required_tools=("curl")
+    local required_tools=("curl" "jq") # 添加 jq 到依赖检查
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${BLUE}${BOLD}[INFO]${NC} ${YELLOW}未找到 $tool，正在安装...${NC}"
@@ -50,11 +50,14 @@ check_dependencies() {
         fi
     done
 
-
-    # 更新检测提示
-    fetch_github_times # Ensure latest times are fetched before checking
+    # 更新检测提示 - 直接使用已获取的全局变量
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
+        # 确保 commit_time 已经被 fetch_github_times 填充
+        if [ -z "$commit_time" ] || [ "$commit_time" == "获取失败" ]; then
+            echo -e "${YELLOW}${BOLD}[WARN]${NC} 无法获取最新 GitHub 提交时间，跳过更新提示。${NC}"
+            return 0
+        fi
         commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
 
         if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
@@ -107,7 +110,7 @@ rollback_installation() {
         sudo rm -rf "$DMR_DIR" && echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已删除安装目录：$DMR_DIR${NC}" || echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}回滚删除安装目录失败！${NC}"
     else
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}安装目录不存在，无需回滚删除。${NC}"
-    fi
+    }
 }
 
 # ===================== 更新脚本函数 =====================
@@ -125,7 +128,7 @@ update_script() {
 }
 
 
-# ===================== 回滚更新（恢复备份） =====================  # <<< 修改点 >>>
+# ===================== 回滚更新（恢复备份） =====================
 rollback_update() {
     local backup_dir="$1"
     local configs_backup="$2"
@@ -165,6 +168,7 @@ check_config() {
 }
 
 fetch_github_times() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在从 GitHub 获取项目最新信息...${NC}"
     local branch_info
     branch_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/branches/$GITHUB_BRANCH")
     if [[ -n "$branch_info" ]]; then
@@ -190,6 +194,7 @@ fetch_github_times() {
         release_version="获取失败"
         release_time="获取失败"
     fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
 }
 
 get_install_date() {
@@ -216,7 +221,7 @@ get_install_date() {
 
 check_install_tools() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}检查系统依赖工具...${NC}"
-    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git")
+    local required_tools=("wget" "unzip" "python3-venv" "python3-pip" "ffmpeg" "curl" "tar" "xz-utils" "git" "jq") # 确保 jq 在这里也被检查
     local missing_tools=()
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
@@ -412,6 +417,7 @@ update_dmr() {
     # 8. 删除完整备份并刷新安装日期
     sudo rm -rf "$backup_dir"
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
+    # 更新后刷新全局变量，以便主菜单显示最新状态
     fetch_github_times
     get_install_date
 
@@ -503,7 +509,7 @@ install_dmr() {
     date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null || {
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}记录安装日期失败！(权限问题？)${NC}"
     }
-    get_install_date
+    get_install_date # 刷新安装日期全局变量
 
     # 安装一切正常，取消回滚
     rollback_needed=false
@@ -1174,9 +1180,14 @@ show_header() {
     # 更新提示
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE")
-        commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-        if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-            echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
+        # 再次确认 commit_time 是否已获取
+        if [ -z "$commit_time" ] || [ "$commit_time" == "获取失败" ]; then
+            echo -e "${YELLOW}${BOLD}[WARN]${NC} 无法获取最新 GitHub 提交时间，跳过更新提示。${NC}"
+        else
+            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
+            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
+                echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
+            fi
         fi
     fi
 }
@@ -1247,11 +1258,15 @@ fetch_biliup_times() {
 
 # ===================== 主菜单 =====================
 main_menu() {
+    # 在进入主菜单循环前，只执行一次全局信息获取
     check_dependencies || { echo -e "${RED}[ERROR] 依赖安装失败，请手动安装 jq、curl、git${NC}"; exit 1; }
-    fetch_github_times; get_install_date; fetch_biliup_times
+    fetch_github_times
+    get_install_date
+    fetch_biliup_times
 
     while true; do
-        show_header; show_status
+        show_header
+        show_status
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
@@ -1323,7 +1338,7 @@ main_menu() {
                 read -p "确定要安装 JavaScript 环境吗？(y/N): " js_confirm
                 [[ "$js_confirm" =~ ^[Yy]$ ]] && install_js_engine || echo "已取消。"
                 ;;
-            10) require_installed && { update_dmr; fetch_github_times; get_install_date; } ;;
+            10) require_installed && { update_dmr; } ;; # update_dmr 内部会刷新状态
             11)
                 require_installed && {
                     uninstall_dmr
@@ -1344,3 +1359,4 @@ main_menu() {
 
 # 启动主菜单
 main_menu
+
