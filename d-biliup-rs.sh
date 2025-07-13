@@ -252,7 +252,7 @@ upload_video(){
 
     local upload_cmd_parts=("$BINARY_PATH" "upload") # 使用数组构建命令，避免eval
     local submit_val="client"
-    local line_val="bda"
+    # local line_val="bda" # 不再有默认值
     local limit_val="3"
     local copyright_val="1"
     local source_val=""
@@ -294,14 +294,18 @@ upload_video(){
     for i in "${!line_options[@]}"; do
         echo -e "    ${BOLD}$((i+1)))${RESET} ${line_options[$i]}"
     done
-    read -p "$(echo -e "${CYAN}请输入选项编号 [默认: 7 (${line_options[6]})]: ${RESET}")" line_choice # bda is 7th option (index 6)
-    line_choice=${line_choice:-7}
-    if [[ "$line_choice" =~ ^[0-9]+$ && "$line_choice" -ge 1 && "$line_choice" -le ${#line_options[@]} ]]; then
-        line_val="${line_options[$((line_choice-1))]}"
+    read -p "$(echo -e "${CYAN}请输入选项编号（回车跳过，让biliup-rs自动选择）: ${RESET}")" line_choice # 提示语修改
+    if [[ -n "$line_choice" ]]; then # 如果用户输入了内容
+        if [[ "$line_choice" =~ ^[0-9]+$ && "$line_choice" -ge 1 && "$line_choice" -le ${#line_options[@]} ]]; then
+            local selected_line="${line_options[$((line_choice-1))]}"
+            upload_cmd_parts+=("--line" "$selected_line")
+            info "已选择上传线路: ${CYAN}$selected_line${RESET}"
+        else
+            warning "无效的上传线路选择，跳过设置上传线路，biliup-rs将自动选择。"
+        fi
     else
-        warning "无效的上传线路选择，使用默认值: ${CYAN}$line_val${RESET}"
+        info "未选择上传线路，biliup-rs将自动选择。"
     fi
-    upload_cmd_parts+=("--line" "$line_val")
 
     # 单文件最大并发数
     echo
@@ -356,7 +360,7 @@ upload_video(){
     # 视频封面
     echo
     echo -e "${CYAN}请选择视频封面${RESET}"
-    read -p "$(echo -e "${CYAN}请输入绝对路径（回车则默认无）: ${RESET}")" cover_input
+    read -p "$(echo -e "${CYAN}请输入绝对路径（回车跳过）: ${RESET}")" cover_input # 提示语修改
     if [[ -n "$cover_input" ]]; then
         if [[ -f "$cover_input" ]]; then
             cover_val="$cover_input"
@@ -377,7 +381,7 @@ upload_video(){
     # 视频简介
     echo
     echo -e "${CYAN}请输入视频简介${RESET}"
-    read -p "$(echo -e "${CYAN}请输入简介内容（回车则默认无）: ${RESET}")" desc_input
+    read -p "$(echo -e "${CYAN}请输入简介内容（回车跳过）: ${RESET}")" desc_input # 提示语修改
     if [[ -n "$desc_input" ]]; then
         desc_val="$desc_input"
     fi
@@ -385,7 +389,7 @@ upload_video(){
     # 空间动态
     echo
     echo -e "${CYAN}请输入空间动态${RESET}"
-    read -p "$(echo -e "${CYAN}请输入动态（回车则默认无）: ${RESET}")" dynamic_input
+    read -p "$(echo -e "${CYAN}请输入动态（回车跳过）: ${RESET}")" dynamic_input # 提示语修改
     if [[ -n "$dynamic_input" ]]; then
         dynamic_val="$dynamic_input"
     fi
@@ -410,21 +414,21 @@ upload_video(){
     # 视频参与话题
     echo
     echo -e "${CYAN}是否输入视频参与话题${RESET}"
-    read -p "$(echo -e "${CYAN}请输入数字（需要自己获取topic_id配合填写mission_id，回车则默认无）: ${RESET}")" topic_id_input
+    read -p "$(echo -e "${CYAN}请输入数字（需要自己获取topic_id配合填写mission_id，回车跳过）: ${RESET}")" topic_id_input # 提示语修改
     if [[ -n "$topic_id_input" ]]; then
         if [[ "$topic_id_input" =~ ^[0-9]+$ ]]; then
             topic_id_val="$topic_id_input"
             upload_cmd_parts+=("--topic-id" "$topic_id_val")
         else
             warning "无效的话题ID，跳过设置。"
-        fi # Corrected: Changed 'F' to 'fi'
+        fi
     fi
 
     # 延时发布视频时间
     echo
     echo -e "${CYAN}是否延时发布${RESET}"
     echo -e "  ${BOLD}可选参数：${RESET} 秒数，距离提交必须大于4小时（即14400秒）"
-    read -p "$(echo -e "${CYAN}请输入数字（回车则默认无）: ${RESET}")" dtime_input
+    read -p "$(echo -e "${CYAN}请输入数字（回车跳过）: ${RESET}")" dtime_input # 提示语修改
     if [[ -n "$dtime_input" ]]; then
         if [[ "$dtime_input" =~ ^[0-9]+$ && "$dtime_input" -ge 14400 ]]; then
             dtime_val=$(($(date +%s) + dtime_input))
@@ -436,9 +440,9 @@ upload_video(){
 
     # 是否开启杜比音效
     echo
-    echo -e "${CYAN}是否开启杜oby音效${RESET}"
+    echo -e "${CYAN}是否开启杜比音效${RESET}"
     echo -e "  ${BOLD}可选参数：${RESET} 0-关闭, 1-开启"
-    read -p "$(echo -e "${CYAN}请输入选项（回车则默认无）: ${RESET}")" dolby_input
+    read -p "$(echo -e "${CYAN}请输入选项（回车跳过）: ${RESET}")" dolby_input # 提示语修改
     if [[ -n "$dolby_input" ]]; then
         if [[ "$dolby_input" == "0" || "$dolby_input" == "1" ]]; then
             dolby_val="$dolby_input"
@@ -452,7 +456,7 @@ upload_video(){
     echo
     echo -e "${CYAN}是否开启 Hi-Res${RESET}"
     echo -e "  ${BOLD}可选参数：${RESET} 0-关闭, 1-开启"
-    read -p "$(echo -e "${CYAN}请输入选项（回车则默认无）: ${RESET}")" hires_input
+    read -p "$(echo -e "${CYAN}请输入选项（回车跳过）: ${RESET}")" hires_input # 提示语修改
     if [[ -n "$hires_input" ]]; then
         if [[ "$hires_input" == "0" || "$hires_input" == "1" ]]; then
             hires_val="$hires_input"
@@ -495,7 +499,7 @@ upload_video(){
         # 是否开启精选评论
         echo
         echo -e "${CYAN}是否开启精选评论${RESET}"
-        read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_selection_reply_input
+        read -p "$(echo -e "${CYAN}回车跳过: ${RESET}")" up_selection_reply_input # 提示语修改
         if [[ -n "$up_selection_reply_input" ]]; then
             upload_cmd_parts+=("--up-selection-reply")
         fi
@@ -503,7 +507,7 @@ upload_video(){
         # 是否关闭评论
         echo
         echo -e "${CYAN}是否关闭评论${RESET}"
-        read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_close_reply_input
+        read -p "$(echo -e "${CYAN}回车跳过: ${RESET}")" up_close_reply_input # 提示语修改
         if [[ -n "$up_close_reply_input" ]]; then
             upload_cmd_parts+=("--up-close-reply")
         fi
@@ -511,7 +515,7 @@ upload_video(){
         # 是否关闭弹幕
         echo
         echo -e "${CYAN}是否关闭弹幕${RESET}"
-        read -p "$(echo -e "${CYAN}回车则默认无: ${RESET}")" up_close_danmu_input
+        read -p "$(echo -e "${CYAN}回车跳过: ${RESET}")" up_close_danmu_input # 提示语修改
         if [[ -n "$up_close_danmu_input" ]]; then
             upload_cmd_parts+=("--up-close-danmu")
         fi
@@ -616,7 +620,7 @@ append_video(){
     highlight "正在准备追加视频..."
 
     local append_cmd_parts=("$BINARY_PATH" "append") # 使用数组构建命令，避免eval
-    local line_val="bda"
+    # local line_val="bda" # 不再有默认值
     local limit_val="3"
     local bv=""
 
@@ -628,14 +632,18 @@ append_video(){
     for i in "${!line_options[@]}"; do
         echo -e "    ${BOLD}$((i+1)))${RESET} ${line_options[$i]}"
     done
-    read -p "$(echo -e "${CYAN}请输入选项编号 [默认: 7 (${line_options[6]})]: ${RESET}")" line_choice # bda is 7th option (index 6)
-    line_choice=${line_choice:-7}
-    if [[ "$line_choice" =~ ^[0-9]+$ && "$line_choice" -ge 1 && "$line_choice" -le ${#line_options[@]} ]]; then
-        line_val="${line_options[$((line_choice-1))]}"
+    read -p "$(echo -e "${CYAN}请输入选项编号（回车跳过由biliup-rs自动选择）: ${RESET}")" line_choice # 提示语修改
+    if [[ -n "$line_choice" ]]; then # 如果用户输入了内容
+        if [[ "$line_choice" =~ ^[0-9]+$ && "$line_choice" -ge 1 && "$line_choice" -le ${#line_options[@]} ]]; then
+            local selected_line="${line_options[$((line_choice-1))]}"
+            append_cmd_parts+=("--line" "$selected_line")
+            info "已选择上传线路: ${CYAN}$selected_line${RESET}"
+        else
+            warning "无效的上传线路选择，跳过设置上传线路，biliup-rs将自动选择。"
+        fi
     else
-        warning "无效的上传线路选择，使用默认值: ${CYAN}$line_val${RESET}"
+        info "未选择上传线路，biliup-rs将自动选择。"
     fi
-    append_cmd_parts+=("--line" "$line_val")
 
     # 单文件最大并发数
     echo
