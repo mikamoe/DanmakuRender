@@ -1,6 +1,5 @@
 #!/bin/bash
-# 版本号
-VERSION="2025-07-13 H2" # 更新版本号以示修改
+VERSION="2025-07-13 J"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1192,7 +1191,7 @@ show_status() {
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${GREEN}运行状态：${GREEN}正在运行 (PID: ${pid})${NC}"
+            echo -e "${GREEN}运行状态：${GREEN}${BOLD}正在运行 (PID: ${pid})${NC}"
         else
             echo -e "${RED}运行状态：${RED}未运行${NC}"
         fi
