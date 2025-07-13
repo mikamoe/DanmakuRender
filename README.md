@@ -9,29 +9,31 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ### Menu
 ```
 DanmakuRender v5 管理脚本
-最新发布版本: 2025.04.03 (2025-04-03 14:59:37)
-最新代码提交: 2025-04-23 00:19:27
+最新发布版本: 2025.06.01 (2025-06-22 19:22:17)
+最新代码提交: 2025-06-29 12:25:39
 项目地址: https://github.com/SmallPeaches/DanmakuRender
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 程序状态：已安装 (目录: /opt/DanmakuRender-5)
-配置文件：已找到 (*DMR* in configs)，共1位主播
-运行状态：正在运行 (PID: 1672)
-上一次安装/更新：2025-04-24 07:03:08
+配置文件：已找到 共1位主播
+运行状态：正在运行 (PID: 18272)
+上一次安装/更新：2025-07-13 13:01:21
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. 安装 DanmakuRender v5
-2. 停止 录制进程
-3. 查看 实时日志 (按 'q' 退出)
-4. 手动渲染 视频 (render_only.py)
-5. 运行测试 (dryrun.py)
-6. 删除 回放/渲染的视频文件
-7. biliup-rs 上传工具菜单
-8. 字体 安装菜单 (微软雅黑/阿里普惠/Noto Emoji)
-9. 安装 JavaScript 环境 (Node.js + quickjs)
-10.更新 DanmakuRender v5 (保留配置)
+1.	安装 DanmakuRender v5
+2.	启动/停止录制（后台运行）
+3.	查看实时日志（按 Q 退出）
+4.	手动渲染视频
+5.	运行测试
+6.	删除回放/渲染的视频文件
+7.	biliup-rs 上传菜单
+→ 检测到新版本时会提示更新
+8.	字体安装菜单
+9.	安装 JavaScript 环境
+10.更新 DanmakuRender v5
 11.卸载 DanmakuRender v5
-0. 退出 脚本
+12.更新脚本
+13.退出菜单
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-请输入选项喵~ (0-11):
+请输入选项喵~ (0-13):
 ```
 ### 安装的目录如下
 #### DanmakuRender-v5
