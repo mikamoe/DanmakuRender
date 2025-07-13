@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-07-13 K"
+VERSION="2025-07-13 L"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -882,15 +882,18 @@ delete_replays() {
 
     read -p "$(echo -e "${YELLOW}${BOLD}请输入要删除的序号(空格分隔)${NC}${YELLOW}，或输入 ${GREEN}${BOLD}Y${NC}${YELLOW} 删除全部${NC}${YELLOW}(默认N): ${NC}")" sel
     sel=${sel:-N}
+    sel=${sel^^}  # 转为大写
 
     read -p "$(echo -e "${RED}${BOLD}确认删除所选文件？(Y/N, 默认N): ${NC}")" confirm
     confirm=${confirm:-N}
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    confirm=${confirm^^}  # 转为大写
+
+    if [[ ! "$confirm" =~ ^Y$ ]]; then
         echo -e "${YELLOW}已取消删除操作。${NC}"
         return 0
     fi
 
-    if [[ "$sel" =~ ^[Yy]$ ]]; then
+    if [[ "$sel" =~ ^Y$ ]]; then
         for f in "${files[@]}"; do
             rm -f "$f" && echo -e "${RED}已删除${NC}：$(basename "$f")"
         done
@@ -906,7 +909,6 @@ delete_replays() {
         done
     fi
 }
-
 
 # ===== 刷新字体缓存 =====
 refresh_font_cache() {
