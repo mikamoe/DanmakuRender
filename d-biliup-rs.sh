@@ -169,14 +169,14 @@ renew_biliup(){
 }
 
 #######################
-# 辅助函数：选择视频文件
+# 辅助函数：选择视频文件（已修改）
 #######################
 select_video_files() {
     local dir="$1"
     local mode="$2"
     local files=()
     local i=1
-    selected_video_paths=() # Reset global array for each call
+    selected_video_paths=()
 
     if [[ ! -d "$dir" ]]; then
         error "目录不存在: ${RED}$dir${RESET}"
@@ -184,8 +184,11 @@ select_video_files() {
     fi
 
     info "正在列出目录 '${CYAN}$dir${RESET}' 中的视频文件..."
-    # 查找常见的视频文件扩展名
-    mapfile -t files < <(find "$dir" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.webm" \) | sort)
+    mapfile -t files < <(
+        find "$dir" -maxdepth 1 -type f \
+            \( -iname "*.mp4" -o -iname "*.flv" -o -iname "*.mkv" -o -iname "*.webm" \) \
+        | sort
+    )
 
     if [[ ${#files[@]} -eq 0 ]]; then
         warning "在目录 '${CYAN}$dir${RESET}' 中未找到任何视频文件。"
@@ -195,52 +198,44 @@ select_video_files() {
     echo -e "\n${BOLD}可用视频文件列表：${RESET}"
     for file_path in "${files[@]}"; do
         local file_name=$(basename "$file_path")
-        # 获取文件大小并格式化为人类可读的格式
         local file_size=$(du -h "$file_path" | cut -f1)
-        printf " %2d) ${RESET}%s ${DARK_GRAY}(%s)${RESET}\n" "$i" "$file_name" "$file_size"
+        # 序号对齐、文件名加色加粗、文件大小加色
+        printf " %2d) ${BLUE}${BOLD}%s${RESET} ${LIGHT_GRAY}(%s)${RESET}\n" \
+            "$i" "$file_name" "$file_size"
         ((i++))
     done
 
     if [[ "$mode" == "single" ]]; then
         read -p $'\n请选择要上传的视频文件编号（0 取消）：' choice
-        if [[ "$choice" == "0" ]]; then
-            warning "取消选择。" # 使用 warning 函数
-            return 1
-        fi
-        local idx=$((choice-1))
+        [[ "$choice" == "0" ]] && { warning "取消选择。"; return 1; }
+        idx=$((choice-1))
         if [[ $idx -ge 0 && $idx -lt ${#files[@]} ]]; then
             selected_video_paths+=("${files[$idx]}")
         else
-            error "无效的选择。"
-            return 1
+            error "无效的选择。"; return 1
         fi
-    elif [[ "$mode" == "multiple" ]]; then
+    else
         read -p $'\n请输入要上传的视频文件编号，用空格分隔（0 取消）：' -a choices
         if [[ "${choices[0]}" == "0" ]]; then
-            warning "取消选择。" # 使用 warning 函数
-            return 1
+            warning "取消选择。"; return 1
         fi
         for choice in "${choices[@]}"; do
-            # 验证输入是否为数字
             if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
-                warning "无效的选择: '${RED}$choice${RESET}'。请只输入数字。跳过。"
+                warning "无效的选择: '${RED}$choice${RESET}'。跳过。"
                 continue
             fi
-            local idx=$((choice-1))
+            idx=$((choice-1))
             if [[ $idx -ge 0 && $idx -lt ${#files[@]} ]]; then
                 selected_video_paths+=("${files[$idx]}")
             else
-                warning "无效的选择: ${RED}$choice${RESET}。文件编号超出范围。跳过。"
+                warning "无效的选择: ${RED}$choice${RESET}。跳过。"
             fi
         done
         if [[ ${#selected_video_paths[@]} -eq 0 ]]; then
-            error "未选择任何有效文件。"
-            return 1
+            error "未选择任何有效文件。"; return 1
         fi
-    else
-        error "无效的选择模式: ${RED}$mode${RESET}"
-        return 1
     fi
+
     return 0
 }
 
