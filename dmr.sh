@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 H1" # 更新版本号以示修改
+VERSION="2025-07-13 H2" # 更新版本号以示修改
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -616,21 +616,31 @@ start_dmr() {
     # 进入工作目录
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入目录 $DMR_DIR 失败！"; return 1; }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}激活虚拟环境...${NC}"
+    # 获取并检查当前 Python 版本
+    local py_ver
+    py_ver=$(get_python_version)
+    if [[ "$py_ver" == "not_installed" ]]; then
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 未检测到 Python3，请先安装并确保 'python3' 命令可用。${NC}"
+        popd > /dev/null
+        return 1
+    fi
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本：${py_ver}"
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 激活虚拟环境..."
     source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用 nohup 在后台启动 ${DMR_CMD}...${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 使用 nohup 在后台启动 ${DMR_CMD}..."
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${DMR_DIR}/${LOG_FILE}${NC}"
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
-    local pid=$! # 获取后台进程PID
+    local pid=$!  # 获取后台进程 PID
 
     # 检查进程是否启动成功
-    sleep 1 # 等待1秒防止误判
+    sleep 1  # 等待 1 秒防止误判
     if ps -p $pid > /dev/null; then
-        # 将PID写入文件
+        # 将 PID 写入文件
         echo $pid > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！进程 PID: $pid${NC}"
-        
+
         deactivate
         popd > /dev/null
         return 0
