@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 H" # 更新版本号以示修改
+VERSION="2025-07-13 H1" # 更新版本号以示修改
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -759,7 +759,7 @@ view_log() {
     done
     stty echo icanon
     wait "$tail_pid" 2>/dev/null
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志查看已退出。"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL}日志查看已退出。"
 }
 
 
