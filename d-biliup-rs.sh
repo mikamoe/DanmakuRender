@@ -200,7 +200,7 @@ select_video_files() {
         local file_name=$(basename "$file_path")
         local file_size=$(du -h "$file_path" | cut -f1)
         # 序号对齐、文件名加色加粗、文件大小加色
-        printf "%2d) ${BLUE}${BOLD}%s${RESET} ${LIGHT_GRAY}(%s)${RESET}\n" \
+        printf "%2d) ${BLUE}${BOLD}%s${RESET} ${GREEN}(%s)${RESET}\n" \
             "$i" "$file_name" "$file_size"
         ((i++))
     done
