@@ -1,6 +1,6 @@
 #!/bin/bash
 # 版本号
-VERSION="2025-07-13 I" # 更新版本号以示修改
+VERSION="2025-07-13 H" # 更新版本号以示修改
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -599,6 +599,7 @@ install_js_engine() {
 # ===================== 运行与测试管理函数 =====================
 start_dmr() {
     require_installed || return 1
+
     # 检查配置文件有效性
     if ! check_config; then
          echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}配置文件检查失败或未配置！请在 ${DMR_DIR}/configs/ 中正确配置 *DMR* 文件后重试。${NC}"
@@ -620,7 +621,6 @@ start_dmr() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用 nohup 在后台启动 ${DMR_CMD}...${NC}"
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${DMR_DIR}/${LOG_FILE}${NC}"
-    # 使用nohup后台启动程序
     nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
     local pid=$! # 获取后台进程PID
 
@@ -633,14 +633,13 @@ start_dmr() {
         
         deactivate
         popd > /dev/null
-        return 0 # 返回成功状态
+        return 0
     else
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}启动失败！进程未能成功运行。请检查 ${LOG_FILE} 获取错误信息。${NC}"
-        # 清理可能创建的pid文件
         rm -f "$DMR_DIR/dmr.pid"
         deactivate
         popd > /dev/null
-        return 1 # 返回失败状态
+        return 1
     fi
 }
 
@@ -725,7 +724,6 @@ stop_dmr() {
 # ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
 stop_extra_processes() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
-    # 列出所有包含 “正在录制” 的进程（排除 grep 自身），提取 PID 并尝试优雅终止
     for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
         echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
         kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
@@ -743,25 +741,22 @@ view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
 
-    # 使用 tail -F 实时跟踪日志
-    tail -n 50 -F "$DMR_DIR/$LOG_FILE" &
+    # 使用 tail -F 实时跟踪日志，改为输出最近70行
+    tail -n 70 -F "$DMR_DIR/$LOG_FILE" &
     local tail_pid=$!
 
     # 切换终端到无缓冲模式，实时读取单字符
     stty -echo -icanon time 0 min 0
     while true; do
-        # 读取一个字符（如果有）
         IFS= read -r -n1 key
         if [[ $key == "q" ]]; then
             kill "$tail_pid" 2>/dev/null
             break
         fi
-        # 如果 tail 进程已经退出，也结束循环
         if ! ps -p "$tail_pid" > /dev/null; then
             break
         fi
     done
-    # 恢复终端设置
     stty echo icanon
     wait "$tail_pid" 2>/dev/null
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志查看已退出。"
@@ -1279,7 +1274,7 @@ main_menu() {
                     if pgrep -f "$DMR_CMD" &>/dev/null; then
                         stop_dmr; stop_extra_processes
                     else
-                        check_config && start_dmr
+                        check_config && start_dmr && view_log
                     fi
                 }
                 ;;
