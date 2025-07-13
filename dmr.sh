@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-07-13 J"
+VERSION="2025-07-13 K"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -892,14 +892,14 @@ delete_replays() {
 
     if [[ "$sel" =~ ^[Yy]$ ]]; then
         for f in "${files[@]}"; do
-            rm -f "$f" && echo -e "  ${RED}已删除${NC}：$(basename "$f")"
+            rm -f "$f" && echo -e "${RED}已删除${NC}：$(basename "$f")"
         done
         echo -e "${GREEN}${BOLD}所有文件已删除。${NC}"
     else
         for idx in $sel; do
             if [[ "$idx" =~ ^[0-9]+$ ]] && [ "$idx" -ge 1 ] && [ "$idx" -le ${#files[@]} ]; then
                 local target="${files[$((idx-1))]}"
-                rm -f "$target" && echo -e "  ${RED}已删除${NC}：$(basename "$target")"
+                rm -f "$target" && echo -e "${RED}已删除${NC}：$(basename "$target")"
             else
                 echo -e "${YELLOW}跳过无效序号：${idx}${NC}"
             fi
