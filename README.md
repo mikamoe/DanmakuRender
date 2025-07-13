@@ -9,8 +9,8 @@ bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/h
 ### Menu
 ```
 DanmakuRender v5 管理脚本
-最新发布版本: 2025.06.01 (2025-06-22 19:22:17)
 最新代码提交: 2025-06-29 12:25:39
+最新发布版本: 2025.06.01 (2025-06-22 19:22:17)
 项目地址: https://github.com/SmallPeaches/DanmakuRender
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 程序状态：已安装 (目录: /opt/DanmakuRender-5)
