@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-07-16 A"
+VERSION="2025-07-16 B"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1188,7 +1188,13 @@ show_status() {
         echo -e "${RED}配置文件：${RED}未安装${NC}"
         echo -e "${RED}运行状态：${RED}未安装${NC}"
     else
-        echo -e "${GREEN}程序状态：${GREEN}已安装${NC}"
+        local local_version=$(get_local_version)
+        if [ -n "$local_version" ]; then
+            echo -e "${GREEN}程序状态：${GREEN}已安装 ${CYAN}(v${local_version})${NC}"
+        else
+            echo -e "${GREEN}程序状态：${GREEN}已安装 ${YELLOW}(版本未知)${NC}"
+        fi
+        
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
@@ -1196,6 +1202,7 @@ show_status() {
         else
             echo -e "${RED}配置文件：${RED}未配置！${NC}"
         fi
+        
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
@@ -1203,6 +1210,7 @@ show_status() {
         else
             echo -e "${RED}运行状态：${RED}未运行${NC}"
         fi
+        
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
             echo -e "${ORANGE}上一次安装/更新：${ORANGE}${install_date}${NC}"
         fi
