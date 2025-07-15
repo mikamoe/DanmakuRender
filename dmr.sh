@@ -1190,9 +1190,9 @@ show_status() {
     else
         local local_version=$(get_local_version)
         if [ -n "$local_version" ]; then
-            echo -e "${GREEN}程序状态：${GREEN}已安装 ${CYAN}(v${local_version})${NC}"
+            echo -e "${GREEN}程序状态：${GREEN}${BOLD}已安装 ${CYAN}${BOLD}本地版本(V${local_version})${NC}"
         else
-            echo -e "${GREEN}程序状态：${GREEN}已安装 ${YELLOW}(版本未知)${NC}"
+            echo -e "${GREEN}程序状态：${GREEN}${BOLD}已安装 ${YELLOW}(版本未知)${NC}"
         fi
         
         if check_config; then
