@@ -195,6 +195,7 @@ fetch_github_times() {
         echo -e "(˶╹ꇴ╹˶) 发现新版本啦！"
         echo -e "本地版本: ${PINK}${BOLD}${local_ver}${NC}"
         echo -e "远程版本: ${CYAN}${BOLD}${remote_ver}${NC}"
+        echo -e "提交说明: ${CYAN}${commit_message}${NC}"
 
         if [ -n "$commit_sha" ]; then
             echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
