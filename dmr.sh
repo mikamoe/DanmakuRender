@@ -1145,7 +1145,7 @@ font_menu() {
 # ===================== 状态及主菜单 =====================
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}版本${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}脚本日期${VERSION}${NC}"
     
     # 最新代码提交
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
