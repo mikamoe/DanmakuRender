@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-07-13 L"
+VERSION="2025-07-16 "
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -172,27 +172,39 @@ fetch_github_times() {
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
 
-    # 这里添加更新检查代码
-    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-        if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
-            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-                echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
-                echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
-                echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
-                echo -e "提交说明: ${CYAN}${commit_message}${NC}"
-                if [ -n "$commit_sha" ]; then
-                    echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
-                else
-                    echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
-                fi
-                echo -e "按任意键继续..."
-                read -n 1 -s -r
-            fi
-        fi
+# ===== 新增：检测本地/远程 main.py VERSION 是否一致 =====
+get_local_version() {
+    # 从本地 main.py 提取 VERSION
+    if [ -f "$DMR_DIR/main.py" ]; then
+        awk -F"[=\"']+" '/^VERSION/ {print $2; exit}' "$DMR_DIR/main.py"
+    else
+        echo "unknown"
     fi
 }
+
+get_remote_version() {
+    # 从 GitHub raw 提取 VERSION
+    local remote_raw
+    remote_raw=$(curl -sfL "https://raw.githubusercontent.com/SmallPeaches/DanmakuRender/refs/heads/v5/main.py")
+    echo "$remote_raw" | awk -F"[=\"']+" '/^VERSION/ {print $2; exit}'
+}
+
+check_mainpy_version() {
+    local local_v remote_v
+    local_v=$(get_local_version)
+    remote_v=$(get_remote_version)
+    if [ -z "$remote_v" ] || [ "$remote_v" = "unknown" ]; then
+        echo -e "${YELLOW}${BOLD}[WARN]${NC} 无法获取 GitHub 上的 main.py 版本 (网络或 URL 问题)"
+    elif [ "$local_v" != "$remote_v" ]; then
+        echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
+        echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
+        echo -e "本地 main.py 版本: ${PINK}${BOLD}${local_v}${NC}"
+        echo -e "远程 main.py 版本: ${CYAN}${BOLD}${remote_v}${NC}"
+        echo -e "按任意键继续加载旧脚本…"
+        read -n1 -s -r
+    fi
+}
+
 
 get_install_date() {
     install_date=""
@@ -1246,6 +1258,8 @@ main_menu() {
 
     # 2. 获取所有全局信息（GitHub 项目信息、安装日期、biliup-rs 版本）
     fetch_github_times
+    # —— 启动前先检测 main.py 版本 —— 
+    check_mainpy_version
     get_install_date
     fetch_biliup_times
 
