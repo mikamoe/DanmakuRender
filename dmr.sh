@@ -1147,21 +1147,13 @@ show_header() {
     clear
     echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}版本${VERSION}${NC}"
     
-    # 最新代码提交（现在在上方）
+    # 最新代码提交
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     else
         echo -e "${CYAN}最新代码提交: ${RED}N/A (获取失败，请检查网络)${NC}"
     fi
 
-    # 最新发布版本（现在在下方）
-    if [ -n "$release_version" ] && [ "$release_version" != "获取失败" ]; then
-        echo -e "${CYAN}最新发布版本:${NC} ${BOLD}${release_version}${NORMAL} (${release_time})"
-    else
-        echo -e "${CYAN}最新发布版本: ${RED}N/A (获取失败，请检查网络)${NC}"
-    fi
-
-    echo -e "${CYAN}${BOLD}原址:${NC} ${BLUE}${BOLD}${DMR_GITHUB_BASE}${NC}"
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
