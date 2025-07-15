@@ -192,10 +192,10 @@ fetch_github_times() {
 
     if [ -n "$local_ver" ] && [ -n "$remote_ver" ] && [ "$local_ver" != "$remote_ver" ]; then
         echo -e "${YELLOW}${BOLD}检测到项目有新版本！建议运行选项 10 进行更新。${NC}"
-        echo -e "(˶╹ꇴ╹˶) 发现新版本啦！"
-        echo -e "本地版本: ${PINK}${BOLD}${local_ver}${NC}"
-        echo -e "远程版本: ${CYAN}${BOLD}${remote_ver}${NC}"
-        echo -e "提交说明: ${CYAN}${commit_message}${NC}"
+        echo -e "^_^ 发现新版本啦！"
+        echo -e "${ORANGE}${BOLD}本地版本: ${PINK}${BOLD}${local_ver}${NC}"
+        echo -e "${YELLOW}${BOLD}远程版本: ${CYAN}${BOLD}${remote_ver}${NC}"
+        echo -e "${BOLD}提交说明: ${CYAN}${commit_message}${NC}"
 
         if [ -n "$commit_sha" ]; then
             echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
