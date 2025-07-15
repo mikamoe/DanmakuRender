@@ -143,6 +143,27 @@ check_config() {
     fi
 }
 
+# ===================== 增加提取本地版本号的函数 =====================
+get_local_version() {
+    local file="$DMR_DIR/main.py"
+    if [ -f "$file" ]; then
+        # 提取形如 VERSION = '2025.07.15' 或 "2025.07.15"
+        grep -oP "VERSION\s*=\s*['\"]\K[0-9]+\.[0-9]+\.[0-9]+" "$file" || echo ""
+    else
+        echo ""
+    fi
+}
+
+get_remote_version() {
+    # GitHub raw 链接
+    local url="${DMR_GITHUB_BASE}/raw/${GITHUB_BRANCH}/main.py"
+    # 拉取并提取 VERSION
+    curl -sfL "$url" \
+      | grep -oP "VERSION\s*=\s*['\"]\K[0-9]+\.[0-9]+\.[0-9]+" \
+      || echo ""
+}
+
+
 fetch_github_times() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在从 GitHub 获取项目最新信息...${NC}"
     local branch_info
@@ -161,23 +182,23 @@ fetch_github_times() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
 
-    # 更新检查：如果已安装且有安装日期记录，则检测是否有新提交
-    if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
-        install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
-        if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
-            commit_epoch=$(date -d "$commit_time" +%s 2>/dev/null)
-            if [[ "$install_epoch" =~ ^[0-9]+$ ]] && [[ "$commit_epoch" =~ ^[0-9]+$ ]] && [ "$install_epoch" -lt "$commit_epoch" ]; then
-                echo -e "${YELLOW}${BOLD}检测到项目有更新！建议运行选项 10 进行更新。${NC}"
-                echo -e "(˶╹ꇴ╹˶)发现新版本啦！"
-                echo -e "最新提交日期: ${PINK}${BOLD}${commit_time}${NC}"
-                echo -e "提交说明: ${CYAN}${commit_message}${NC}"
-                if [ -n "$commit_sha" ]; then
-                    echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
-                else
-                    echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
-                fi
-                echo -e "按任意键继续..."
-                read -n 1 -s -r
+    # 先调用本地和远程版本提取
+    local local_ver=$(get_local_version)
+    local remote_ver=$(get_remote_version)
+
+    if [ -n "$local_ver" ] && [ -n "$remote_ver" ] && [ "$local_ver" != "$remote_ver" ]; then
+        echo -e "${YELLOW}${BOLD}检测到项目有新版本！建议运行选项 10 进行更新。${NC}"
+        echo -e "(˶╹ꇴ╹˶) 发现新版本啦！"
+        echo -e "本地版本: ${PINK}${BOLD}${local_ver}${NC}"
+        echo -e "远程版本: ${CYAN}${BOLD}${remote_ver}${NC}"
+        # 可选：如果你想加入 commit_sha 链接
+        if [ -n "$commit_sha" ]; then
+            echo -e "更新详情: ${BLUE}${DMR_GITHUB_BASE}/commit/${commit_sha}${NC}"
+        else
+            echo -e "更新详情 (分支): ${BLUE}${DMR_GITHUB_BASE}/commits/${GITHUB_BRANCH}${NC}"
+        fi
+        echo -e "按任意键继续..."
+        read -n 1 -s -r
             fi
         fi
     fi
