@@ -1252,6 +1252,8 @@ fetch_biliup_times() {
     fi
 }
 
+# —— 启动前先检测 main.py 版本 —— 
+    check_mainpy_version
 # ===================== 主菜单 =====================
 main_menu() {
     # 1. 确保核心依赖（curl, jq）已安装
@@ -1259,8 +1261,6 @@ main_menu() {
 
     # 2. 获取所有全局信息（GitHub 项目信息、安装日期、biliup-rs 版本）
     fetch_github_times
-    # —— 启动前先检测 main.py 版本 —— 
-    check_mainpy_version
     get_install_date
     fetch_biliup_times
 
