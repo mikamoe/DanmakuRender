@@ -159,20 +159,9 @@ fetch_github_times() {
         commit_sha=""
     fi
 
-    local release_info
-    release_info=$(curl -sfL "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest")
-    if [[ -n "$release_info" ]]; then
-        release_version=$(jq -r '.tag_name // empty' <<< "$release_info")
-        local raw_release_time
-        raw_release_time=$(jq -r '.published_at // empty' <<< "$release_info")
-        release_time=$(convert_to_beijing_time "$raw_release_time")
-    else
-        release_version="获取失败"
-        release_time="获取失败"
-    fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
 
-    # 这里添加更新检查代码
+    # 更新检查：如果已安装且有安装日期记录，则检测是否有新提交
     if [ -d "$DMR_DIR" ] && [ -f "$INSTALL_DATE_FILE" ]; then
         install_epoch=$(cat "$INSTALL_DATE_FILE" 2>/dev/null)
         if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
