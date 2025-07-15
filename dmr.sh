@@ -171,7 +171,8 @@ fetch_github_times() {
         release_time="获取失败"
     fi
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
-
+    }
+    
 # ===== 新增：检测本地/远程 main.py VERSION 是否一致 =====
 get_local_version() {
     # 从本地 main.py 提取 VERSION
