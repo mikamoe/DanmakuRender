@@ -1188,7 +1188,7 @@ show_status() {
         echo -e "${RED}配置文件：${RED}未安装${NC}"
         echo -e "${RED}运行状态：${RED}未安装${NC}"
     else
-        echo -e "${GREEN}程序状态：${GREEN}已安装${NC} 版本(${local_ver})"
+        echo -e "${GREEN}程序状态：${GREEN}已安装${NC}"
         if check_config; then
             local streamers_count
             streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
