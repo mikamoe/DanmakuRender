@@ -782,7 +782,6 @@ view_log() {
     done
     stty echo icanon
     wait "$tail_pid" 2>/dev/null
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL}日志查看已退出。"
 }
 
 
