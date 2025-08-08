@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-07-29"
+VERSION="2025-08-09"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -163,7 +163,6 @@ get_remote_version() {
       || echo ""
 }
 
-
 fetch_github_times() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在从 GitHub 获取项目最新信息...${NC}"
     
@@ -184,17 +183,16 @@ fetch_github_times() {
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}GitHub 信息获取完成。${NC}"
 
-    # 获取本地和远程版本
+    # 获取本地和远程版本（只调用一次 get_remote_version 并保存到全局变量 release_version）
     local local_ver
-    local remote_ver
     local_ver=$(get_local_version)
-    remote_ver=$(get_remote_version)
+    release_version=$(get_remote_version)  # 全局变量，供 show_header 等处使用
 
-    if [ -n "$local_ver" ] && [ -n "$remote_ver" ] && [ "$local_ver" != "$remote_ver" ]; then
+    if [ -n "$local_ver" ] && [ -n "$release_version" ] && [ "$local_ver" != "$release_version" ]; then
         echo -e "${YELLOW}${BOLD}检测到项目有新版本！建议运行选项 10 进行更新。${NC}"
         echo -e "又又又又又发现新版本啦！"
         echo -e "${ORANGE}${BOLD}本地版本: ${PINK}${BOLD}${local_ver}${NC}"
-        echo -e "${YELLOW}${BOLD}远程版本: ${CYAN}${BOLD}${remote_ver}${NC}"
+        echo -e "${YELLOW}${BOLD}远程版本: ${CYAN}${BOLD}${release_version}${NC}"
         echo -e "${BOLD}提交说明: ${CYAN}${commit_message}${NC}"
 
         if [ -n "$commit_sha" ]; then
@@ -1165,7 +1163,6 @@ font_menu() {
 }
 
 
-
 # ===================== 状态及主菜单 =====================
 show_header() {
     clear
@@ -1176,6 +1173,13 @@ show_header() {
         echo -e "${CYAN}最新代码提交:${NC} ${BOLD}${commit_time}${NORMAL}"
     else
         echo -e "${CYAN}最新代码提交: ${RED}N/A (获取失败，请检查网络)${NC}"
+    fi
+
+    # 在最新代码提交下方显示已获取的远程版本（由 fetch_github_times 预先设置）
+    if [ -n "$release_version" ]; then
+        echo -e "${CYAN}最新版本: ${BOLD}${release_version}${NC}"
+    else
+        echo -e "${CYAN}最新版本: ${RED}N/A (未获取)${NC}"
     fi
 
     echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
