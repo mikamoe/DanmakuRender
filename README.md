@@ -4,7 +4,7 @@
 - 快捷安装/卸载,启动/停止录制/快速上传
 - ~~其实Docker构建更方便~~
 
-### "注意：运行本脚本的安装/卸载功能需要具有 sudo 权限的用户身份。"
+#### "注意：运行本脚本需要具有 sudo 权限的用户身份。"
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
