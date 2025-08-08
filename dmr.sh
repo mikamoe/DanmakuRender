@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-09"
+VERSION="2025-08-09a"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1321,7 +1321,7 @@ main_menu() {
                 }
                 ;;
             6) require_installed && delete_replays ;;
-            7) require_installed && bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/d-biliup-rs.sh) ;;
+            7) require_installed && bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/t-biliup-rs.sh) ;;
             8) require_installed && font_menu ;;
             9)
                 require_installed
