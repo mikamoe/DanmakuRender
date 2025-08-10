@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-09a"
+VERSION="2025-08-11"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -1291,10 +1291,11 @@ main_menu() {
         echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
+        echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-12): ${NC}")" choice
+        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-13): ${NC}")" choice
         case $choice in
             1)
                 install_dmr
@@ -1337,8 +1338,9 @@ main_menu() {
                 }
                 ;;
             12) require_installed && update_script ;;
+            13) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/tune.sh) ;;
              0) exit 0 ;;
-            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 12。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 13。${NC}" ;;
         esac
 
         echo
