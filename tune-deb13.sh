@@ -2,7 +2,7 @@
 set -e
 
 # 显示确认提示
-read -p "是否要执行系统性能优化脚本？[y/N] " confirm
+read -p "是否要执行系统性能优化脚本？(Debian 13)[y/N] " confirm
 confirm=${confirm:-N}
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     echo "已取消执行脚本。"
