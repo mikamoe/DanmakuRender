@@ -1338,7 +1338,7 @@ main_menu() {
                 }
                 ;;
             12) require_installed && update_script ;;
-            13) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/tune.sh) ;;
+            13) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/tune-deb13.sh) ;;
              0) exit 0 ;;
             *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 13。${NC}" ;;
         esac
