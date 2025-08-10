@@ -921,6 +921,8 @@ delete_replays() {
     fi
 }
 
+
+# ===================== 字体安装部分 =====================
 # ===== 刷新字体缓存 =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
@@ -992,6 +994,28 @@ install_noto_color_emoji() {
         "https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf"
     sudo chmod 644 "$font_dir/NotoColorEmoji.ttf"
     echo -e "${GREEN}Noto Color Emoji 安装完成！${NC}"
+}
+
+# ===== 安装 975maru 字体 =====
+install_975maru() {
+    if fc-list | grep -qi "975MaruSC"; then
+        read -p "检测到已安装 975MaruSC，是否先卸载再重新安装？(y/N): " _c
+        if [[ ! "$_c" =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}跳过 975MaruSC 安装。${NC}"
+            return
+        fi
+        echo -e "${BLUE}[INFO]${NC} 卸载现有 975MaruSC..."
+        sudo rm -f /usr/share/fonts/truetype/975maru/975MaruSC-Bold.ttf
+    fi
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 975MaruSC 字体"
+    local font_dir="/usr/share/fonts/truetype/975maru"
+    sudo mkdir -p "$font_dir"
+    sudo curl -fsSL \
+        -o "$font_dir/975MaruSC-Bold.ttf" \
+        "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/975MaruSC-Bold.ttf"
+    sudo chmod 644 "$font_dir/975MaruSC-Bold.ttf"
+    echo -e "${GREEN}975MaruSC 安装完成！${NC}"
 }
 
 # ===== 安装“微软雅黑 + Emoji 系列” =====
@@ -1074,6 +1098,11 @@ font_menu() {
         else
             ali_status="${RED}未安装${NC}"
         fi
+        if fc-list | grep -qi "975MaruSC"; then
+            maru_status="${GREEN}已安装${NC}"
+        else
+            maru_status="${RED}未安装${NC}"
+        fi
         if fc-list | grep -qi "Segoe UI Emoji"; then
             seg_status="${GREEN}已安装${NC}"
         else
@@ -1089,22 +1118,25 @@ font_menu() {
         echo -e "${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo -e " 微软雅黑:           ${ms_status}"
         echo -e " 阿里巴巴普惠体:     ${ali_status}"
+        echo -e " 975MaruSC:         ${maru_status}"
         echo -e " Segoe UI Emoji:     ${seg_status}"
         echo -e " Noto Color Emoji:   ${noto_status}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
-        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 Emoji 字体"
-        echo -e " ${BLUE}${BOLD}4.${NC} 卸载 已安装字体"
+        echo -e " ${BLUE}${BOLD}3.${NC} 单独安装 975MaruSC 字体"
+        echo -e " ${BLUE}${BOLD}4.${NC} 单独安装 Emoji 字体"
+        echo -e " ${BLUE}${BOLD}5.${NC} 卸载 已安装字体"
         echo -e " ${BLUE}${BOLD}0.${NC} 返回主菜单"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        read -p "$(echo -e "${CYAN}请输入选项 (0-4): ${NC}")" font_choice
+        read -p "$(echo -e "${CYAN}请输入选项 (0-5): ${NC}")" font_choice
 
         case $font_choice in
             1) install_fonts ;;
             2) install_alibaba_fonts ;;
-            3) install_emoji_fonts ;;
-            4)
+            3) install_975maru ;;
+            4) install_emoji_fonts ;;
+            5)
                 # 列出并卸载
                 installed=()
                 echo
@@ -1117,13 +1149,17 @@ font_menu() {
                     installed+=("AlibabaPuHuiTi")
                     echo " 2) Alibaba PuHuiTi"
                 fi
+                if fc-list | grep -qi "975MaruSC"; then
+                    installed+=("975MaruSC")
+                    echo " 3) 975MaruSC"
+                fi
                 if fc-list | grep -qi "Segoe UI Emoji"; then
                     installed+=("SegoeUIEmoji")
-                    echo " 3) Segoe UI Emoji"
+                    echo " 4) Segoe UI Emoji"
                 fi
                 if fc-list | grep -qi "Noto Color Emoji"; then
                     installed+=("NotoColorEmoji")
-                    echo " 4) Noto Color Emoji"
+                    echo " 5) Noto Color Emoji"
                 fi
 
                 if [ ${#installed[@]} -eq 0 ]; then
@@ -1140,6 +1176,8 @@ font_menu() {
                                 sudo apt remove -y ttf-mscorefonts-installer ;;
                             "AlibabaPuHuiTi")
                                 sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi ;;
+                            "975MaruSC")
+                                sudo rm -f /usr/share/fonts/truetype/975maru/975MaruSC-Bold.ttf ;;
                             "SegoeUIEmoji")
                                 sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf ;;
                             "NotoColorEmoji")
@@ -1155,12 +1193,13 @@ font_menu() {
                 fi
                 ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}" && break ;;
-            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 4。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 5。${NC}" ;;
         esac
 
         echo
     done
 }
+
 
 
 # ===================== 状态及主菜单 =====================
