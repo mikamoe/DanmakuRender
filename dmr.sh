@@ -1118,7 +1118,7 @@ font_menu() {
         echo -e "${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo -e " 微软雅黑:           ${ms_status}"
         echo -e " 阿里巴巴普惠体:     ${ali_status}"
-        echo -e " 975MaruSC:         ${maru_status}"
+        echo -e " 975MaruSC:          ${maru_status}"
         echo -e " Segoe UI Emoji:     ${seg_status}"
         echo -e " Noto Color Emoji:   ${noto_status}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
