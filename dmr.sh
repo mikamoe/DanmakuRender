@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-11"
+VERSION="2025-08-12"
 
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -923,6 +923,7 @@ delete_replays() {
 
 
 # ===================== 字体安装部分 =====================
+
 # ===== 刷新字体缓存 =====
 refresh_font_cache() {
     if command -v fc-cache &>/dev/null; then
@@ -933,7 +934,7 @@ refresh_font_cache() {
     fi
 }
 
-# ===== 安装 Segoe UI Emoji 字体 （含已装检测与重装提示） =====
+# ===== 安装 Segoe UI Emoji 字体 =====
 install_segoe_emoji() {
     # 检测安装状态
     if fc-list | grep -qi "Segoe UI Emoji"; then
@@ -946,7 +947,7 @@ install_segoe_emoji() {
         sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 Segoe UI Emoji 字体"
     echo " 0) 返回字体菜单"
     echo " 1) Win10 版"
     echo " 2) Win11 版"
@@ -961,10 +962,10 @@ install_segoe_emoji() {
     local url
     if [[ "$seg_choice" == "1" ]]; then
         url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win10/seguiemj.ttf?raw=true"
-        echo -e "${BLUE}[INFO]${NC} 安装 Win10 版 Segoe UI Emoji"
+        echo -e "${BLUE}[INFO]${NC} 安装 Win10 版 Segoe UI Emoji"
     else
         url="https://github.com/sillda76/DanmakuRender/blob/v5/fonts/Segoe-UI-Emoji-Win11/seguiemj.ttf?raw=true"
-        echo -e "${BLUE}[INFO]${NC} 安装 Win11 版 Segoe UI Emoji"
+        echo -e "${BLUE}[INFO]${NC} 安装 Win11 版 Segoe UI Emoji"
     fi
 
     local font_dir="/usr/share/fonts/truetype/microsoft"
@@ -974,7 +975,7 @@ install_segoe_emoji() {
     echo -e "${GREEN}Segoe UI Emoji 安装完成！${NC}"
 }
 
-# ===== 安装 Noto Color Emoji 字体 （含已装检测与重装提示） =====
+# ===== 安装 Noto Color Emoji 字体 =====
 install_noto_color_emoji() {
     if fc-list | grep -qi "Noto Color Emoji"; then
         read -p "检测到已安装 Noto Color Emoji，是否先卸载再重新安装？(y/N): " _c
@@ -1005,7 +1006,7 @@ install_975maru() {
             return
         fi
         echo -e "${BLUE}[INFO]${NC} 卸载现有 975MaruSC..."
-        sudo rm -f /usr/share/fonts/truetype/975maru/975MaruSC-Bold.ttf
+        sudo rm -rf /usr/share/fonts/truetype/975maru
     fi
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 安装 975MaruSC 字体"
@@ -1020,33 +1021,28 @@ install_975maru() {
 
 # ===== 安装“微软雅黑 + Emoji 系列” =====
 install_fonts() {
-    # 微软雅黑
     if fc-list | grep -qi "Microsoft YaHei"; then
         read -p "检测到已安装 Microsoft YaHei，是否先卸载再重新安装？(y/N): " _c
         if [[ "$_c" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}[INFO]${NC} 卸载 Microsoft YaHei（ttf-mscorefonts-installer）..."
+            echo -e "${BLUE}[INFO]${NC} 卸载 Microsoft YaHei..."
             sudo apt remove -y ttf-mscorefonts-installer
         else
             echo -e "${YELLOW}跳过 Microsoft YaHei 安装。${NC}"
         fi
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列 字体..."
-    # 安装微软雅黑
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 微软雅黑 + Emoji 系列..."
     sudo apt update
     sudo apt install -y ttf-mscorefonts-installer
 
-    # 安装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
-
     refresh_font_cache
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 微软雅黑 + Emoji 系列 安装完成！"
 }
 
 # ===== 安装“阿里巴巴普惠体 + Emoji 系列” =====
 install_alibaba_fonts() {
-    # 阿里巴巴普惠体
     if fc-list | grep -qi "Alibaba PuHuiTi"; then
         read -p "检测到已安装 Alibaba PuHuiTi，是否先卸载再重新安装？(y/N): " _c
         if [[ "$_c" =~ ^[Yy]$ ]]; then
@@ -1057,7 +1053,7 @@ install_alibaba_fonts() {
         fi
     fi
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备安装 阿里巴巴普惠体 + Emoji 系列..."
     local ali_dir="/usr/share/fonts/truetype/AlibabaPuHuiTi"
     sudo mkdir -p "$ali_dir"
     sudo curl -fsSL \
@@ -1065,21 +1061,79 @@ install_alibaba_fonts() {
         "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
     sudo chmod 644 "$ali_dir/AlibabaPuHuiTi-3-85-Bold.ttf"
 
-    # 安装 Emoji
     install_segoe_emoji
     install_noto_color_emoji
-
     refresh_font_cache
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 字体安装完成！"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} 阿里巴巴普惠体 + Emoji 系列 安装完成！"
 }
 
-# ===== 单独安装 Emoji 系列 字体 =====
+# ===== 单独安装 Emoji 系列 =====
 install_emoji_fonts() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列 字体..."
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 准备单独安装 Emoji 系列..."
     install_segoe_emoji
     install_noto_color_emoji
     refresh_font_cache
     echo -e "${GREEN}${BOLD}[SUCCESS]${NC}${NORMAL} Emoji 字体安装完成！"
+}
+
+# ===== 卸载字体（修复编号 & 975MaruSC 卸载） =====
+uninstall_fonts() {
+    installed=()
+    paths=()
+    idx=1
+
+    echo
+    echo -e "${CYAN}检测到已安装的字体：${NC}"
+
+    if fc-list | grep -qi "Microsoft YaHei"; then
+        installed+=("Microsoft YaHei"); paths+=("apt:ttf-mscorefonts-installer")
+        echo " $idx) Microsoft YaHei"; ((idx++))
+    fi
+    if fc-list | grep -qi "Alibaba PuHuiTi"; then
+        installed+=("Alibaba PuHuiTi"); paths+=("dir:/usr/share/fonts/truetype/AlibabaPuHuiTi")
+        echo " $idx) Alibaba PuHuiTi"; ((idx++))
+    fi
+    if fc-list | grep -qi "975MaruSC"; then
+        installed+=("975MaruSC"); paths+=("dir:/usr/share/fonts/truetype/975maru")
+        echo " $idx) 975MaruSC"; ((idx++))
+    fi
+    if fc-list | grep -qi "Segoe UI Emoji"; then
+        installed+=("Segoe UI Emoji"); paths+=("file:/usr/share/fonts/truetype/microsoft/seguiemj.ttf")
+        echo " $idx) Segoe UI Emoji"; ((idx++))
+    fi
+    if fc-list | grep -qi "Noto Color Emoji"; then
+        installed+=("Noto Color Emoji"); paths+=("file:/usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf")
+        echo " $idx) Noto Color Emoji"; ((idx++))
+    fi
+
+    if [ ${#installed[@]} -eq 0 ]; then
+        echo -e "${YELLOW}未检测到可卸载的字体。${NC}"
+        read -n1 -s -r -p "按任意键返回字体菜单..."
+        return
+    fi
+
+    echo " 0) 取消"
+    read -p "请输入要卸载的字体编号 (0-$((${#installed[@]}))): " choice
+
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#installed[@]} ]; then
+        font_name="${installed[$((choice-1))]}"
+        font_info="${paths[$((choice-1))]}"
+        action="${font_info%%:*}"
+        target="${font_info#*:}"
+
+        echo -e "${BLUE}正在卸载：$font_name …${NC}"
+        case "$action" in
+            apt)  sudo apt remove -y "$target" ;;
+            dir)  sudo rm -rf "$target" ;;
+            file) sudo rm -f "$target" ;;
+        esac
+
+        refresh_font_cache
+        echo -e "${GREEN}卸载完成并已刷新字体缓存。${NC}"
+    else
+        echo -e "${YELLOW}取消卸载。${NC}"
+    fi
+    read -n1 -s -r -p "按任意键返回字体菜单..."
 }
 
 # ===== 字体安装子菜单 =====
@@ -1088,39 +1142,19 @@ font_menu() {
 
     while true; do
         # 检测安装状态
-        if fc-list | grep -qi "Microsoft YaHei"; then
-            ms_status="${GREEN}已安装${NC}"
-        else
-            ms_status="${RED}未安装${NC}"
-        fi
-        if fc-list | grep -qi "Alibaba PuHuiTi"; then
-            ali_status="${GREEN}已安装${NC}"
-        else
-            ali_status="${RED}未安装${NC}"
-        fi
-        if fc-list | grep -qi "975MaruSC"; then
-            maru_status="${GREEN}已安装${NC}"
-        else
-            maru_status="${RED}未安装${NC}"
-        fi
-        if fc-list | grep -qi "Segoe UI Emoji"; then
-            seg_status="${GREEN}已安装${NC}"
-        else
-            seg_status="${RED}未安装${NC}"
-        fi
-        if fc-list | grep -qi "Noto Color Emoji"; then
-            noto_status="${GREEN}已安装${NC}"
-        else
-            noto_status="${RED}未安装${NC}"
-        fi
+        ms_status=$([ "$(fc-list | grep -qi "Microsoft YaHei")" ] && echo "${GREEN}已安装${NC}" || echo "${RED}未安装${NC}")
+        ali_status=$([ "$(fc-list | grep -qi "Alibaba PuHuiTi")" ] && echo "${GREEN}已安装${NC}" || echo "${RED}未安装${NC}")
+        maru_status=$([ "$(fc-list | grep -qi "975MaruSC")" ] && echo "${GREEN}已安装${NC}" || echo "${RED}未安装${NC}")
+        seg_status=$([ "$(fc-list | grep -qi "Segoe UI Emoji")" ] && echo "${GREEN}已安装${NC}" || echo "${RED}未安装${NC}")
+        noto_status=$([ "$(fc-list | grep -qi "Noto Color Emoji")" ] && echo "${GREEN}已安装${NC}" || echo "${RED}未安装${NC}")
 
         clear
         echo -e "${CYAN}${BOLD}字体安装子菜单：${NC}${NORMAL}"
         echo -e " 微软雅黑:           ${ms_status}"
         echo -e " 阿里巴巴普惠体:     ${ali_status}"
         echo -e " 975MaruSC:          ${maru_status}"
-        echo -e " Segoe UI Emoji:     ${seg_status}"
-        echo -e " Noto Color Emoji:   ${noto_status}"
+        echo -e " Segoe UI Emoji:     ${seg_status}"
+        echo -e " Noto Color Emoji:   ${noto_status}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e " ${BLUE}${BOLD}1.${NC} 安装/更新 微软雅黑 + Emoji 系列"
         echo -e " ${BLUE}${BOLD}2.${NC} 安装/更新 阿里巴巴普惠体 + Emoji 系列"
@@ -1136,70 +1170,13 @@ font_menu() {
             2) install_alibaba_fonts ;;
             3) install_975maru ;;
             4) install_emoji_fonts ;;
-            5)
-                # 列出并卸载
-                installed=()
-                echo
-                echo -e "${CYAN}检测到已安装的字体：${NC}"
-                if fc-list | grep -qi "Microsoft YaHei"; then
-                    installed+=("Microsoft YaHei")
-                    echo " 1) Microsoft YaHei"
-                fi
-                if fc-list | grep -qi "Alibaba PuHuiTi"; then
-                    installed+=("AlibabaPuHuiTi")
-                    echo " 2) Alibaba PuHuiTi"
-                fi
-                if fc-list | grep -qi "975MaruSC"; then
-                    installed+=("975MaruSC")
-                    echo " 3) 975MaruSC"
-                fi
-                if fc-list | grep -qi "Segoe UI Emoji"; then
-                    installed+=("SegoeUIEmoji")
-                    echo " 4) Segoe UI Emoji"
-                fi
-                if fc-list | grep -qi "Noto Color Emoji"; then
-                    installed+=("NotoColorEmoji")
-                    echo " 5) Noto Color Emoji"
-                fi
-
-                if [ ${#installed[@]} -eq 0 ]; then
-                    echo -e "${YELLOW}未检测到可卸载的字体。${NC}"
-                    read -n1 -s -r -p "按任意键返回字体菜单..."
-                else
-                    echo " 0) 取消"
-                    read -p "请输入要卸载的字体编号 (0-${#installed[@]}): " idx
-                    if [[ "$idx" =~ ^[1-9]$ ]] && [ "$idx" -le ${#installed[@]} ]; then
-                        choice="${installed[$((idx-1))]}"
-                        echo -e "${BLUE}正在卸载：$choice …${NC}"
-                        case $choice in
-                            "Microsoft YaHei")
-                                sudo apt remove -y ttf-mscorefonts-installer ;;
-                            "AlibabaPuHuiTi")
-                                sudo rm -rf /usr/share/fonts/truetype/AlibabaPuHuiTi ;;
-                            "975MaruSC")
-                                sudo rm -f /usr/share/fonts/truetype/975maru/975MaruSC-Bold.ttf ;;
-                            "SegoeUIEmoji")
-                                sudo rm -f /usr/share/fonts/truetype/microsoft/seguiemj.ttf ;;
-                            "NotoColorEmoji")
-                                sudo rm -f /usr/share/fonts/truetype/noto-emoji/NotoColorEmoji.ttf ;;
-                        esac
-                        refresh_font_cache
-                        echo -e "${GREEN}卸载完成并已刷新字体缓存。${NC}"
-                        read -n1 -s -r -p "按任意键返回字体菜单..."
-                    else
-                        echo -e "${YELLOW}取消卸载。${NC}"
-                        read -n1 -s -r -p "按任意键返回字体菜单..."
-                    fi
-                fi
-                ;;
+            5) uninstall_fonts ;;
             0) echo -e "${YELLOW}返回主菜单...${NC}" && break ;;
             *) echo -e "${RED}无效选项 '$font_choice'，请输入 0 到 5。${NC}" ;;
         esac
-
         echo
     done
 }
-
 
 
 # ===================== 状态及主菜单 =====================
