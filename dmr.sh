@@ -947,7 +947,7 @@ show_header() {
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${RED}未安装${NC}"
-        echo -e "${RED}未安装${NC}"
+        echo -e "${RED}当前状态:未安装${NC}"
     else
         local local_version=$(get_local_version)
         if [ -n "$local_version" ]; then
@@ -961,7 +961,7 @@ show_status() {
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
             echo -e "${GREEN}${BOLD}正在运行 (PID: ${pid})${NC}"
         else
-            echo -e "${RED}未运行${NC}"
+            echo -e "${RED}当前状态:未运行${NC}"
         fi
 
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
