@@ -925,7 +925,7 @@ delete_replays() {
 # ===================== 状态及主菜单 =====================
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC} ${ORANGE}${BOLD}脚本日期${VERSION}${NC}"
+    echo -e "${BLUE}${BOLD}DanmakuRender v5 管理脚本${NORMAL}${NC}"
     
     # 最新代码提交
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
@@ -1042,7 +1042,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
         echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD}[当前脚本日期${VERSION}]${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
