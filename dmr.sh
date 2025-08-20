@@ -947,7 +947,7 @@ show_header() {
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${RED}未安装${NC}"
-        echo -e "${RED}运行状态：${RED}未安装${NC}"
+        echo -e "${RED}未安装${NC}"
     else
         local local_version=$(get_local_version)
         if [ -n "$local_version" ]; then
@@ -959,9 +959,9 @@ show_status() {
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${GREEN}运行状态：${GREEN}${BOLD}正在运行 (PID: ${pid})${NC}"
+            echo -e "${GREEN}${BOLD}正在运行 (PID: ${pid})${NC}"
         else
-            echo -e "${RED}运行状态：${RED}未运行${NC}"
+            echo -e "${RED}未运行${NC}"
         fi
 
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
@@ -973,7 +973,7 @@ show_status() {
 require_installed() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "\n${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}DanmakuRender v5 未安装！${NC}"
-        echo -e "${YELLOW}请先在主菜单中选择选项 ${BOLD}'1'${NORMAL}${YELLOW} 进行安装。${NC}"
+        echo -e "${YELLOW}请先选择选项 ${BOLD}'1'${NORMAL}${YELLOW} 进行安装。${NC}"
         return 1
     fi
     return 0
@@ -1043,7 +1043,6 @@ main_menu() {
         echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-13]: ${NC}")" choice
         case $choice in
