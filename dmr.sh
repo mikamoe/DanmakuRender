@@ -946,14 +946,14 @@ show_header() {
 
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${RED}程序状态：${RED}未安装${NC}"
+        echo -e "${RED}未安装${NC}"
         echo -e "${RED}运行状态：${RED}未安装${NC}"
     else
         local local_version=$(get_local_version)
         if [ -n "$local_version" ]; then
-            echo -e "${GREEN}程序状态：${GREEN}${BOLD}已安装 ${CYAN}${BOLD}本地版本(V${local_version})${NC}"
+            echo -e "${GREEN}${BOLD}已安装 ${CYAN}${BOLD}本地版本(V${local_version})${NC}"
         else
-            echo -e "${GREEN}程序状态：${GREEN}${BOLD}已安装 ${YELLOW}(版本未知)${NC}"
+            echo -e "${GREEN}${BOLD}已安装 ${YELLOW}(版本未知)${NC}"
         fi
 
         if pgrep -f "$DMR_CMD" > /dev/null; then
@@ -965,7 +965,7 @@ show_status() {
         fi
 
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
-            echo -e "${ORANGE}上一次安装/更新：${ORANGE}${install_date}${NC}"
+            echo -e "${ORANGE}上次安装/更新：${ORANGE}${install_date}${NC}"
         fi
     fi
 }
