@@ -1026,7 +1026,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
         # 选项2：如果正在运行则在该选项后显示运行信息
         if [ -n "$running_pid" ]; then
-            echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC} ${YELLOW}[正在运行 (PID: ${running_pid})]${NC}"
+            echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC} ${YELLOW}${BOLD}[正在运行 (PID: ${running_pid})]${NC}"
         else
             echo -e "${BLUE}${BOLD}2.${NC} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
@@ -1046,6 +1046,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
+        echo -e " "
 
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-13]: ${NC}")" choice
         case $choice in
