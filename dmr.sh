@@ -947,7 +947,6 @@ show_header() {
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${RED}程序状态：${RED}未安装${NC}"
-        echo -e "${RED}配置文件：${RED}未安装${NC}"
         echo -e "${RED}运行状态：${RED}未安装${NC}"
     else
         local local_version=$(get_local_version)
@@ -956,15 +955,7 @@ show_status() {
         else
             echo -e "${GREEN}程序状态：${GREEN}${BOLD}已安装 ${YELLOW}(版本未知)${NC}"
         fi
-        
-        if check_config; then
-            local streamers_count
-            streamers_count=$(find "$DMR_DIR/configs" -maxdepth 1 -type f -name "*DMR*" | wc -l)
-            echo -e "${GREEN}配置文件：${GREEN}已获取${NC} 共${streamers_count}位主播"
-        else
-            echo -e "${RED}配置文件：${RED}未配置！${NC}"
-        fi
-        
+
         if pgrep -f "$DMR_CMD" > /dev/null; then
             local pid
             pid=$(pgrep -f "$DMR_CMD" | head -n 1)
@@ -972,7 +963,7 @@ show_status() {
         else
             echo -e "${RED}运行状态：${RED}未运行${NC}"
         fi
-        
+
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
             echo -e "${ORANGE}上一次安装/更新：${ORANGE}${install_date}${NC}"
         fi
@@ -1054,7 +1045,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        read -p "$(echo -e "${CYAN}${BOLD}请输入选项(0-13): ${NC}")" choice
+        read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-13]: ${NC}")" choice
         case $choice in
             1)
                 install_dmr
@@ -1099,7 +1090,7 @@ main_menu() {
             12) require_installed && update_script ;;
             13) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/tune-deb13.sh) ;;
              0) exit 0 ;;
-            *) echo -e "${RED}无效选项 '$choice'！请输入 0 到 13。${NC}" ;;
+            *) echo -e "${RED}无效选项 '$choice'！请输入[0-13]${NC}" ;;
         esac
 
         echo
