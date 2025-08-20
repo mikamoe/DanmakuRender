@@ -941,7 +941,7 @@ show_header() {
         echo -e "${CYAN}最新版本: ${RED}N/A (未获取)${NC}"
     fi
 
-    echo -e "${PINK}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${PINK}==============================${NC}"
 }
 
 show_status() {
@@ -1022,7 +1022,7 @@ main_menu() {
         show_header # 此时 show_header 可以正确显示 GitHub 信息和更新提示
         show_status
 
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "=============================="
         echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
         # 选项2：如果正在运行则在该选项后显示运行信息
         if [ -n "$running_pid" ]; then
@@ -1046,7 +1046,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
-        echo -e " "
+        echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
         read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-13]: ${NC}")" choice
         case $choice in
