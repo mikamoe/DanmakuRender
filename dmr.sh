@@ -941,12 +941,11 @@ show_header() {
         echo -e "${CYAN}最新版本: ${RED}N/A (未获取)${NC}"
     fi
 
-    echo -e "${PINK}==============================${NC}"
+    echo -e "=============================="
 }
 
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${RED}未安装${NC}"
         echo -e "${RED}当前状态:未安装${NC}"
     else
         local local_version
