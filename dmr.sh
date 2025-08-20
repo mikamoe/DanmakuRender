@@ -949,20 +949,16 @@ show_status() {
         echo -e "${RED}未安装${NC}"
         echo -e "${RED}当前状态:未安装${NC}"
     else
-        local local_version=$(get_local_version)
+        local local_version
+        local_version=$(get_local_version)
         if [ -n "$local_version" ]; then
             echo -e "${GREEN}${BOLD}已安装 ${CYAN}${BOLD}本地版本(V${local_version})${NC}"
         else
             echo -e "${GREEN}${BOLD}已安装 ${YELLOW}(版本未知)${NC}"
         fi
 
-        if pgrep -f "$DMR_CMD" > /dev/null; then
-            local pid
-            pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-            echo -e "${GREEN}${BOLD}正在运行 (PID: ${pid})${NC}"
-        else
-            echo -e "${RED}当前状态:未运行${NC}"
-        fi
+        # 移除顶部显示是否运行，改为只显示安装/版本信息
+        # 运行状态在菜单项 2 中动态显示
 
         if [ -n "$install_date" ] && [[ "$install_date" != "无效日期记录" && "$install_date" != "无法解析日期" ]]; then
             echo -e "${ORANGE}上次安装/更新：${ORANGE}${install_date}${NC}"
@@ -1017,13 +1013,20 @@ main_menu() {
     fetch_biliup_times
 
     while true; do
+        # 在展示菜单前获取当前是否在运行（仅计算一次，避免重复调用 pgrep）
+        running_pid=""
+        if pgrep -f "$DMR_CMD" > /dev/null; then
+            running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
+        fi
+
         show_header # 此时 show_header 可以正确显示 GitHub 信息和更新提示
         show_status
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
-        if pgrep -f "$DMR_CMD" &>/dev/null; then
-            echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC}"
+        # 选项2：如果正在运行则在该选项后显示运行信息
+        if [ -n "$running_pid" ]; then
+            echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC} ${YELLOW}[正在运行 (PID: ${running_pid})]${NC}"
         else
             echo -e "${BLUE}${BOLD}2.${NC} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
@@ -1051,7 +1054,8 @@ main_menu() {
                 ;;
             2)
                 require_installed && {
-                    if pgrep -f "$DMR_CMD" &>/dev/null; then
+                    # 使用先前计算的 running_pid 判断要执行停止还是启动
+                    if [ -n "$running_pid" ]; then
                         stop_dmr; stop_extra_processes
                     else
                         check_config && start_dmr && view_log
