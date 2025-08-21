@@ -1041,7 +1041,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装JavaScript 环境${NC}"
         echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [当前脚本日期${VERSION}]${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [V${VERSION}]${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
