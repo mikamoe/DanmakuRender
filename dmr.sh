@@ -1,6 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-21"
-
+VERSION="2025-08-22"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -1039,10 +1038,10 @@ main_menu() {
             echo -e "${YELLOW}${BOLD}→ 检测到新版本：${BILIUP_REMOTE_VERSION} (本地 ${BILIUP_LOCAL_VERSION})，建议更新${NC}"
         fi
         echo -e "${BLUE}${BOLD}8.${NC} ${CYAN}${BOLD}字体安装菜单${NC}"
-        echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装 JavaScript 环境${NC}"
-        echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载 DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD}[当前脚本日期${VERSION}]${NC}"
+        echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装JavaScript 环境${NC}"
+        echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [当前脚本日期${VERSION}]${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
