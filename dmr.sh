@@ -1031,7 +1031,7 @@ main_menu() {
         show_status
 
         echo "=============================="
-        echo -e "${BLUE}${BOLD}1.${NC} ${GREEN}${BOLD}安装 DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}1.${NC} ${ORANGE}${BOLD}安装 DanmakuRender v5${NC}"
         # 选项2：如果正在运行则在该选项后显示运行信息
         if [ -n "$running_pid" ]; then
             echo -e "${BLUE}${BOLD}2.${NC} ${RED}${BOLD}停止录制${NC} ${YELLOW}${BOLD}[正在运行 (PID: ${running_pid})]${NC}"
@@ -1051,7 +1051,7 @@ main_menu() {
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装JavaScript 环境${NC}"
         echo -e "${BLUE}${BOLD}10.${NC}${CYAN}${BOLD}更新DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${CYAN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [V${VERSION}]${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${CYAN}${BOLD}更新脚本${NC}${BOLD} [V${VERSION}]${NC}"
         echo -e "${BLUE}${BOLD}13.${NC}${CYAN}${BOLD}优化系统性能(Debian13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
