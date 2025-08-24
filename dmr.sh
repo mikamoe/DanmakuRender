@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-22"
+VERSION="2025-08-25"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -731,6 +731,16 @@ stop_dmr() {
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}未找到正在运行的匹配 '${DMR_CMD}' 的进程。${NC}"
             stopped=true # 无需停止
         fi
+    fi
+
+    # 最后执行额外的停止命令（独立，不作为兜底）
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}执行额外的停止命令以确保干净：${NC}"
+    pkill -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py"
+    sleep 1
+    if ! pgrep -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py" > /dev/null; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}额外命令已停止相关进程。${NC}"
+    else
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}额外命令未能停止相关进程，请手动检查。${NC}"
     fi
 
     # 返回状态
