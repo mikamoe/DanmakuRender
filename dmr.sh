@@ -1039,9 +1039,9 @@ main_menu() {
             echo -e "${BLUE}${BOLD}2.${NC} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
         echo -e "${BLUE}${BOLD}3.${NC} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
-        echo -e "${BLUE}${BOLD}4.${NC} ${PURPLE}${BOLD}手动渲染视频${NC}"
+        echo -e "${BLUE}${BOLD}4.${NC} ${CYAN}${BOLD}手动渲染视频${NC}"
         echo -e "${BLUE}${BOLD}5.${NC} ${GREEN}${BOLD}运行测试${NC}"
-        echo -e "${BLUE}${BOLD}6.${NC} ${YELLOW}${BOLD}删除回放/渲染的视频文件${NC}"
+        echo -e "${BLUE}${BOLD}6.${NC} ${CYAN}${BOLD}删除回放/渲染的视频文件${NC}"
         echo -e "${BLUE}${BOLD}7.${NC} ${PINK}${BOLD}biliup-rs 上传菜单${NC}"
         # 仅当本地和远程版本都非空且不相等时才提示更新
         if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
@@ -1049,10 +1049,10 @@ main_menu() {
         fi
         echo -e "${BLUE}${BOLD}8.${NC} ${CYAN}${BOLD}字体安装菜单${NC}"
         echo -e "${BLUE}${BOLD}9.${NC} ${CYAN}${BOLD}安装JavaScript 环境${NC}"
-        echo -e "${BLUE}${BOLD}10.${NC}${YELLOW}${BOLD}更新DanmakuRender v5${NC}"
+        echo -e "${BLUE}${BOLD}10.${NC}${CYAN}${BOLD}更新DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载DanmakuRender v5${NC}"
-        echo -e "${BLUE}${BOLD}12.${NC}${GREEN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [V${VERSION}]${NC}"
-        echo -e "${BLUE}${BOLD}13.${NC}${GREEN}${BOLD}优化系统性能(Debian 13)${NC}"
+        echo -e "${BLUE}${BOLD}12.${NC}${CYAN}${BOLD}更新脚本${NC}${ORANGE}${BOLD} [V${VERSION}]${NC}"
+        echo -e "${BLUE}${BOLD}13.${NC}${CYAN}${BOLD}优化系统性能(Debian 13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${ORANGE}${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
