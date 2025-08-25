@@ -789,7 +789,7 @@ stop_extra_processes() {
 # ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按Q键退出查看${NC}"
 
     local logs_dir="$DMR_DIR/nohup_logs"
 
@@ -807,6 +807,9 @@ view_log() {
         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 在 ${logs_dir} 中未找到任何 .log 文件。${NC}"
         return 1
     fi
+
+    # 显示当前查看的日志文件
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在查看日志文件: ${CYAN}${latest}${NC}"
 
     # 使用 tail -F 实时跟踪最新日志，输出最近70行
     tail -n 70 -F "$latest" &
@@ -827,7 +830,6 @@ view_log() {
     stty echo icanon
     wait "$tail_pid" 2>/dev/null
 }
-
 
 run_test() {
     require_installed || return 1
