@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-25)1"
+VERSION="2025-08-25)2"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -789,7 +789,7 @@ stop_extra_processes() {
 # ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
     require_installed || return 1
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按Q键退出查看${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
 
     local logs_dir="$DMR_DIR/nohup_logs"
 
@@ -808,8 +808,12 @@ view_log() {
         return 1
     fi
 
+    # 仅提取文件名
+    local latest_file
+    latest_file=$(basename "$latest")
+
     # 显示当前查看的日志文件
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在查看日志文件: ${CYAN}${latest}${NC}"
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在查看日志文件: ${CYAN}${latest_file}${NC}"
 
     # 使用 tail -F 实时跟踪最新日志，输出最近70行
     tail -n 70 -F "$latest" &
