@@ -1,11 +1,10 @@
 #!/bin/bash
-VERSION="2025-08-25"
+VERSION="2025-08-25)1"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
 DMR_CMD="python3 main.py"
 SCRIPT_NAME="dmr.sh"
-LOG_FILE="nohup.out"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 INSTALL_DATE_FILE="$DMR_DIR/install_date"
@@ -637,11 +636,26 @@ start_dmr() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Python 版本：${py_ver}"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 激活虚拟环境..."
-    source venv/bin/activate || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1; }
+    if source venv/bin/activate; then
+        activated_venv=true
+    else
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 激活虚拟环境失败！"; popd > /dev/null; return 1;
+    fi
+
+    # 准备 nohup_logs 目录与带时间戳的日志文件名 (.log 后缀)
+    local logs_dir="$DMR_DIR/nohup_logs"
+    if [ ! -d "$logs_dir" ]; then
+        mkdir -p "$logs_dir" || { echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法创建日志目录: ${logs_dir} (权限问题?)，尝试以 sudo 创建...${NC}"; sudo mkdir -p "$logs_dir" || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 创建日志目录失败！${NC}"; deactivate 2>/dev/null || true; popd > /dev/null; return 1; } }
+    fi
+
+    local ts logfile full_logpath
+    ts=$(date +"%Y%m%d_%H%M%S")
+    logfile="nohup_${ts}.log"
+    full_logpath="${logs_dir}/${logfile}"
 
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 使用 nohup 在后台启动 ${DMR_CMD}..."
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${DMR_DIR}/${LOG_FILE}${NC}"
-    nohup $DMR_CMD > "$LOG_FILE" 2>&1 &
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 日志将输出到: ${GREEN}${full_logpath}${NC}"
+    nohup $DMR_CMD > "$full_logpath" 2>&1 &
     local pid=$!  # 获取后台进程 PID
 
     # 检查进程是否启动成功
@@ -650,14 +664,20 @@ start_dmr() {
         # 将 PID 写入文件
         echo $pid > "$DMR_DIR/dmr.pid" || echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 无法写入 PID 文件 ${DMR_DIR}/dmr.pid (权限问题?)${NC}"
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}启动成功！进程 PID: $pid${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}最新日志文件: ${full_logpath}${NC}"
 
-        deactivate
+        # 取消虚拟环境（如果已激活）
+        if [ "${activated_venv}" = true ]; then
+            deactivate 2>/dev/null || true
+        fi
         popd > /dev/null
         return 0
     else
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}启动失败！进程未能成功运行。请检查 ${LOG_FILE} 获取错误信息。${NC}"
+        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}启动失败！进程未能成功运行。请检查 ${full_logpath} 获取错误信息。${NC}"
         rm -f "$DMR_DIR/dmr.pid"
-        deactivate
+        if [ "${activated_venv}" = true ]; then
+            deactivate 2>/dev/null || true
+        fi
         popd > /dev/null
         return 1
     fi
@@ -771,8 +791,25 @@ view_log() {
     require_installed || return 1
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}按 q 键退出日志查看${NC}"
 
-    # 使用 tail -F 实时跟踪日志，改为输出最近70行
-    tail -n 70 -F "$DMR_DIR/$LOG_FILE" &
+    local logs_dir="$DMR_DIR/nohup_logs"
+
+    # 检查 nohup_logs 目录是否存在并选择最新的 .log 文件
+    if [ ! -d "$logs_dir" ]; then
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 日志目录 ${logs_dir} 不存在。请先通过选项 2 启动并生成日志。${NC}"
+        return 1
+    fi
+
+    # 找到最近修改的 .log 文件（兼容文件名中含空格）
+    local latest
+    latest=$(find "$logs_dir" -maxdepth 1 -type f -name "*.log" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
+
+    if [ -z "$latest" ]; then
+        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 在 ${logs_dir} 中未找到任何 .log 文件。${NC}"
+        return 1
+    fi
+
+    # 使用 tail -F 实时跟踪最新日志，输出最近70行
+    tail -n 70 -F "$latest" &
     local tail_pid=$!
 
     # 切换终端到无缓冲模式，实时读取单字符
@@ -1038,7 +1075,7 @@ main_menu() {
         else
             echo -e "${BLUE}${BOLD}2.${NC} ${GREEN}${BOLD}启动录制(后台运行)${NC}"
         fi
-        echo -e "${BLUE}${BOLD}3.${NC} ${CYAN}${BOLD}查看实时日志(按Q退出)${NC}"
+        echo -e "${BLUE}${BOLD}3.${NC} ${CYAN}${BOLD}查看日志(按Q退出)${NC}"
         echo -e "${BLUE}${BOLD}4.${NC} ${CYAN}${BOLD}手动渲染视频${NC}"
         echo -e "${BLUE}${BOLD}5.${NC} ${CYAN}${BOLD}运行测试${NC}"
         echo -e "${BLUE}${BOLD}6.${NC} ${CYAN}${BOLD}删除视频文件${NC}"
