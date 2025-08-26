@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-25)2"
+VERSION="2025-08-26"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -574,17 +574,29 @@ uninstall_dmr() {
 install_js_engine() {
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}开始安装 JavaScript 环境...${NC}"
     
-    # 安装 Node.js
+    # 安装 Node.js 和 npm
     if ! command -v node &>/dev/null; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 Node.js，正在安装...${NC}"
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo apt install -y nodejs || {
-            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js 安装失败！${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 Node.js，正在安装最新版本...${NC}"
+        curl -fsSL https://deb.nodesource.com/setup_current.x | sudo -E bash -
+        sudo apt install -y nodejs npm || {
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}Node.js/npm 安装失败！${NC}"
             return 1
         }
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 安装完成！${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 Node.js 版本：$(node -v)"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 npm 版本：$(npm -v)"
     else
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 已安装。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}Node.js 已安装，版本：$(node -v)${NC}"
+        if command -v npm &>/dev/null; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}npm 已安装，版本：$(npm -v)${NC}"
+        else
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未找到 npm，正在安装...${NC}"
+            sudo apt install -y npm || {
+                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}npm 安装失败！${NC}"
+                return 1
+            }
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 当前 npm 版本：$(npm -v)"
+        fi
     fi
 
     # 安装 quickjs Python 包
