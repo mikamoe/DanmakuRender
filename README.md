@@ -1,5 +1,4 @@
 ## DanmakuRender Script
-- 由Claude生成.优化
 - 适用于**Debian/Ubuntu**
 - 快捷安装/卸载,启动/停止录制/快速上传
 - ~~其实Docker构建更方便~~
