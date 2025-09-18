@@ -51,8 +51,8 @@ class StreamDownloadTask():
         self.advanced_video_args = advanced_video_args if advanced_video_args else {}
         self.advanced_dm_args = advanced_dm_args if advanced_dm_args else {}
 
-        if self.engine not in ['ffmpeg', 'streamlink', 'streamgears', 'pyrequests', 'auto']:
-            raise NotImplementedError(f'No Downloader Named {self.engine}.')
+        # if self.engine not in ['ffmpeg', 'streamlink', 'streamgears', 'pyrequests', 'auto']:
+        #     raise NotImplementedError(f'No Downloader Named {self.engine}.')
 
         os.makedirs(self.output_dir,exist_ok=True)
     
@@ -174,9 +174,9 @@ class StreamDownloadTask():
                     this_engine = 'ffmpeg'
                 else:
                     this_engine = 'streamgears'
-            # 虎牙必须使用ffmpeg (https://github.com/SmallPeaches/DanmakuRender/issues/386)
-            elif self.plat == 'huya':
-                this_engine = 'ffmpeg'
+            # # 虎牙必须使用ffmpeg (https://github.com/SmallPeaches/DanmakuRender/issues/386)
+            # elif self.plat == 'huya':
+            #     this_engine = 'ffmpeg'
             # 其他原生支持的平台hls流使用ffmpeg，flv流使用streamgears
             elif self.plat in ['huya', 'douyu', 'douyin', 'cc']:
                 if '.m3u8' in stream_url:
@@ -242,7 +242,7 @@ class StreamDownloadTask():
             )
             self.downloader.start()
 
-        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.executor = ThreadPoolExecutor(max_workers=int(self.danmaku) + int(self.video))
         futures = []
         if self.danmaku:
             futures.append(self.executor.submit(danmaku_thread))
