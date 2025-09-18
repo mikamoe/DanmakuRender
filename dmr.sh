@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-08-26-1"
+VERSION="2025-09-19"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -701,6 +701,31 @@ stop_dmr() {
     local pid_file="$DMR_DIR/dmr.pid"
     local pid_to_kill=""
     local stopped=false
+    local aborted=false
+
+    # 内部交互函数：检测到“正在录制”时询问用户
+    ask_if_stop_recording() {
+        # 参数：$1 为一段上下文信息（可为空）
+        local ctx="$1"
+        # 交互式提示，读取一个字符
+        while true; do
+            printf "%b" "${YELLOW}${BOLD}[PROMPT]${NC}${NORMAL} ${YELLOW}${ctx}检测到包含 '正在录制' 的进程，是否继续停止？ [Yy/Nn]: ${NC}"
+            # 读取一个字符（回显）并在下一行换行
+            IFS= read -r -n1 answer
+            echo
+            case "$answer" in
+                [Yy])
+                    return 0
+                    ;;
+                [Nn])
+                    return 1
+                    ;;
+                *)
+                    echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} 请输入 Y/y 或 N/n。"
+                    ;;
+            esac
+        done
+    }
 
     # 首先尝试从pid文件中获取PID
     if [ -f "$pid_file" ]; then
@@ -709,24 +734,34 @@ stop_dmr() {
             # 检查进程是否存在
             if ps -p "$pid_to_kill" > /dev/null; then
                 # 检查进程命令是否匹配（基础验证）
-                 if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
-                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
-                    # 先尝试发送TERM信号优雅停止
-                    kill "$pid_to_kill"
-                    sleep 1 # 等待1秒
-                    if ! ps -p "$pid_to_kill" > /dev/null; then
-                        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (TERM)。${NC}"
-                        stopped=true
-                    else
-                        # TERM无效时强制KILL
-                        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}进程 $pid_to_kill 未响应 TERM 信号，强制停止 (KILL)...${NC}"
-                        kill -9 "$pid_to_kill"
-                        sleep 1
+                if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
+                    # 如果命令行包含“正在录制”，交互询问
+                    if ps -p "$pid_to_kill" -o cmd= | grep -q "正在录制"; then
+                        if ! ask_if_stop_recording "PID 文件中的进程 ($pid_to_kill) "; then
+                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}用户选择不停止包含 '正在录制' 的进程，跳过停止。${NC}"
+                            aborted=true
+                        fi
+                    fi
+
+                    if [ "$aborted" = false ]; then
+                        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
+                        # 先尝试发送TERM信号优雅停止
+                        kill "$pid_to_kill"
+                        sleep 1 # 等待1秒
                         if ! ps -p "$pid_to_kill" > /dev/null; then
-                             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
-                             stopped=true
+                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (TERM)。${NC}"
+                            stopped=true
                         else
-                             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法停止进程 $pid_to_kill！${NC}"
+                            # TERM无效时强制KILL
+                            echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}进程 $pid_to_kill 未响应 TERM 信号，强制停止 (KILL)...${NC}"
+                            kill -9 "$pid_to_kill"
+                            sleep 1
+                            if ! ps -p "$pid_to_kill" > /dev/null; then
+                                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
+                                 stopped=true
+                            else
+                                 echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法停止进程 $pid_to_kill！${NC}"
+                            fi
                         fi
                     fi
                  else
@@ -741,24 +776,53 @@ stop_dmr() {
              echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件 ($pid_file) 包含无效内容: '$pid_to_kill'。${NC}"
              pid_to_kill="" # 重置pid_to_kill
         fi
-        # 无论是否成功停止，都清理pid文件
+        # 无论是否成功停止，都清理pid文件（保留原行为）
         rm -f "$pid_file"
     fi
 
     # 如果通过pid文件未能停止，尝试使用pkill作为备用方案
-    if [ "$stopped" = false ]; then
+    if [ "$stopped" = false ] && [ "$aborted" = false ]; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}未通过 PID 文件停止进程，尝试使用 pkill 查找 '${DMR_CMD}'...${NC}"
-        # 先用pgrep检查是否有匹配进程
+        # 先用pgrep检查是否有匹配进程，并收集命令行
         if pgrep -f "$DMR_CMD" > /dev/null; then
-            # 使用pkill根据命令字符串停止
-            pkill -f "$DMR_CMD"
-            sleep 1
-            # 检查是否已停止
-            if ! pgrep -f "$DMR_CMD" > /dev/null; then
-                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已使用 pkill 停止匹配 '${DMR_CMD}' 的进程。${NC}"
-                stopped=true
-            else
-                echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}使用 pkill 停止进程失败！请手动检查。${NC}"
+            # 列出所有匹配的 PID 和命令行
+            mapfile -t matches < <(pgrep -af "$DMR_CMD")
+            # 检查是否有包含“正在录制”的命令行
+            local has_recording=false
+            for line in "${matches[@]}"; do
+                if echo "$line" | grep -q "正在录制"; then
+                    has_recording=true
+                    break
+                fi
+            done
+
+            if [ "$has_recording" = true ]; then
+                # 询问用户是否继续停止（提示显示部分匹配）
+                echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}找到包含 '正在录制' 的进程示例：${NC}"
+                # 显示前几行示例（最多 5 行）
+                local i=0
+                for line in "${matches[@]}"; do
+                    echo "  $line"
+                    i=$((i+1))
+                    [ "$i" -ge 5 ] && break
+                done
+                if ! ask_if_stop_recording "pkill 查找到的进程 "; then
+                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}用户选择不停止包含 '正在录制' 的进程，跳过 pkill 操作。${NC}"
+                    aborted=true
+                fi
+            fi
+
+            if [ "$aborted" = false ]; then
+                # 使用pkill根据命令字符串停止
+                pkill -f "$DMR_CMD"
+                sleep 1
+                # 检查是否已停止
+                if ! pgrep -f "$DMR_CMD" > /dev/null; then
+                    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}已使用 pkill 停止匹配 '${DMR_CMD}' 的进程。${NC}"
+                    stopped=true
+                else
+                    echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}使用 pkill 停止进程失败！请手动检查。${NC}"
+                fi
             fi
         else
             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}未找到正在运行的匹配 '${DMR_CMD}' 的进程。${NC}"
@@ -766,37 +830,29 @@ stop_dmr() {
         fi
     fi
 
-    # 最后执行额外的停止命令（独立，不作为兜底）
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}执行额外的停止命令以确保干净：${NC}"
-    pkill -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py"
-    sleep 1
-    if ! pgrep -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py" > /dev/null; then
-        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}额外命令已停止相关进程。${NC}"
+    # 最后执行额外的停止命令（仅在未被用户中止时执行）
+    if [ "$aborted" = false ]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}执行额外的停止命令以确保干净：${NC}"
+        pkill -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py"
+        sleep 1
+        if ! pgrep -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py" > /dev/null; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}额外命令已停止相关进程。${NC}"
+        else
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}额外命令未能停止相关进程，请手动检查。${NC}"
+        fi
     else
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}额外命令未能停止相关进程，请手动检查。${NC}"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}已跳过额外的停止命令（用户选择放弃停止）。${NC}"
     fi
 
     # 返回状态
-    if [ "$stopped" = true ]; then
+    if [ "$aborted" = true ]; then
+        # 用户选择不停止包含“正在录制”的进程 — 按用户意愿返回 0（非错误）
+        return 0
+    elif [ "$stopped" = true ]; then
         return 0
     else
         return 1
     fi
-}
-
-# ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
-stop_extra_processes() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
-    for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
-        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
-        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
-    done
-
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“ffmpeg”${NC}${NORMAL} 关键字的进程…"
-    for pid in $(ps aux | grep -v grep | grep 'ffmpeg' | awk '{print $2}'); do
-        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
-        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
-    done
 }
 
 # ===================== 日志查看函数（修复 q 无法退出问题） =====================
@@ -1108,11 +1164,10 @@ main_menu() {
         echo -e "${BLUE}${BOLD}10.${NC}${CYAN}${BOLD}更新DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}11.${NC}${RED}${BOLD}卸载DanmakuRender v5${NC}"
         echo -e "${BLUE}${BOLD}12.${NC}${CYAN}${BOLD}更新脚本${NC}${BOLD} [V${VERSION}]${NC}"
-        echo -e "${BLUE}${BOLD}13.${NC}${CYAN}${BOLD}优化系统性能(Debian13)${NC}"
         echo -e "${BLUE}${BOLD}0.${NC} ${BOLD}退出菜单${NC}"
         echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-        read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-13]: ${NC}")" choice
+        read -p "$(echo -e "${CYAN}${BOLD}请输入选项[0-12]: ${NC}")" choice
         case $choice in
             1)
                 install_dmr
@@ -1156,9 +1211,8 @@ main_menu() {
                 }
                 ;;
             12) require_installed && update_script ;;
-            13) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/tune-deb13.sh) ;;
              0) exit 0 ;;
-            *) echo -e "${RED}无效选项 '$choice'！请输入[0-13]${NC}" ;;
+            *) echo -e "${RED}无效选项 '$choice'！请输入[0-12]${NC}" ;;
         esac
 
         echo
