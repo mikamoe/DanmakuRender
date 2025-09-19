@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="2025-09-19"
+VERSION="2025-08-26-1"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -702,16 +702,6 @@ stop_dmr() {
     local pid_to_kill=""
     local stopped=false
 
-    # 首先检查是否有正在录制的进程
-    if ps aux | grep -q "[正][在][录][制]"; then
-        echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}检测到正在录制的进程！${NC}"
-        read -p "是否继续停止运行？(Yy/Nn): " confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}用户取消停止操作。${NC}"
-            return 0
-        fi
-    fi
-
     # 首先尝试从pid文件中获取PID
     if [ -f "$pid_file" ]; then
         pid_to_kill=$(cat "$pid_file")
@@ -719,7 +709,7 @@ stop_dmr() {
             # 检查进程是否存在
             if ps -p "$pid_to_kill" > /dev/null; then
                 # 检查进程命令是否匹配（基础验证）
-                if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
+                 if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
                     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
                     # 先尝试发送TERM信号优雅停止
                     kill "$pid_to_kill"
@@ -733,23 +723,23 @@ stop_dmr() {
                         kill -9 "$pid_to_kill"
                         sleep 1
                         if ! ps -p "$pid_to_kill" > /dev/null; then
-                            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
-                            stopped=true
+                             echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
+                             stopped=true
                         else
-                            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法停止进程 $pid_to_kill！${NC}"
+                             echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法停止进程 $pid_to_kill！${NC}"
                         fi
                     fi
-                else
-                    echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 存在，但命令不匹配 ${DMR_CMD}。可能不是目标进程，跳过。${NC}"
-                    pid_to_kill="" # 重置pid_to_kill以便后续使用pkill
-                fi
+                 else
+                     echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 存在，但命令不匹配 ${DMR_CMD}。可能不是目标进程，跳过。${NC}"
+                     pid_to_kill="" # 重置pid_to_kill以便后续使用pkill
+                 fi
             else
                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 不存在。可能已停止。${NC}"
                 stopped=true # 如果PID不存在则认为已停止
             fi
         else
-            echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件 ($pid_file) 包含无效内容: '$pid_to_kill'。${NC}"
-            pid_to_kill="" # 重置pid_to_kill
+             echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件 ($pid_file) 包含无效内容: '$pid_to_kill'。${NC}"
+             pid_to_kill="" # 重置pid_to_kill
         fi
         # 无论是否成功停止，都清理pid文件
         rm -f "$pid_file"
@@ -794,6 +784,20 @@ stop_dmr() {
     fi
 }
 
+# ===================== 新增：停止额外录制/ffmpeg 相关进程 =====================
+stop_extra_processes() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“正在录制”${NC}${NORMAL} 关键字的进程…"
+    for pid in $(ps aux | grep -v grep | grep '正在录制' | awk '{print $2}'); do
+        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+    done
+
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 检查并停止带 ${YELLOW}“ffmpeg”${NC}${NORMAL} 关键字的进程…"
+    for pid in $(ps aux | grep -v grep | grep 'ffmpeg' | awk '{print $2}'); do
+        echo -e "${YELLOW} 发现 PID=$pid，发送 TERM…${NC}"
+        kill "$pid" && echo -e "${GREEN} 进程 $pid 已停止。${NC}"
+    done
+}
 
 # ===================== 日志查看函数（修复 q 无法退出问题） =====================
 view_log() {
@@ -1116,7 +1120,19 @@ main_menu() {
                 require_installed && {
                     # 使用先前计算的 running_pid 判断要执行停止还是启动
                     if [ -n "$running_pid" ]; then
-                        stop_dmr; stop_extra_processes
+                        # 若存在包含“正在录制”的进程，则询问是否继续停止
+                        if ps aux | grep -v grep | grep -q '正在录制'; then
+                            read -p "$(echo -e "${YELLOW}检测到有进程标记为【正在录制】，是否继续停止运行？(Yy/Nn, 默认N): ${NC}")" stop_confirm
+                            stop_confirm=${stop_confirm:-N}
+                            if [[ "$stop_confirm" =~ ^[Yy]$ ]]; then
+                                stop_dmr; stop_extra_processes
+                            else
+                                echo -e "${YELLOW}已取消停止操作，保持原状态。${NC}"
+                            fi
+                        else
+                            # 未检测到“正在录制”标记，直接停止
+                            stop_dmr; stop_extra_processes
+                        fi
                     else
                         check_config && start_dmr && view_log
                     fi
