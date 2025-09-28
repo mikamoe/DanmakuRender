@@ -919,7 +919,7 @@ delete_replays() {
     local group_indices=()
     local current_index=0
 
-    echo -e "${BLUE}${BOLD}检测视频文件（显示日期为文件最后修改的日期）：${NC}"
+    echo -e "${BLUE}${BOLD}检测视频文件：${NC}"
     for i in "${!dirs[@]}"; do
         echo -e "${LIGHTBLUE}${BOLD}${dirs[$i]}${NC}"
     done
@@ -977,7 +977,7 @@ delete_replays() {
             for date in "${sorted_dates[@]}"; do
                 # 打印为 "YYYY年MM月DD日" 格式；unknown-date 特殊处理
                 if [ "$date" = "unknown-date" ]; then
-                    echo -e "  ${YELLOW}${BOLD}未知日期${NC}"
+                    echo -e "${YELLOW}${BOLD}未知日期${NC}"
                 else
                     # 将 YYYY-MM-DD 转为 YYYY年MM月DD日
                     local date_cn
@@ -986,11 +986,14 @@ delete_replays() {
                     if [ -z "$date_cn" ]; then
                         date_cn="$date"
                     fi
-                    echo -e "  ${ORANGE}${BOLD}${date_cn}${NC}"
+                    echo -e "${ORANGE}${BOLD}${date_cn}${NC}"
                 fi
 
                 # 遍历该日期下的文件（保持原有添加顺序）
                 IFS=$'\n'
+                # 计算序号宽度（根据文件总数）
+                local width=${#files[@]}
+                local num_width=${#width}
                 for filepath in ${files_by_date[$date]}; do
                     [ -f "$filepath" ] || continue
                     local fname="$(basename "$filepath")"
@@ -1007,7 +1010,7 @@ delete_replays() {
                     if [ -z "$index" ]; then
                         index=?
                     fi
-                    printf "    %2s) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
+                    printf "%${num_width}s) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
                 done
                 unset IFS
             done
