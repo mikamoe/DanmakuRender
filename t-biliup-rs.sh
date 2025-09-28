@@ -196,15 +196,73 @@ select_video_files() {
     fi
 
     echo -e "\n${BOLD}可用视频文件列表：${RESET}"
-    for file_path in "${files[@]}"; do
-        local file_name=$(basename "$file_path")
-        local file_size=$(du -h "$file_path" | cut -f1)
-        # 序号对齐、文件名加色加粗、文件大小加色
-        printf "%2d) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
-            "$i" "$file_name" "$file_size"
-        ((i++))
+
+    # 按天分组（键为 YYYY-MM-DD），保持 files 数组顺序用于索引
+    declare -A files_by_date=()
+    declare -a date_list=()
+    for filepath in "${files[@]}"; do
+        # 取文件修改日期的 YYYY-MM-DD（Debian/Ubuntu 上使用 stat）
+        local fdate
+        fdate=$(stat -c %y "$filepath" 2>/dev/null | cut -d' ' -f1)
+        if [ -z "$fdate" ]; then
+            fdate=$(date -r "$filepath" +%F 2>/dev/null)
+        fi
+        if [ -z "$fdate" ]; then
+            fdate="unknown-date"
+        fi
+
+        if [ -z "${files_by_date[$fdate]+_}" ]; then
+            files_by_date["$fdate"]="$filepath"
+            date_list+=("$fdate")
+        else
+            files_by_date["$fdate"]="${files_by_date[$fdate]}"$'\n'"$filepath"
+        fi
     done
 
+    # 对日期降序排序（新的日期在上）。unknown-date 放在最后
+    if [ ${#date_list[@]} -gt 0 ]; then
+        IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort -r))
+        unset IFS
+    else
+        sorted_dates=()
+    fi
+
+    # 输出分组列表，索引对应 files 数组中的位置（1-based）
+    for date in "${sorted_dates[@]}"; do
+        if [ "$date" = "unknown-date" ]; then
+            echo -e "  ${YELLOW}${BOLD}未知日期${RESET}"
+        else
+            local date_cn
+            date_cn=$(date -d "$date" +'%Y年%m月%d日' 2>/dev/null)
+            if [ -z "$date_cn" ]; then
+                date_cn="$date"
+            fi
+            echo -e "  ${ORANGE}${BOLD}${date_cn}${RESET}"
+        fi
+
+        IFS=$'\n'
+        for fp in ${files_by_date[$date]}; do
+            [ -f "$fp" ] || continue
+            local file_name=$(basename "$fp")
+            local file_size=$(du -h "$fp" | cut -f1)
+            # 在 files 数组中查找全局索引（1-based）
+            local index=""
+            for ((ii=0; ii<${#files[@]}; ii++)); do
+                if [[ "${files[ii]}" == "$fp" ]]; then
+                    index=$((ii+1))
+                    break
+                fi
+            done
+            if [ -z "$index" ]; then
+                index="?"
+            fi
+            printf "    %2s) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
+                "$index" "$file_name" "$file_size"
+        done
+        unset IFS
+    done
+
+    # 选择逻辑保持不动
     if [[ "$mode" == "single" ]]; then
         read -p $'\n请选择要上传的视频文件编号（0 取消）：' choice
         [[ "$choice" == "0" ]] && { warning "取消选择。"; return 1; }
