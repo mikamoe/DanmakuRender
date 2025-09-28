@@ -219,9 +219,9 @@ select_video_files() {
         fi
     done
 
-    # 对日期降序排序（新的日期在上）。unknown-date 放在最后
+    # 对日期升序排序（新的日期在下）。unknown-date 放在最后
     if [ ${#date_list[@]} -gt 0 ]; then
-        IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort -r))
+        IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort))
         unset IFS
     else
         sorted_dates=()
