@@ -919,7 +919,7 @@ delete_replays() {
     local group_indices=()
     local current_index=0
 
-    echo -e "${BLUE}${BOLD}检测视频文件：${NC}"
+    echo -e "${BLUE}${BOLD}检测视频文件（显示日期为文件最后修改的日期）：${NC}"
     for i in "${!dirs[@]}"; do
         echo -e "${LIGHTBLUE}${BOLD}${dirs[$i]}${NC}"
     done
