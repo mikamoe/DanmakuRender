@@ -219,31 +219,51 @@ select_video_files() {
         fi
     done
 
-    # 对日期升序排序（新的日期在下）。unknown-date 放在最后
-    if [ ${#date_list[@]} -gt 0 ]; then
-        IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort))
+    # 对日期升序排序（旧的在上，新的在下）。unknown-date 放在最后
+    declare -a known_dates=()
+    local unknown_present=0
+    for d in "${date_list[@]}"; do
+        if [ "$d" = "unknown-date" ]; then
+            unknown_present=1
+        else
+            known_dates+=("$d")
+        fi
+    done
+
+    if [ ${#known_dates[@]} -gt 0 ]; then
+        IFS=$'\n' sorted_dates=($(printf "%s\n" "${known_dates[@]}" | sort))
         unset IFS
     else
         sorted_dates=()
     fi
 
+    if [ $unknown_present -eq 1 ]; then
+        sorted_dates+=("unknown-date")
+    fi
+
     # 输出分组列表，索引对应 files 数组中的位置（1-based）
     for date in "${sorted_dates[@]}"; do
         if [ "$date" = "unknown-date" ]; then
-            echo -e "  ${YELLOW}${BOLD}未知日期${RESET}"
+            echo -e "${YELLOW}${BOLD}未知日期${RESET}"
         else
             local date_cn
             date_cn=$(date -d "$date" +'%Y年%m月%d日' 2>/dev/null)
             if [ -z "$date_cn" ]; then
                 date_cn="$date"
             fi
-            echo -e "  ${ORANGE}${BOLD}${date_cn}${RESET}"
+            echo -e "${ORANGE}${BOLD}${date_cn}${RESET}"
         fi
 
         IFS=$'\n'
-        # 计算序号宽度（根据文件总数自适应）
+        # 计算序号宽度（根据文件总数自适应：<10 ->1, <100 ->2, <1000 ->3 ...）
         local total=${#files[@]}
-        local num_width=${#total}
+        local num_width=1
+        local tmp=$total
+        while (( tmp >= 10 )); do
+            tmp=$((tmp / 10))
+            num_width=$((num_width + 1))
+        done
+
         for fp in ${files_by_date[$date]}; do
             [ -f "$fp" ] || continue
             local file_name=$(basename "$fp")
@@ -259,7 +279,7 @@ select_video_files() {
             if [ -z "$index" ]; then
                 index="?"
             fi
-            printf "    %${num_width}s) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
+            printf "%${num_width}s) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
                 "$index" "$file_name" "$file_size"
         done
         unset IFS
