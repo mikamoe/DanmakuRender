@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="20250919"
+VERSION="20250929"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -932,21 +932,84 @@ delete_replays() {
         echo -e "${PURPLE}${BOLD}${dir_name}${NC} ${ORANGE}(${dir_size})${NC}"
 
         local group_start=$current_index
+
+        # 使用关联数组按日期分组（按天，键为 YYYY-MM-DD）
+        declare -A files_by_date=()
+        declare -a date_list=()
+
         for f in "$d"/*; do
             [ -f "$f" ] || continue
             files+=("$f")
             ((current_index++))
+
+            # 取文件修改日期的 YYYY-MM-DD（在 Debian/Ubuntu 上使用 stat）
+            local fdate
+            fdate=$(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1)
+            # 如果 stat 失败，退回到使用 date -r（兼容性备份）
+            if [ -z "$fdate" ]; then
+                fdate=$(date -r "$f" +%F 2>/dev/null)
+            fi
+            # 若仍为空则标为未知
+            if [ -z "$fdate" ]; then
+                fdate="unknown-date"
+            fi
+
+            # 将文件追加到对应日期的列表（用换行分隔）
+            if [ -z "${files_by_date[$fdate]+_}" ]; then
+                files_by_date["$fdate"]="$f"
+                date_list+=("$fdate")
+            else
+                files_by_date["$fdate"]="${files_by_date[$fdate]}"$'\n'"$f"
+            fi
         done
 
         if [ $group_start -eq $current_index ]; then
             echo -e "${YELLOW}(无视频文件)${NC}"
         else
-            for ((i=group_start; i<current_index; i++)); do
-                local filepath="${files[i]}"
-                local fname="$(basename "$filepath")"
-                local fsize=$(du -h "$filepath" | awk '{print $1}')
-                local index=$((i + 1))
-                printf "%2d) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
+            # 对日期列表进行去重（上面已避免重复添加），并按日期降序排序（新的日期在上）
+            if [ ${#date_list[@]} -gt 0 ]; then
+                IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort -r))
+                unset IFS
+            else
+                sorted_dates=()
+            fi
+
+            for date in "${sorted_dates[@]}"; do
+                # 打印为 "YYYY年MM月DD日" 格式；unknown-date 特殊处理
+                if [ "$date" = "unknown-date" ]; then
+                    echo -e "  ${YELLOW}${BOLD}未知日期${NC}"
+                else
+                    # 将 YYYY-MM-DD 转为 YYYY年MM月DD日
+                    local date_cn
+                    date_cn=$(date -d "$date" +'%Y年%m月%d日' 2>/dev/null)
+                    # 若 date -d 失败则回退为原始格式
+                    if [ -z "$date_cn" ]; then
+                        date_cn="$date"
+                    fi
+                    echo -e "  ${ORANGE}${BOLD}${date_cn}${NC}"
+                fi
+
+                # 遍历该日期下的文件（保持原有添加顺序）
+                IFS=$'\n'
+                for filepath in ${files_by_date[$date]}; do
+                    [ -f "$filepath" ] || continue
+                    local fname="$(basename "$filepath")"
+                    local fsize=$(du -h "$filepath" | awk '{print $1}')
+                    # 通过在 files 数组中查找确定全局索引（1-based）
+                    local index=""
+                    for ((ii=0; ii<${#files[@]}; ii++)); do
+                        if [ "${files[ii]}" = "$filepath" ]; then
+                            index=$((ii+1))
+                            break
+                        fi
+                    done
+                    # 若没找到索引则设置为 ?
+                    if [ -z "$index" ]; then
+                        index=?
+                    fi
+                    printf "    %2s) ${CYAN}%s${NC} ${GREEN}(%s)${NC}\n" "$index" "$fname" "$fsize"
+                done
+                unset IFS
             done
         fi
     done
@@ -985,7 +1048,6 @@ delete_replays() {
         done
     fi
 }
-
 
 # ===================== 状态及主菜单 =====================
 show_header() {
