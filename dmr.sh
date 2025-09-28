@@ -966,9 +966,9 @@ delete_replays() {
         if [ $group_start -eq $current_index ]; then
             echo -e "${YELLOW}(无视频文件)${NC}"
         else
-            # 对日期列表进行去重（上面已避免重复添加），并按日期降序排序（新的日期在上）
+            # 对日期列表进行去重（上面已避免重复添加），并按日期升序排序（新的日期在下）
             if [ ${#date_list[@]} -gt 0 ]; then
-                IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort -r))
+                IFS=$'\n' sorted_dates=($(printf "%s\n" "${date_list[@]}" | sort))
                 unset IFS
             else
                 sorted_dates=()
