@@ -241,6 +241,9 @@ select_video_files() {
         fi
 
         IFS=$'\n'
+        # 计算序号宽度（根据文件总数自适应）
+        local total=${#files[@]}
+        local num_width=${#total}
         for fp in ${files_by_date[$date]}; do
             [ -f "$fp" ] || continue
             local file_name=$(basename "$fp")
@@ -256,7 +259,7 @@ select_video_files() {
             if [ -z "$index" ]; then
                 index="?"
             fi
-            printf "    %2s) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
+            printf "    %${num_width}s) ${BLUE}${BOLD}%s${RESET} ${GREEN}${BOLD}(%s)${RESET}\n" \
                 "$index" "$file_name" "$file_size"
         done
         unset IFS
