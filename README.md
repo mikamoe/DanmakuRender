@@ -5,7 +5,7 @@
 
 #### "注意：运行本脚本需要具有 sudo 权限的用户身份。"
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
 ### Menu
 ```
