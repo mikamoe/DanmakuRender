@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="20250929"
+VERSION="20251129"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -709,10 +709,10 @@ stop_dmr() {
             # 检查进程是否存在
             if ps -p "$pid_to_kill" > /dev/null; then
                 # 检查进程命令是否匹配（基础验证）
-                 if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
+                if ps -p "$pid_to_kill" -o cmd= | grep -q -F "$DMR_CMD"; then
                     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在尝试停止 PID 文件中的进程: $pid_to_kill...${NC}"
                     # 先尝试发送TERM信号优雅停止
-                    kill "$pid_to_kill"
+                    kill "$pid_to_kill" 2>/dev/null || true
                     sleep 1 # 等待1秒
                     if ! ps -p "$pid_to_kill" > /dev/null; then
                         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (TERM)。${NC}"
@@ -720,7 +720,7 @@ stop_dmr() {
                     else
                         # TERM无效时强制KILL
                         echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}进程 $pid_to_kill 未响应 TERM 信号，强制停止 (KILL)...${NC}"
-                        kill -9 "$pid_to_kill"
+                        kill -9 "$pid_to_kill" 2>/dev/null || true
                         sleep 1
                         if ! ps -p "$pid_to_kill" > /dev/null; then
                              echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}进程 $pid_to_kill 已停止 (KILL)。${NC}"
@@ -729,10 +729,10 @@ stop_dmr() {
                              echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法停止进程 $pid_to_kill！${NC}"
                         fi
                     fi
-                 else
-                     echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 存在，但命令不匹配 ${DMR_CMD}。可能不是目标进程，跳过。${NC}"
-                     pid_to_kill="" # 重置pid_to_kill以便后续使用pkill
-                 fi
+                else
+                    echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 存在，但命令不匹配 ${DMR_CMD}。可能不是目标进程，跳过。${NC}"
+                    pid_to_kill="" # 重置pid_to_kill以便后续使用pkill
+                fi
             else
                 echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}PID 文件中的进程 $pid_to_kill 不存在。可能已停止。${NC}"
                 stopped=true # 如果PID不存在则认为已停止
@@ -751,7 +751,7 @@ stop_dmr() {
         # 先用pgrep检查是否有匹配进程
         if pgrep -f "$DMR_CMD" > /dev/null; then
             # 使用pkill根据命令字符串停止
-            pkill -f "$DMR_CMD"
+            pkill -f "$DMR_CMD" 2>/dev/null || true
             sleep 1
             # 检查是否已停止
             if ! pgrep -f "$DMR_CMD" > /dev/null; then
@@ -768,12 +768,34 @@ stop_dmr() {
 
     # 最后执行额外的停止命令（独立，不作为兜底）
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}执行额外的停止命令以确保干净：${NC}"
-    pkill -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py"
+    pkill -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py" 2>/dev/null || true
     sleep 1
     if ! pgrep -f "/opt/DanmakuRender-5/venv/bin/python3 DMR/Downloader/streamgears_wrapper.py" > /dev/null; then
         echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}额外命令已停止相关进程。${NC}"
     else
         echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}额外命令未能停止相关进程，请手动检查。${NC}"
+    fi
+
+    # —— 新增：同时查找并停止所有与 streamlink 相关的进程（如果有）
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}检查并停止所有与 'streamlink' 相关的进程...${NC}"
+    if pgrep -f "streamlink" > /dev/null; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${YELLOW}找到 streamlink 相关进程，尝试停止...${NC}"
+        # 尝试优雅终止（TERM），再强制（KILL）
+        pkill -TERM -f "streamlink" 2>/dev/null || true
+        sleep 1
+        if pgrep -f "streamlink" > /dev/null; then
+            echo -e "${YELLOW}${BOLD}[WARN]${NC}${NORMAL} ${YELLOW}streamlink 进程未响应 TERM，执行强制 KILL...${NC}"
+            pkill -9 -f "streamlink" 2>/dev/null || true
+            sleep 1
+        fi
+
+        if ! pgrep -f "streamlink" > /dev/null; then
+            echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}所有 streamlink 相关进程 已停止。${NC}"
+        else
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未能停止所有 streamlink 进程，请手动检查。${NC}"
+        fi
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}未找到任何 streamlink 相关进程。${NC}"
     fi
 
     # 返回状态
