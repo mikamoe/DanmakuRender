@@ -10,7 +10,7 @@ BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 INSTALL_DATE_FILE="$DMR_DIR/install_date"
 
 # GitHub 项目信息
-GITHUB_OWNER="SmallPeaches"
+GITHUB_OWNER="L458120801"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
 DMR_GITHUB_BASE="https://github.com/L458120801/DanmakuRender"
