@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="20251129"
+VERSION="20260107"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -13,7 +13,7 @@ INSTALL_DATE_FILE="$DMR_DIR/install_date"
 GITHUB_OWNER="SmallPeaches"
 GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
-DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
+DMR_GITHUB_BASE="https://github.com/L458120801/DanmakuRender"
 
 # biliup-rs 项目信息
 BILIUP_OWNER="biliup"
