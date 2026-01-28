@@ -523,11 +523,11 @@ main_menu() {
         running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
         show_header; show_status
         echo -e "\n${BOLD}【 核心管理 】${NC}"
-        echo -e " ${BLUE}1. ${NC} 安装程序"
+        echo -e " ${BLUE}1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
-            echo -e " ${BLUE}2. ${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
+            echo -e " ${BLUE}2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
         else
-            echo -e " ${BLUE}2. ${NC} ${GREEN}启动录制 (后台)${NC}"
+            echo -e " ${BLUE}2.${NC} ${GREEN}启动录制 (后台)${NC}"
         fi
         echo -e " ${BLUE}3.${NC} 查看实时日志"
         echo -e " ${BLUE}10.${NC} 更新程序"
