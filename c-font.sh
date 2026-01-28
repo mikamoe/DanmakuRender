@@ -95,7 +95,7 @@ while true; do
         1)
             echo -e "${LOG_INFO}正在下载安装 微软雅黑..."
             mkdir -p "$MICROSOFT_FONT_DIR"
-            wget -q --show-progress -O "$MICROSOFT_FONT_DIR/msyh.ttf" "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/msyh.ttf"
+            wget -q --show-progress -O "$MICROSOFT_FONT_DIR/msyh.ttf" "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/msyh.ttf"
             chmod 644 "$MICROSOFT_FONT_DIR/msyh.ttf"
             fc-cache -fv > /dev/null
             echo -e "${LOG_SUCCESS}微软雅黑安装完成！"
@@ -109,9 +109,9 @@ while true; do
 
             mkdir -p "$MICROSOFT_FONT_DIR"
             if [[ "$sechoice" == "1" ]]; then
-                wget -q --show-progress -O "$MICROSOFT_FONT_DIR/seguiemj.ttf" "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/Segoe-UI-Emoji-Win10/seguiemj.ttf"
+                wget -q --show-progress -O "$MICROSOFT_FONT_DIR/seguiemj.ttf" "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/Segoe-UI-Emoji-Win10/seguiemj.ttf"
             elif [[ "$sechoice" == "2" ]]; then
-                wget -q --show-progress -O "$MICROSOFT_FONT_DIR/seguiemj.ttf" "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/Segoe-UI-Emoji-Win11/seguiemj.ttf"
+                wget -q --show-progress -O "$MICROSOFT_FONT_DIR/seguiemj.ttf" "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/Segoe-UI-Emoji-Win11/seguiemj.ttf"
             else
                 echo -e "${LOG_ERROR}无效选项"
                 read -rp "按任意键返回主菜单..." -n1 -s
@@ -134,7 +134,7 @@ while true; do
         4)
             echo -e "${LOG_INFO}正在下载安装 阿里巴巴普惠体 3.0..."
             mkdir -p "$ALIPUHUITI_DIR"
-            wget -q --show-progress -O "$ALIPUHUITI_DIR/AlibabaPuHuiTi-3-85-Bold.ttf" "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
+            wget -q --show-progress -O "$ALIPUHUITI_DIR/AlibabaPuHuiTi-3-85-Bold.ttf" "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/AlibabaPuHuiTi-3-85-Bold.ttf"
             chmod 644 "$ALIPUHUITI_DIR/AlibabaPuHuiTi-3-85-Bold.ttf"
             fc-cache -fv > /dev/null
             echo -e "${LOG_SUCCESS}阿里巴巴普惠体 3.0 安装完成！"
@@ -143,7 +143,7 @@ while true; do
         5)
             echo -e "${LOG_INFO}正在下载安装 975Maru..."
             mkdir -p "$MARU_FONT_DIR"
-            wget -q --show-progress -O "$MARU_FONT_DIR/975MaruSC-Bold.ttf" "https://raw.githubusercontent.com/sillda76/DanmakuRender/v5/fonts/975MaruSC-Bold.ttf"
+            wget -q --show-progress -O "$MARU_FONT_DIR/975MaruSC-Bold.ttf" "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/975MaruSC-Bold.ttf"
             chmod 644 "$MARU_FONT_DIR/975MaruSC-Bold.ttf"
             fc-cache -fv > /dev/null
             echo -e "${LOG_SUCCESS}975Maru 安装完成！"
