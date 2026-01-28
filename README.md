@@ -1,9 +1,9 @@
 ## DanmakuRender Script
 - 适用于**Debian/Ubuntu**
-- 快捷安装/卸载,启动/停止录制/快速上传
+- 快速安装/卸载,启动/停止录制/快速上传
 - 脚本仅辅助使用 更多教程请参考使用文档
 
-#### "注意：运行本脚本需要具有 sudo 权限的用户身份。"
+#### "注意：请使用root运行"
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/dmr.sh)
 ```
