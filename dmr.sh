@@ -243,29 +243,82 @@ install_biliup_rs() {
 
 update_dmr() {
     require_installed || return 1
+
     if ! command -v rsync &>/dev/null; then
         sudo apt update && sudo apt install -y rsync
     fi
+
     read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
     [[ ! "$confirm_update" =~ ^[Yy]$ ]] && return 0
+
     echo -e "${LOG_INFO}开始更新程序...${NC}"
     pgrep -f "$DMR_CMD" > /dev/null && stop_dmr
+
+    # ========= 备份 =========
     local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
     sudo mkdir -p "$backup_dir"
+
     local configs_backup_root="${DMR_DIR}/configs_backups"
     local configs_backup="${configs_backup_root}/configs_backup_$(date +%Y%m%d_%H%M%S)"
     sudo mkdir -p "$configs_backup_root"
-    sudo cp -r "$DMR_DIR/configs" "$configs_backup" && sudo cp -r "$DMR_DIR" "$backup_dir"
-    local tmp_dir=$(mktemp -d)
-    if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
-        rollback_update "$backup_dir" "$configs_backup"; return 1
+
+    sudo cp -r "$DMR_DIR/configs" "$configs_backup"
+    sudo cp -r "$DMR_DIR" "$backup_dir"
+
+    # ========= 选择更新来源 =========
+    echo -e "\n${CYAN}请选择更新来源：${NC}"
+    echo -e "  ${GREEN}1) 最新提交 (开发分支)${NC} [默认]"
+    echo -e "  ${GREEN}2) 最新稳定版 (Releases)${NC}"
+    read -p "$(echo -e "${YELLOW}输入选择 [1/2]: ${NC}")" update_choice
+    update_choice="${update_choice:-1}"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+
+    # ========= 拉取代码 =========
+    if [[ "$update_choice" == "1" ]]; then
+        echo -e "${LOG_INFO}使用开发分支最新提交进行更新...${NC}"
+        if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
+            rollback_update "$backup_dir" "$configs_backup"
+            return 1
+        fi
+    else
+        echo -e "${LOG_INFO}使用最新 Releases 稳定版进行更新...${NC}"
+        local latest_tag
+        latest_tag=$(curl -sfL "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" \
+            | jq -r '.tag_name // empty')
+
+        if [ -z "$latest_tag" ]; then
+            echo -e "${LOG_ERROR}获取最新 Releases 版本失败！${NC}"
+            rollback_update "$backup_dir" "$configs_backup"
+            return 1
+        fi
+
+        curl -fsL -o "${tmp_dir}/release.tar.gz" \
+            "${DMR_GITHUB_BASE}/archive/refs/tags/${latest_tag}.tar.gz" || {
+            rollback_update "$backup_dir" "$configs_backup"
+            return 1
+        }
+
+        tar -xzf "${tmp_dir}/release.tar.gz" -C "$tmp_dir" || {
+            rollback_update "$backup_dir" "$configs_backup"
+            return 1
+        }
     fi
-    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" && rm -rf "$tmp_dir"
-    echo -e "${LOG_SUCCESS}更新成功！配置备份位于: ${configs_backup}${NC}"
+
+    # ========= 覆盖更新（保留 configs） =========
+    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" || {
+        rollback_update "$backup_dir" "$configs_backup"
+        return 1
+    }
+
+    rm -rf "$tmp_dir"
     sudo rm -rf "$backup_dir"
-    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
+
+    echo -e "${LOG_SUCCESS}更新成功！配置备份位于: ${configs_backup}${NC}"
+
+    # ========= 更新状态信息 =========
     fetch_github_times
-    get_install_date
     return 0
 }
 
