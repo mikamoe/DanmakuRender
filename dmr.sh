@@ -612,8 +612,8 @@ main_menu() {
             4) manual_render ;;
             5) run_test ;;
             6) delete_replays ;;
-            7) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/t-biliup-rs.sh) ;;
-            8) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/font-dinstall.sh) ;;
+            7) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/t-biliupR.sh) ;;
+            8) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/c-font.sh) ;;
             9) install_js_engine ;;
             10) update_dmr ;;
             11) uninstall_dmr && sudo rm -f /usr/local/bin/d ;;
