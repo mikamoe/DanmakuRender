@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="20260128"
+VERSION="20260129"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -522,7 +522,7 @@ main_menu() {
     while true; do
         running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
         show_header; show_status
-        echo -e "\n${BOLD}【 核心管理 】${NC}"
+        echo -e "${BOLD}【 核心管理 】${NC}"
         echo -e " ${BLUE}1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
             echo -e " ${BLUE}2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
