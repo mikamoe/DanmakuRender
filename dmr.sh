@@ -21,7 +21,7 @@ BILIUP_REPO="biliup"
 BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases"
 
 # 脚本更新 URL
-SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh"
+SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/dmr.sh"
 
 # ANSI 颜色和样式设置
 RED='\033[1;31m'    GREEN='\033[1;32m'  YELLOW='\033[1;33m'
@@ -612,8 +612,8 @@ main_menu() {
             4) manual_render ;;
             5) run_test ;;
             6) delete_replays ;;
-            7) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/t-biliupR.sh) ;;
-            8) bash <(wget -qO- https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/c-font.sh) ;;
+            7) bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/biliupR.sh) ;;
+            8) bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/c-font.sh) ;;
             9) install_js_engine ;;
             10) update_dmr ;;
             11) uninstall_dmr && sudo rm -f /usr/local/bin/d ;;
