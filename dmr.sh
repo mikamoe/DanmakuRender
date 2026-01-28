@@ -15,10 +15,10 @@ GITHUB_REPO="DanmakuRender"
 GITHUB_BRANCH="v5"
 DMR_GITHUB_BASE="https://github.com/SmallPeaches/DanmakuRender"
 
-# biliup-rs 项目信息
+# biliupR 项目信息
 BILIUP_OWNER="biliup"
-BILIUP_REPO="biliup-rs"
-BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases/download"
+BILIUP_REPO="biliup"
+BILIUP_RELEASE_BASE="https://github.com/${BILIUP_OWNER}/${BILIUP_REPO}/releases"
 
 # 脚本更新 URL
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/sillda76/DanmakuRender/refs/heads/v5/dmr.sh"
@@ -215,13 +215,13 @@ check_install_tools() {
 install_biliup_rs() {
     sudo mkdir -p "$BILIUP_DIR"
     pushd "$BILIUP_DIR" > /dev/null || return 1
-    echo -e "${LOG_INFO}获取 biliup-rs 最新版本...${NC}"
+    echo -e "${LOG_INFO}获取 biliupR 最新版本...${NC}"
     local latest_info
     latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
     local latest_version
     latest_version=$(jq -r '.tag_name' <<< "$latest_info")
     if [ -f "./biliup" ] && ./biliup -V 2>/dev/null | grep -q "$latest_version"; then
-        echo -e "${LOG_SUCCESS}biliup-rs 已是最新版本 (${latest_version})。${NC}"
+        echo -e "${LOG_SUCCESS}biliupR 已是最新版本 (${latest_version})。${NC}"
         popd > /dev/null; return 0
     fi
     local arch=$(uname -m)
@@ -234,10 +234,10 @@ install_biliup_rs() {
     esac
     local download_url=$(jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url' <<< "$latest_info")
     local asset_filename=$(basename "$download_url")
-    echo -e "${LOG_INFO}下载并解压 biliup-rs...${NC}"
+    echo -e "${LOG_INFO}下载并解压 biliupR...${NC}"
     curl -fLo "$asset_filename" "$download_url" && tar -xJf "$asset_filename" --strip-components=1 && rm -f "$asset_filename"
     chmod +x ./biliup || { popd > /dev/null; rollback_installation; return 1; }
-    echo -e "${LOG_SUCCESS}biliup-rs 安装完成！${NC}"
+    echo -e "${LOG_SUCCESS}biliupR 安装完成！${NC}"
     popd > /dev/null; return 0
 }
 
@@ -587,7 +587,7 @@ main_menu() {
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
         echo -e " ${BLUE} 4.${NC} 手动渲染视频      ${BLUE} 5.${NC} 运行环境测试"
-        echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliup-rs 上传"
+        echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR"
         echo -e " ${BLUE} 8.${NC} 字体安装菜单      ${BLUE} 9.${NC} JS 环境安装"
 
         echo -e "\n${BOLD}【 系统信息 】${NC}"
