@@ -31,10 +31,10 @@ NC='\033[0m'
 BOLD=$(tput bold)   NORMAL=$(tput sgr0)
 
 # ===================== 状态格式化辅助 =====================
-LOG_INFO="${BLUE}${BOLD}[★]${NC} "
-LOG_SUCCESS="${GREEN}${BOLD}[✔]${NC} "
+LOG_INFO="${BLUE}${BOLD}[i]${NC} "
+LOG_SUCCESS="${GREEN}${BOLD}[✓]${NC} "
 LOG_WARN="${YELLOW}${BOLD}[!]${NC} "
-LOG_ERROR="${RED}${BOLD}[✘]${NC} "
+LOG_ERROR="${RED}${BOLD}[✗]${NC} "
 
 # 全局变量
 commit_sha="" commit_time="" commit_message=""
