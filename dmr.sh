@@ -575,20 +575,20 @@ main_menu() {
         running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
         show_header; show_status
         echo -e "\n${BOLD}【 核心管理 】${NC}"
-        echo -e " ${BLUE}1. ${NC} 安装程序"
+        echo -e " ${BLUE} 1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
-            echo -e " ${BLUE}2. ${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
+            echo -e " ${BLUE} 2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
         else
-            echo -e " ${BLUE}2. ${NC} ${GREEN}启动录制 (后台)${NC}"
+            echo -e " ${BLUE} 2.${NC} ${GREEN}启动录制 (后台)${NC}"
         fi
-        echo -e " ${BLUE}3. ${NC} 查看实时日志"
+        echo -e " ${BLUE} 3.${NC} 查看实时日志"
         echo -e " ${BLUE}10.${NC} 更新程序"
         echo -e " ${BLUE}11.${NC} ${RED}卸载程序${NC}"
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
-        echo -e " ${BLUE}4.${NC} 手动渲染视频      ${BLUE}5.${NC} 运行环境测试"
-        echo -e " ${BLUE}6.${NC} 视频文件管理      ${BLUE}7.${NC} biliup-rs 上传"
-        echo -e " ${BLUE}8.${NC} 字体安装菜单      ${BLUE}9.${NC} JS 环境安装"
+        echo -e " ${BLUE} 4.${NC} 手动渲染视频      ${BLUE} 5.${NC} 运行环境测试"
+        echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliup-rs 上传"
+        echo -e " ${BLUE} 8.${NC} 字体安装菜单      ${BLUE} 9.${NC} JS 环境安装"
 
         echo -e "\n${BOLD}【 系统信息 】${NC}"
         if [[ -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
