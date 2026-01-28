@@ -560,16 +560,28 @@ require_installed() {
     return 0
 }
 
+# ====== 替换：fetch_biliup_times() ======
 fetch_biliup_times() {
     BILIUP_LOCAL_VERSION=""
     BILIUP_REMOTE_VERSION=""
 
-    if [ -x "$BILIUP_DIR/biliup" ]; then
-        BILIUP_LOCAL_VERSION=$("$BILIUP_DIR/biliup" -V 2>/dev/null | awk '{print $NF}')
+    # 本地 biliup 可执行文件检测（更稳健）
+    if [ -x "${BILIUP_DIR}/biliup" ]; then
+        # biliup 输出格式如: biliup vX.Y.Z 或 biliup X.Y.Z，取最后一个字段并去 v 前缀
+        BILIUP_LOCAL_VERSION=$("${BILIUP_DIR}/biliup" -V 2>/dev/null | awk '{print $NF}' | sed 's/^v//')
+    else
+        # 若在 PATH 中也可能存在 biliup，则再试一次查找
+        if command -v biliup &>/dev/null; then
+            BILIUP_LOCAL_VERSION=$(biliup -V 2>/dev/null | awk '{print $NF}' | sed 's/^v//')
+        fi
     fi
 
+    # 远程版本（静默失败）
     local latest_info
-    latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest" 2>/dev/null) || return 0
+    latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest" 2>/dev/null) || {
+        BILIUP_REMOTE_VERSION=""
+        return 0
+    }
     BILIUP_REMOTE_VERSION=$(echo "$latest_info" | jq -r '.tag_name // empty' | sed 's/^v//')
 }
 
@@ -598,18 +610,19 @@ main_menu() {
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
 
-        # ===== 仅此处为新增显示逻辑 =====
-        if [ -d "$DMR_DIR" ] && [ -n "$BILIUP_LOCAL_VERSION" ]; then
+        # ===== biliupR 显示逻辑（仅在已安装时显示版本）=====
+        if [ -n "$BILIUP_LOCAL_VERSION" ]; then
             echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR ${GREEN}[${BILIUP_LOCAL_VERSION}]${NC}"
         else
             echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR"
         fi
-        # ===============================
+        # =====================================================
 
         echo -e " ${BLUE} 8.${NC} 字体安装菜单      ${BLUE} 9.${NC} JS 环境安装"
 
         echo -e "\n${BOLD}【 系统信息 】${NC}"
-        if [[ -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
+
+        if [[ -n "$BILIUP_LOCAL_VERSION" && -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e " ${ORANGE}→ biliupR 有更新: ${BILIUP_REMOTE_VERSION} (当前 ${BILIUP_LOCAL_VERSION})${NC}"
         fi
 
