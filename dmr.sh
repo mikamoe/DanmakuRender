@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION="20260108"
+VERSION="20260128"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -477,12 +477,74 @@ install_dmr() {
     check_install_tools || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}系统工具检查或安装失败！安装中止。${NC}"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}系统工具检查/安装完成。${NC}"
 
-    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}正在使用 git clone 拉取 DanmakuRender ${GITHUB_BRANCH} 分支...${NC}"
-    if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
-        echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}git clone 失败！请检查网络、权限或仓库地址/分支。${NC}"
-        return 1
+    # 提示用户选择安装来源：最新提交（分支）或最新 Releases
+    echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${CYAN}请选择要安装的来源：${NC}"
+    echo -e "  ${GREEN}1) 最新提交（分支：${GITHUB_BRANCH}）${NC}  （默认）"
+    echo -e "  ${GREEN}2) 最新 Releases（GitHub Releases 的最新 tag）${NC}"
+    read -p "$(echo -e "${YELLOW}输入选择 [1/2]（默认1）： ${NC}")" install_choice
+    install_choice=${install_choice:-1}
+
+    # 为拉取代码准备临时目录（某些方式需要使用）
+    local tmp_dir
+    tmp_dir=$(mktemp -d) || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 无法创建临时目录！${NC}"; return 1; }
+
+    if [[ "$install_choice" == "1" ]]; then
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}使用分支 ${GITHUB_BRANCH} 的最新提交进行安装（git clone）...${NC}"
+        if ! git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}git clone 失败！请检查网络、权限或仓库地址/分支。${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+    else
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}尝试获取 GitHub Releases 的最新 Release 并安装...${NC}"
+        local latest_tag
+        latest_tag=$(curl -sfL "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | jq -r '.tag_name // empty')
+
+        if [ -z "$latest_tag" ] || [ "$latest_tag" == "null" ]; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}无法获取最新 Release 的 tag（可能无 Releases 或 API 请求失败）。${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}检测到最新 Release: ${latest_tag}${NC}"
+        # 以 tar.gz 形式下载 release 源代码（GitHub auto-generated tarball）
+        local archive_url="${DMR_GITHUB_BASE}/archive/refs/tags/${latest_tag}.tar.gz"
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在下载 ${archive_url} ..."
+        if ! curl -fsL -o "${tmp_dir}/release.tar.gz" "$archive_url"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}下载 Release tarball 失败！${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 正在解压 Release ...（到临时目录）"
+        if ! tar -xzf "${tmp_dir}/release.tar.gz" -C "$tmp_dir"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}解压 Release 失败！${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+
+        # 找到解压出的目录（通常名为 repoName-tag）
+        local extracted_dir
+        extracted_dir=$(find "$tmp_dir" -maxdepth 1 -type d -name "${GITHUB_REPO}*" | head -n 1)
+        if [ -z "$extracted_dir" ]; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}未能找到解压后的源代码目录！${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+
+        # 将解压出的目录移动到目标安装目录（使用 sudo 以防 /opt 权限问题）
+        echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} 将源代码移动到安装目录：${DMR_DIR}"
+        if ! sudo mv "$extracted_dir" "$DMR_DIR"; then
+            echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} ${RED}移动目录到 ${DMR_DIR} 失败！请检查权限。${NC}"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
     fi
+
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${GREEN}代码拉取完成！${NC}"
+
+    # 清理临时目录（若存在）
+    rm -rf "$tmp_dir" 2>/dev/null || true
 
     pushd "$DMR_DIR" > /dev/null || { echo -e "${RED}${BOLD}[ERROR]${NC}${NORMAL} 进入安装目录 $DMR_DIR 失败！"; return 1; }
     echo -e "${BLUE}${BOLD}[INFO]${NC}${NORMAL} ${BLUE}创建 Python 虚拟环境 (venv)...${NC}"
@@ -1110,9 +1172,9 @@ show_header() {
 
     # 在最新代码提交下方显示已获取的远程版本（由 fetch_github_times 预先设置）
     if [ -n "$release_version" ]; then
-        echo -e "${CYAN}最新版本: ${BOLD}${release_version}${NC}"
+        echo -e "${CYAN}最新Release版本: ${BOLD}${release_version}${NC}"
     else
-        echo -e "${CYAN}最新版本: ${RED}N/A (未获取)${NC}"
+        echo -e "${CYAN}最新Release版本: ${RED}N/A (未获取)${NC}"
     fi
 
     echo -e "=============================="
