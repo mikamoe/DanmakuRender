@@ -27,7 +27,7 @@ highlight(){ echo -e "${CYAN}${BOLD}$1${RESET}"; }
 INSTALL_DIR="/opt/DanmakuRender-5/tools"
 DMR_DIR="/opt/DanmakuRender-5" # 假设这是 DanmakuRender 的基础目录
 BINARY_PATH="$INSTALL_DIR/biliup"
-GITHUB_API="https://api.github.com/repos/biliup/biliup-rs/releases"
+GITHUB_API="https://api.github.com/repos/biliup/biliup/releases"
 LAST_BV_FILE="$INSTALL_DIR/last_bvs.txt" # 存储最近的BV号列表
 
 # 全局变量，用于存储选定的视频文件路径
