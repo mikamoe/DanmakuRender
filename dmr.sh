@@ -592,7 +592,7 @@ main_menu() {
 
         echo -e "\n${BOLD}【 系统信息 】${NC}"
         if [[ -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
-            echo -e " ${ORANGE}→ biliup-rs 有更新: ${BILIUP_REMOTE_VERSION} (当前 ${BILIUP_LOCAL_VERSION})${NC}"
+            echo -e " ${ORANGE}→ biliupR 有更新: ${BILIUP_REMOTE_VERSION} (当前 ${BILIUP_LOCAL_VERSION})${NC}"
         fi
         echo -e " ${BLUE}12.${NC} 更新脚本 [v${VERSION}]  ${BLUE}0.${NC} 退出"
         echo -e "${GRAY}──────────────────────────────────────────────────${NC}"
