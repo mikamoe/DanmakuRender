@@ -561,19 +561,30 @@ require_installed() {
 }
 
 fetch_biliup_times() {
+    BILIUP_LOCAL_VERSION=""
+    BILIUP_REMOTE_VERSION=""
+
     if [ -x "$BILIUP_DIR/biliup" ]; then
-        BILIUP_LOCAL_VERSION=$("$BILIUP_DIR/biliup" -V 2>&1 | awk '{print $NF}')
-        local latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest")
-        BILIUP_REMOTE_VERSION=$(echo "$latest_info" | jq -r '.tag_name // empty' | sed 's/^v//')
+        BILIUP_LOCAL_VERSION=$("$BILIUP_DIR/biliup" -V 2>/dev/null | awk '{print $NF}')
     fi
+
+    local latest_info
+    latest_info=$(curl -sfL "https://api.github.com/repos/${BILIUP_OWNER}/${BILIUP_REPO}/releases/latest" 2>/dev/null) || return 0
+    BILIUP_REMOTE_VERSION=$(echo "$latest_info" | jq -r '.tag_name // empty' | sed 's/^v//')
 }
 
 main_menu() {
     check_dependencies || exit 1
-    fetch_github_times; get_install_date; fetch_biliup_times
+    fetch_github_times
+    get_install_date
+    fetch_biliup_times
+
     while true; do
         running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
-        show_header; show_status
+
+        show_header
+        show_status
+
         echo -e "\n${BOLD}【 核心管理 】${NC}"
         echo -e " ${BLUE} 1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
@@ -586,14 +597,22 @@ main_menu() {
         echo -e " ${BLUE}11.${NC} ${RED}卸载程序${NC}"
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
-        echo -e " ${BLUE} 4.${NC} 手动渲染视频      ${BLUE} 5.${NC} 运行环境测试"
-        echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR"
+
+        # ===== 仅此处为新增显示逻辑 =====
+        if [ -d "$DMR_DIR" ] && [ -n "$BILIUP_LOCAL_VERSION" ]; then
+            echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR ${GREEN}[${BILIUP_LOCAL_VERSION}]${NC}"
+        else
+            echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR"
+        fi
+        # ===============================
+
         echo -e " ${BLUE} 8.${NC} 字体安装菜单      ${BLUE} 9.${NC} JS 环境安装"
 
         echo -e "\n${BOLD}【 系统信息 】${NC}"
         if [[ -n "$BILIUP_REMOTE_VERSION" && "$BILIUP_REMOTE_VERSION" != "$BILIUP_LOCAL_VERSION" ]]; then
             echo -e " ${ORANGE}→ biliupR 有更新: ${BILIUP_REMOTE_VERSION} (当前 ${BILIUP_LOCAL_VERSION})${NC}"
         fi
+
         echo -e " ${BLUE}12.${NC} 更新脚本 [v${VERSION}]  ${BLUE}0.${NC} 退出"
         echo -e "${GRAY}──────────────────────────────────────────────────${NC}"
 
@@ -605,8 +624,12 @@ main_menu() {
                     if ps aux | grep -v grep | grep -q '正在录制'; then
                         read -p "检测到录制中，强制停止？(y/N): " sc
                         [[ "$sc" =~ ^[Yy]$ ]] && { stop_dmr; stop_extra_processes; }
-                    else stop_dmr; stop_extra_processes; fi
-                else check_config && start_dmr && view_log; fi
+                    else
+                        stop_dmr; stop_extra_processes
+                    fi
+                else
+                    check_config && start_dmr && view_log
+                fi
             } ;;
             3) view_log ;;
             4) manual_render ;;
@@ -621,6 +644,7 @@ main_menu() {
             0) exit 0 ;;
             *) echo -e "${RED}无效输入!${NC}" ;;
         esac
+
         echo -e "\n${GRAY}按任意键返回...${NC}"
         read -n1 -s
     done
