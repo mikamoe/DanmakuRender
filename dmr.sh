@@ -308,8 +308,7 @@ install_dmr() {
     read -p "$(echo -e "${YELLOW}是否安装 JS 引擎 (Node.js & quickjs)? (y/N): ${NC}")" js_choice
     [[ "${js_choice:-n}" =~ ^[Yy]$ ]] && install_js_engine
     echo -e "\n${LOG_SUCCESS}${GREEN}${BOLD}安装完成！${NC}"
-    date +%s | sudo tee "$INSTALL_DATE_FILE" > /dev/null
-    get_install_date
+    # 已按要求：安装完成后不再记录安装时间（不写入 $INSTALL_DATE_FILE）
     sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
     sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
     sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
@@ -496,7 +495,7 @@ show_status() {
         echo -ne "${LOG_INFO}安装状态: ${GREEN}已安装${NC}"
         [ -n "$local_version" ] && echo -ne " ${CYAN}(v${local_version})${NC}"
         echo ""
-        [ -n "$install_date" ] && echo -e "${LOG_INFO}更新时间: ${GRAY}${install_date}${NC}"
+        # 不再显示安装/更新时间（按用户要求移除）
     fi
 }
 
@@ -522,7 +521,7 @@ main_menu() {
     while true; do
         running_pid=$(pgrep -f "$DMR_CMD" | head -n 1)
         show_header; show_status
-        echo -e "${BOLD}【 核心管理 】${NC}"
+        echo -e "\n${BOLD}【 核心管理 】${NC}"
         echo -e " ${BLUE}1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
             echo -e " ${BLUE}2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
