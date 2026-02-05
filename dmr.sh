@@ -609,7 +609,8 @@ main_menu() {
         echo -e " ${BLUE}11.${NC} ${RED}卸载程序${NC}"
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
-
+        
+        echo -e " ${BLUE} 4.${NC} 手动渲染      ${BLUE} 5.${NC} 运行测试"
         # ===== biliupR 显示逻辑（仅在已安装时显示版本）=====
         if [ -n "$BILIUP_LOCAL_VERSION" ]; then
             echo -e " ${BLUE} 6.${NC} 视频文件管理      ${BLUE} 7.${NC} biliupR ${GREEN}[${BILIUP_LOCAL_VERSION}]${NC}"
