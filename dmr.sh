@@ -542,10 +542,10 @@ show_header() {
 
 show_status() {
     if [ ! -d "$DMR_DIR" ]; then
-        echo -e "${LOG_INFO}当前状态: ${RED}未安装${NC}"
+        echo -e "${LOG_INFO}当前状态: ${LOG_ERROR}${RED}未安装${NC}"
     else
         local local_version=$(get_local_version)
-        echo -ne "${LOG_INFO}安装状态: ${GREEN}已安装${NC}"
+        echo -ne "${LOG_INFO}当前状态: ${LOG_SUCCESS}${GREEN}已安装${NC}"
         [ -n "$local_version" ] && echo -ne " ${CYAN}(v${local_version})${NC}"
         echo ""
         # 不再显示安装/更新时间（按用户要求移除）
