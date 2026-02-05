@@ -597,7 +597,6 @@ main_menu() {
         show_header
         show_status
 
-        echo -e "\n${BOLD}【 核心管理 】${NC}"
         echo -e " ${BLUE} 1.${NC} 安装程序"
         if [ -n "$running_pid" ]; then
             echo -e " ${BLUE} 2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
