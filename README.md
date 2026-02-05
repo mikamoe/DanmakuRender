@@ -40,37 +40,7 @@ DanmakuRender v5 管理脚本
 ```
 /opt/DanmakuRender-v5
 ```
-#### biliup-rs
-```
-/opt/DanmakuRender-v5/tools
-```
-### 逻辑分解（启动/停止录制进程）
-```bash
-# 逻辑流程：
-1. 检查是否已安装 (require_installed)
-   → 未安装则退出
 
-2. 检查当前进程状态：
-   - 如果正在运行 (pgrep -f "python3 main.py")：
-     → 调用 stop_dmr() 停止进程
-   - 如果未运行：
-     → 检查配置文件有效性 (check_config)
-       → 无效则报错退出
-     → 调用 start_dmr() 启动进程
-
-# start_dmr() 关键步骤：
-- 进入工作目录 (/opt/DanmakuRender-5)
-- 激活 Python 虚拟环境 (source venv/bin/activate)
-- 用 nohup 后台启动：  
-  `nohup python3 main.py > nohup.out 2>&1 &`
-- 记录 PID 到文件 (dmr.pid)
-- 实时显示日志（按 q 退出）
-
-# stop_dmr() 关键步骤：
-- 尝试通过 PID 文件停止进程
-- 失败则用 pkill 强制停止
-- 删除 PID 文件
-```
 ### [biliup-rs项目地址](https://github.com/biliup/biliup-rs)
 
 #### 以下为原项目的 README.md
