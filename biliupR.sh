@@ -316,13 +316,26 @@ append_video(){
 
     echo -e "\n${CYAN}选择目标 BV 号:${RESET}"
     local i=1
-    for b in "${recent_bvs[@]}"; do printf "   [%d] 历史: %s\n" "$i" "$b"; ((i++)); done
+    for b in "${recent_bvs[@]}"; do
+        [[ -n "$b" ]] || continue
+        printf "   [%d] 历史: %s\n" "$i" "$b"
+        ((i++))
+    done
     printf "   [%d] 输入新 BV 号\n" "$i"
     read -p "   选择: " bv_choice
     
     local sel_bv=""
-    if [[ -n "$bv_choice" && "$bv_choice" -lt "$i" ]]; then
-        sel_bv="${recent_bvs[$((bv_choice-1))]}"
+    if [[ "$bv_choice" =~ ^BV[a-zA-Z0-9]{10}$ ]]; then
+        # 允许直接在“选择”这里粘贴 BV 号
+        sel_bv="$bv_choice"
+    elif [[ "$bv_choice" =~ ^[0-9]+$ ]]; then
+        if (( bv_choice >= 1 && bv_choice < i )); then
+            sel_bv="${recent_bvs[$((bv_choice-1))]}"
+        elif (( bv_choice == i )); then
+            read -p "   输入新 BV 号: " sel_bv
+        else
+            error "选择无效"; return 1
+        fi
     else
         read -p "   输入新 BV 号: " sel_bv
     fi
@@ -333,9 +346,22 @@ append_video(){
 
     # 更新历史
     local temp_bvs=("$sel_bv")
-    for b in "${recent_bvs[@]}"; do [[ "$b" != "$sel_bv" ]] && temp_bvs+=("$b"); done
+    for b in "${recent_bvs[@]}"; do [[ -n "$b" && "$b" != "$sel_bv" ]] && temp_bvs+=("$b"); done
     printf "%s\n" "${temp_bvs[@]:0:3}" > "$LAST_BV_FILE"
     append_cmd_parts+=("--vid" "$sel_bv")
+
+    echo -e "\n${CYAN}追加线路 (回车自动):${RESET}"
+    local line_options=("bda2" "ws" "qn" "bldsa" "tx" "txa" "bda" "alia")
+    for i in "${!line_options[@]}"; do printf "   [%d] %-6s" "$((i+1))" "${line_options[$i]}"; [[ $(( (i+1) % 4 )) -eq 0 ]] && echo ""; done
+    echo ""
+    read -p "   选择序号: " l_choice
+    if [[ -n "$l_choice" ]]; then
+        local sel_line="${line_options[$((l_choice-1))]}"
+        [[ -n "$sel_line" ]] && append_cmd_parts+=("--line" "$sel_line")
+    fi
+
+    read -p "   并发数 [默认 3]: " limit_in
+    append_cmd_parts+=("--limit" "${limit_in:-3}")
 
     while true; do
         echo -e "\n${BOLD}请选择追加文件来源：${RESET}"
