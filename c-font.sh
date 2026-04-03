@@ -27,6 +27,8 @@ MSYH_FILE="msyh.ttf"
 SEGOE_EMOJI_FILE="Segoe.UI.Emoji.with.Twemoji.Flags.ttf"
 NOTO_EMOJI_FILE="NotoColorEmoji.ttf"
 LXGW_WENKAI_FILE="LXGWWenKai-Medium.ttf"
+HARMONYOS_SANS_SC_FILE="HarmonyOS_SansSC_Semibold.ttf"
+JIANGCHENGYUANTI_FILE="江城圆体 600W.ttf"
 
 # ======== root 检查 ========
 if [[ $EUID -ne 0 ]]; then
@@ -47,7 +49,7 @@ check_font() {
     fi
 }
 
-# ======== 显示状态（稳定版）=======
+# ======== 显示状态（状态放前面） ========
 print_status() {
     local status="$1"
     local name="$2"
@@ -89,6 +91,8 @@ show_menu() {
     echo " 2. 安装 Segoe UI Emoji (Win11)"
     echo " 3. 安装 Noto Color Emoji"
     echo " 4. 安装 LxgwWenKai"
+    echo " 5. 安装 HarmonyOS Sans SC"
+    echo " 6. 安装 JiangChengYuanTi"
     echo -e " 99. ${RED}卸载字体${NC}"
     echo " 0. 退出脚本"
     echo -e "${CYAN}----------------------------------------${NC}"
@@ -103,6 +107,8 @@ while true; do
     print_status "$(check_font "Segoe UI Emoji")" "Segoe UI Emoji"
     print_status "$(check_font "Noto Color Emoji")" "Noto Color Emoji"
     print_status "$(check_font "LXGW WenKai")" "LxgwWenKai"
+    print_status "$(check_font "HarmonyOS Sans SC")" "HarmonyOS Sans SC"
+    print_status "$(check_font "JiangChengYuanTi")" "JiangChengYuanTi"
 
     show_menu
     read -rp "请选择序号: " choice
@@ -160,6 +166,32 @@ while true; do
             read -n1 -s -r -p "按任意键继续..."
             ;;
 
+        5)
+            echo -e "${LOG_INFO}安装 HarmonyOS Sans SC..."
+            if download_font \
+                "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/HarmonyOS_SansSC_Semibold.ttf" \
+                "$CUSTOM_FONT_DIR/$HARMONYOS_SANS_SC_FILE"; then
+                refresh_fonts
+                echo -e "${LOG_SUCCESS}完成"
+            else
+                echo -e "${LOG_ERROR}下载失败"
+            fi
+            read -n1 -s -r -p "按任意键继续..."
+            ;;
+
+        6)
+            echo -e "${LOG_INFO}安装 JiangChengYuanTi..."
+            if download_font \
+                "https://raw.githubusercontent.com/mikamoe/DanmakuRender/v5/fonts/%E6%B1%9F%E5%9F%8E%E5%9C%86%E4%BD%93%20600W.ttf" \
+                "$CUSTOM_FONT_DIR/$JIANGCHENGYUANTI_FILE"; then
+                refresh_fonts
+                echo -e "${LOG_SUCCESS}完成"
+            else
+                echo -e "${LOG_ERROR}下载失败"
+            fi
+            read -n1 -s -r -p "按任意键继续..."
+            ;;
+
         99)
             clear
             show_header
@@ -170,23 +202,44 @@ while true; do
                 [2]="$SEGOE_EMOJI_FILE|Segoe UI Emoji"
                 [3]="$NOTO_EMOJI_FILE|Noto Color Emoji"
                 [4]="$LXGW_WENKAI_FILE|LxgwWenKai"
+                [5]="$HARMONYOS_SANS_SC_FILE|HarmonyOS Sans SC"
+                [6]="$JIANGCHENGYUANTI_FILE|JiangChengYuanTi"
             )
 
-            for i in 1 2 3 4; do
+            has_installed=false
+            for i in 1 2 3 4 5 6; do
                 file="${fonts[$i]%%|*}"
                 name="${fonts[$i]##*|}"
                 if [[ -f "$CUSTOM_FONT_DIR/$file" ]]; then
                     echo " $i. $name"
+                    has_installed=true
                 fi
             done
 
+            if [[ "$has_installed" == false ]]; then
+                echo -e "${LOG_WARN}当前没有可卸载的字体"
+                read -n1 -s -r -p "按任意键继续..."
+                continue
+            fi
+
             read -rp "请输入编号: " del_choice
+
+            if [[ -z "${fonts[$del_choice]}" ]]; then
+                echo -e "${LOG_ERROR}无效选项"
+                read -n1 -s -r -p "按任意键继续..."
+                continue
+            fi
+
             file="${fonts[$del_choice]%%|*}"
             name="${fonts[$del_choice]##*|}"
 
-            rm -f "$CUSTOM_FONT_DIR/$file"
-            refresh_fonts
-            echo -e "${LOG_SUCCESS}$name 已卸载"
+            if [[ -f "$CUSTOM_FONT_DIR/$file" ]]; then
+                rm -f "$CUSTOM_FONT_DIR/$file"
+                refresh_fonts
+                echo -e "${LOG_SUCCESS}$name 已卸载"
+            else
+                echo -e "${LOG_WARN}$name 未安装"
+            fi
 
             read -n1 -s -r -p "按任意键继续..."
             ;;
