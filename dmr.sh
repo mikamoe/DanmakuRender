@@ -243,79 +243,70 @@ install_biliup_rs() {
 
 update_dmr() {
     require_installed || return 1
+    check_install_tools || return 1
 
-    if ! command -v rsync &>/dev/null; then
-        sudo apt update && sudo apt install -y rsync
-    fi
+    echo -e "${YELLOW}${BOLD}即将执行以下操作：${NC}"
+    echo -e "  ${CYAN}1.${NC} 使用 Git 同步并覆盖更新 ${GITHUB_BRANCH} 分支代码"
+    echo -e "  ${CYAN}2.${NC} 保留新增的本地文件（未被 Git 跟踪的文件不会删除）"
+    echo -e "  ${CYAN}3.${NC} 同时清空以下目录中的所有视频文件："
+    echo -e "     ${GRAY}- $DMR_DIR/直播回放${NC}"
+    echo -e "     ${GRAY}- $DMR_DIR/直播回放（弹幕版）${NC}"
+    echo ""
 
-    read -p "$(echo -e "${YELLOW}是否确认更新 DanmakuRender v5？(y/n): ${NC}")" confirm_update
+    read -p "$(echo -e "${YELLOW}是否确认继续更新？(y/n): ${NC}")" confirm_update
     [[ ! "$confirm_update" =~ ^[Yy]$ ]] && return 0
 
     echo -e "${LOG_INFO}开始更新程序...${NC}"
     pgrep -f "$DMR_CMD" > /dev/null && stop_dmr
 
-    # ========= 备份 =========
-    local backup_dir="/opt/DanmakuRender_backup_$(date +%Y%m%d_%H%M%S)"
-    sudo mkdir -p "$backup_dir"
-
-    local configs_backup_root="${DMR_DIR}/configs_backups"
-    local configs_backup="${configs_backup_root}/configs_backup_$(date +%Y%m%d_%H%M%S)"
-    sudo mkdir -p "$configs_backup_root"
-
-    sudo cp -r "$DMR_DIR/configs" "$configs_backup"
-    sudo cp -r "$DMR_DIR" "$backup_dir"
-
-    # ========= 选择更新来源 =========
-    echo -e "\n${CYAN}请选择更新来源：${NC}"
-    echo -e "  ${GREEN}1) 最新提交 (开发分支)${NC} [默认]"
-    echo -e "  ${GREEN}2) 最新稳定版 (Releases)${NC}"
-    read -p "$(echo -e "${YELLOW}输入选择 [1/2]: ${NC}")" update_choice
-    update_choice="${update_choice:-1}"
-
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-
-    # ========= 拉取代码 =========
-    if [[ "$update_choice" == "1" ]]; then
-        echo -e "${LOG_INFO}使用开发分支最新提交进行更新...${NC}"
-        if ! git clone -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$tmp_dir"; then
-            rollback_update "$backup_dir" "$configs_backup"
-            return 1
+    # ========= 清空视频文件 =========
+    local replay_dirs=("$DMR_DIR/直播回放" "$DMR_DIR/直播回放（弹幕版）")
+    for d in "${replay_dirs[@]}"; do
+        if [ -d "$d" ]; then
+            find "$d" -maxdepth 1 -type f -delete
+            echo -e "${LOG_INFO}${GRAY}已清空目录中的文件: $d${NC}"
         fi
-    else
-        echo -e "${LOG_INFO}使用最新 Releases 稳定版进行更新...${NC}"
-        local latest_tag
-        latest_tag=$(curl -sfL "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" \
-            | jq -r '.tag_name // empty')
+    done
 
-        if [ -z "$latest_tag" ]; then
-            echo -e "${LOG_ERROR}获取最新 Releases 版本失败！${NC}"
-            rollback_update "$backup_dir" "$configs_backup"
-            return 1
-        fi
-
-        curl -fsL -o "${tmp_dir}/release.tar.gz" \
-            "${DMR_GITHUB_BASE}/archive/refs/tags/${latest_tag}.tar.gz" || {
-            rollback_update "$backup_dir" "$configs_backup"
-            return 1
-        }
-
-        tar -xzf "${tmp_dir}/release.tar.gz" -C "$tmp_dir" || {
-            rollback_update "$backup_dir" "$configs_backup"
-            return 1
-        }
+    # ========= 使用 Git 覆盖已跟踪文件，但保留本地未跟踪文件 =========
+    if [ ! -d "$DMR_DIR/.git" ]; then
+        echo -e "${LOG_ERROR}当前安装目录不是 Git 仓库，无法执行 git pull/update。${NC}"
+        echo -e "${LOG_WARN}请先使用 Git 方式重新安装，再使用此更新功能。${NC}"
+        return 1
     fi
 
-    # ========= 覆盖更新（保留 configs） =========
-    sudo rsync -a --exclude='configs' "$tmp_dir/" "$DMR_DIR/" || {
-        rollback_update "$backup_dir" "$configs_backup"
+    pushd "$DMR_DIR" > /dev/null || return 1
+
+    echo -e "${LOG_INFO}正在同步远程分支 ${GITHUB_BRANCH} ...${NC}"
+
+    # 确保远程地址正确
+    git remote get-url origin >/dev/null 2>&1 || git remote add origin "${DMR_GITHUB_BASE}.git"
+    git remote set-url origin "${DMR_GITHUB_BASE}.git"
+
+    # 拉取远程更新，并强制覆盖本地已跟踪文件
+    # 注意：不会执行 git clean，因此未跟踪文件会保留
+    if ! git fetch origin "$GITHUB_BRANCH"; then
+        popd > /dev/null
+        echo -e "${LOG_ERROR}获取远程更新失败！${NC}"
         return 1
-    }
+    fi
 
-    rm -rf "$tmp_dir"
-    sudo rm -rf "$backup_dir"
+    if ! git checkout "$GITHUB_BRANCH"; then
+        popd > /dev/null
+        echo -e "${LOG_ERROR}切换到分支 ${GITHUB_BRANCH} 失败！${NC}"
+        return 1
+    fi
 
-    echo -e "${LOG_SUCCESS}更新成功！配置备份位于: ${configs_backup}${NC}"
+    if ! git reset --hard "origin/$GITHUB_BRANCH"; then
+        popd > /dev/null
+        echo -e "${LOG_ERROR}覆盖本地代码失败！${NC}"
+        return 1
+    fi
+
+    popd > /dev/null
+
+    echo -e "${LOG_SUCCESS}更新成功！${NC}"
+    echo -e "${LOG_INFO}${GRAY}说明：已覆盖仓库内受 Git 管理的文件；新增的本地文件会保留。${NC}"
 
     # ========= 更新状态信息 =========
     fetch_github_times
