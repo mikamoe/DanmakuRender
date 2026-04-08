@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 VERSION="260206"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
@@ -54,6 +54,17 @@ check_dependencies() {
         fi
     done
     return 0
+}
+
+run_shell_script() {
+    local script_url="$1"
+    if command -v bash &>/dev/null; then
+        bash <(wget -qO- "$script_url")
+    elif command -v zsh &>/dev/null; then
+        zsh <(wget -qO- "$script_url")
+    else
+        sh -c "$(wget -qO- "$script_url")"
+    fi
 }
 
 get_python_version() {
@@ -232,8 +243,10 @@ install_biliup_rs() {
         x86_64) asset_suffix="x86_64-linux.tar.xz" ;;
         *) echo -e "${LOG_ERROR}不支持的架构：$arch"; popd > /dev/null; return 1 ;;
     esac
-    local download_url=$(jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url' <<< "$latest_info")
-    local asset_filename=$(basename "$download_url")
+    local download_url
+    download_url=$(jq -r --arg suffix "$asset_suffix" '.assets[] | select(.name | endswith($suffix)) | .browser_download_url' <<< "$latest_info")
+    local asset_filename
+    asset_filename=$(basename "$download_url")
     echo -e "${LOG_INFO}下载并解压 biliupR...${NC}"
     curl -fLo "$asset_filename" "$download_url" && tar -xJf "$asset_filename" --strip-components=1 && rm -f "$asset_filename"
     chmod +x ./biliup || { popd > /dev/null; rollback_installation; return 1; }
@@ -334,11 +347,13 @@ install_dmr() {
     echo -e "  ${GREEN}1) 最新提交 (开发分支)${NC} [默认]"
     echo -e "  ${GREEN}2) 最新稳定版 (Releases)${NC}"
     read -p "$(echo -e "${YELLOW}输入选择 [1/2]: ${NC}")" install_choice
-    local tmp_dir=$(mktemp -d)
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
     if [[ "${install_choice:-1}" == "1" ]]; then
         git clone --depth 1 -b "$GITHUB_BRANCH" "${DMR_GITHUB_BASE}.git" "$DMR_DIR"
     else
-        local latest_tag=$(curl -sfL "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | jq -r '.tag_name // empty')
+        local latest_tag
+        latest_tag=$(curl -sfL "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest" | jq -r '.tag_name // empty')
         curl -fsL -o "${tmp_dir}/release.tar.gz" "${DMR_GITHUB_BASE}/archive/refs/tags/${latest_tag}.tar.gz"
         tar -xzf "${tmp_dir}/release.tar.gz" -C "$tmp_dir"
         sudo mv "$tmp_dir/${GITHUB_REPO}"* "$DMR_DIR"
@@ -415,7 +430,8 @@ stop_dmr() {
     local pid_file="$DMR_DIR/dmr.pid"
     local stopped=false
     if [ -f "$pid_file" ]; then
-        local pid_to_kill=$(cat "$pid_file")
+        local pid_to_kill
+        pid_to_kill=$(cat "$pid_file")
         if ps -p "$pid_to_kill" > /dev/null; then
             echo -e "${LOG_INFO}正在停止进程 $pid_to_kill...${NC}"
             kill "$pid_to_kill" 2>/dev/null && sleep 1
@@ -443,7 +459,8 @@ stop_extra_processes() {
 view_log() {
     require_installed || return 1
     local logs_dir="$DMR_DIR/nohup_logs"
-    local latest=$(find "$logs_dir" -maxdepth 1 -type f -name "*.log" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
+    local latest
+    latest=$(find "$logs_dir" -maxdepth 1 -type f -name "*.log" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
     if [ -z "$latest" ]; then echo -e "${LOG_WARN}暂无日志文件。${NC}"; return 1; fi
     echo -e "${LOG_INFO}当前日志: ${CYAN}$(basename "$latest")${NC} (按 Q 退出)"
     tail -n 70 -F "$latest" &
@@ -483,7 +500,8 @@ delete_replays() {
         for f in "$d"/*; do
             [ -f "$f" ] || continue
             files+=("$f")
-            local fdate=$(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1 || date -r "$f" +%F)
+            local fdate
+            fdate=$(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1 || date -r "$f" +%F)
             fdate=${fdate:-"未知日期"}
             if [[ ! " ${date_list[@]} " =~ " ${fdate} " ]]; then date_list+=("$fdate"); fi
             files_by_date["$fdate"]+="${#files[@]}|$(basename "$f")|$(du -h "$f" | awk '{print $1}')\n"
@@ -535,7 +553,8 @@ show_status() {
     if [ ! -d "$DMR_DIR" ]; then
         echo -e "${LOG_INFO}当前状态: ${LOG_ERROR}${RED}未安装${NC}"
     else
-        local local_version=$(get_local_version)
+        local local_version
+        local_version=$(get_local_version)
         echo -ne "${LOG_INFO}当前状态: ${LOG_SUCCESS}${GREEN}已安装${NC}"
         [ -n "$local_version" ] && echo -ne " ${CYAN}(v${local_version})${NC}"
         echo ""
@@ -639,8 +658,8 @@ main_menu() {
             4) manual_render ;;
             5) run_test ;;
             6) delete_replays ;;
-            7) bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/biliupR.sh) ;;
-            8) bash <(wget -qO- https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/c-font.sh) ;;
+            7) run_shell_script "https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/biliupR.sh" ;;
+            8) run_shell_script "https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/c-font.sh" ;;
             9) install_js_engine ;;
             10) update_dmr ;;
             11) uninstall_dmr && sudo rm -f /usr/local/bin/d ;;
