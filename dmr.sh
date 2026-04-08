@@ -370,7 +370,7 @@ install_dmr() {
     # 已按要求：安装完成后不再记录安装时间（不写入 $INSTALL_DATE_FILE）
     sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
     sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
-    sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/d
+    sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/dmr
     echo -e "${LOG_INFO}输入 ${CYAN}d${NC} 即可快速启动管理脚本。"
     rollback_needed=false; trap - EXIT; return 0
 }
@@ -662,7 +662,7 @@ main_menu() {
             8) run_shell_script "https://raw.githubusercontent.com/mikamoe/DanmakuRender/refs/heads/v5/c-font.sh" ;;
             9) install_js_engine ;;
             10) update_dmr ;;
-            11) uninstall_dmr && sudo rm -f /usr/local/bin/d ;;
+            11) uninstall_dmr && sudo rm -f /usr/local/bin/dmr ;;
             12) update_script ;;
             0) exit 0 ;;
             *) echo -e "${RED}无效输入!${NC}" ;;
