@@ -371,7 +371,7 @@ install_dmr() {
     sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
     sudo chmod +x "$DMR_DIR/$SCRIPT_NAME"
     sudo ln -sf "$DMR_DIR/$SCRIPT_NAME" /usr/local/bin/dmr
-    echo -e "${LOG_INFO}输入 ${CYAN}d${NC} 即可快速启动管理脚本。"
+    echo -e "${LOG_INFO}输入 ${CYAN}dmr${NC} 即可快速启动管理脚本。"
     rollback_needed=false; trap - EXIT; return 0
 }
 
