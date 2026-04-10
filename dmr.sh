@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-VERSION="260410"
+VERSION="260206"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -8,7 +8,6 @@ SCRIPT_NAME="dmr.sh"
 COOKIES_TOOL_DIR="tools"
 BILIUP_DIR="$DMR_DIR/$COOKIES_TOOL_DIR"
 INSTALL_DATE_FILE="$DMR_DIR/install_date"
-RUNTIME_LOG_DIR="$DMR_DIR/runtime_logs"
 
 # GitHub 项目信息
 GITHUB_OWNER="SmallPeaches"
@@ -44,7 +43,7 @@ BILIUP_LOCAL_VERSION="" BILIUP_REMOTE_VERSION=""
 
 # ===================== 辅助函数 =====================
 check_dependencies() {
-    local required_tools=("curl" "jq")
+    local required_tools=("curl" "jq") 
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             echo -e "${LOG_INFO}${YELLOW}未找到 $tool，正在安装...${NC}"
@@ -367,7 +366,6 @@ install_dmr() {
     install_biliup_rs
     read -p "$(echo -e "${YELLOW}是否安装 JS 引擎 (Node.js & quickjs)? (y/N): ${NC}")" js_choice
     [[ "${js_choice:-n}" =~ ^[Yy]$ ]] && install_js_engine
-    mkdir -p "$RUNTIME_LOG_DIR"
     echo -e "\n${LOG_SUCCESS}${GREEN}${BOLD}安装完成！${NC}"
     # 已按要求：安装完成后不再记录安装时间（不写入 $INSTALL_DATE_FILE）
     sudo curl -sfL "$SCRIPT_UPDATE_URL" -o "$DMR_DIR/$SCRIPT_NAME"
@@ -409,62 +407,45 @@ start_dmr() {
     if pgrep -f "$DMR_CMD" > /dev/null; then
         echo -e "${LOG_WARN}程序已在运行中。${NC}"; return 1
     fi
-
-    if [ -z "$TMUX" ]; then
-        echo -e "${LOG_ERROR}当前不在 tmux 环境中，无法启动录制。${NC}"
-        echo -e "${LOG_WARN}请先进入 tmux 会话后，再使用选项 [2] 启动。${NC}"
-        return 1
-    fi
-
-    mkdir -p "$RUNTIME_LOG_DIR"
-
     pushd "$DMR_DIR" > /dev/null || return 1
     source venv/bin/activate
-
-    local full_logpath="${RUNTIME_LOG_DIR}/dmr_$(date +"%Y%m%d_%H%M%S").log"
-
-    echo -e "${LOG_INFO}检测到当前处于 tmux 环境。${NC}"
-    echo -e "${LOG_INFO}正在进入目录：${CYAN}${DMR_DIR}${NC}"
-    echo -e "${LOG_INFO}正在启动主程序：${CYAN}${DMR_CMD}${NC}"
-    echo -e "${LOG_INFO}日志文件：${CYAN}${full_logpath}${NC}"
-    echo -e "${GRAY}提示：当前为前台运行模式，日志会同时显示在当前终端，并写入日志文件。${NC}"
-    echo -e "${GRAY}如需停止，可在 tmux 中按 ${BOLD}Ctrl+C${NORMAL}${GRAY}，或返回菜单后使用选项 [2] 停止。${NC}"
-    echo ""
-
-    stdbuf -oL -eL bash -c "$DMR_CMD" 2>&1 | tee -a "$full_logpath"
-    local res=${PIPESTATUS[0]}
-
-    deactivate
-    popd > /dev/null
-    return $res
+    local logs_dir="$DMR_DIR/nohup_logs"; mkdir -p "$logs_dir"
+    local full_logpath="${logs_dir}/nohup_$(date +"%Y%m%d_%H%M%S").log"
+    echo -e "${LOG_INFO}正在启动主程序...${NC}"
+    nohup $DMR_CMD > "$full_logpath" 2>&1 &
+    local pid=$!
+    sleep 1
+    if ps -p $pid > /dev/null; then
+        echo $pid > "$DMR_DIR/dmr.pid"
+        echo -e "${LOG_SUCCESS}启动成功！PID: $pid${NC}"
+        deactivate; popd > /dev/null; return 0
+    else
+        echo -e "${LOG_ERROR}启动失败，请查看日志: ${full_logpath}${NC}"
+        rm -f "$DMR_DIR/dmr.pid"; deactivate; popd > /dev/null; return 1
+    fi
 }
 
 stop_dmr() {
     require_installed || return 1
+    local pid_file="$DMR_DIR/dmr.pid"
     local stopped=false
-
-    if pgrep -f "$DMR_CMD" > /dev/null; then
-        echo -e "${LOG_INFO}正在停止主进程...${NC}"
-        pkill -f "$DMR_CMD" 2>/dev/null && sleep 1
-        pgrep -f "$DMR_CMD" > /dev/null && pkill -9 -f "$DMR_CMD" 2>/dev/null
-        stopped=true
+    if [ -f "$pid_file" ]; then
+        local pid_to_kill
+        pid_to_kill=$(cat "$pid_file")
+        if ps -p "$pid_to_kill" > /dev/null; then
+            echo -e "${LOG_INFO}正在停止进程 $pid_to_kill...${NC}"
+            kill "$pid_to_kill" 2>/dev/null && sleep 1
+            ps -p "$pid_to_kill" > /dev/null && kill -9 "$pid_to_kill"
+            stopped=true
+        fi
+        rm -f "$pid_file"
     fi
-
-    if pgrep -f "streamgears_wrapper.py" > /dev/null; then
-        pkill -f "streamgears_wrapper.py" 2>/dev/null
-        stopped=true
+    if [ "$stopped" = false ]; then
+        pkill -f "$DMR_CMD" && stopped=true
     fi
-
-    if pgrep -f "streamlink" > /dev/null; then
-        pkill -f "streamlink" 2>/dev/null
-        stopped=true
-    fi
-
-    if [ "$stopped" = true ]; then
-        echo -e "${LOG_SUCCESS}所有相关进程已停止。${NC}"
-    else
-        echo -e "${LOG_WARN}未检测到运行中的相关进程。${NC}"
-    fi
+    pkill -f "streamgears_wrapper.py" 2>/dev/null
+    pkill -f "streamlink" 2>/dev/null
+    echo -e "${LOG_SUCCESS}所有相关进程已停止。${NC}"
     return 0
 }
 
@@ -477,29 +458,20 @@ stop_extra_processes() {
 
 view_log() {
     require_installed || return 1
-    local logs_dir="$RUNTIME_LOG_DIR"
-    mkdir -p "$logs_dir"
-
+    local logs_dir="$DMR_DIR/nohup_logs"
     local latest
     latest=$(find "$logs_dir" -maxdepth 1 -type f -name "*.log" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
-
-    if [ -z "$latest" ]; then
-        echo -e "${LOG_WARN}暂无日志文件。${NC}"
-        return 1
-    fi
-
+    if [ -z "$latest" ]; then echo -e "${LOG_WARN}暂无日志文件。${NC}"; return 1; fi
     echo -e "${LOG_INFO}当前日志: ${CYAN}$(basename "$latest")${NC} (按 Q 退出)"
     tail -n 70 -F "$latest" &
     local tail_pid=$!
-
     stty -echo -icanon time 0 min 0
     while true; do
         read -r -n1 key
-        [[ $key == "q" || $key == "Q" ]] && { kill "$tail_pid" 2>/dev/null; break; }
+        [[ $key == "q" ]] && { kill "$tail_pid" 2>/dev/null; break; }
         ps -p "$tail_pid" > /dev/null || break
     done
-    stty echo icanon
-    wait "$tail_pid" 2>/dev/null
+    stty echo icanon; wait "$tail_pid" 2>/dev/null
 }
 
 run_test() {
@@ -565,7 +537,7 @@ show_header() {
     echo -e "${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "          ${WHITE}DanmakuRender v5 管理工具${NC}"
     echo -e "${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
+    
     if [ -n "$commit_time" ] && [ "$commit_time" != "获取失败" ]; then
         echo -e "${GRAY}最新提交: ${WHITE}${commit_time}${NC}"
     else
@@ -639,14 +611,14 @@ main_menu() {
         if [ -n "$running_pid" ]; then
             echo -e " ${BLUE} 2.${NC} ${RED}停止录制${NC} ${YELLOW}● 运行中 (PID:${running_pid})${NC}"
         else
-            echo -e " ${BLUE} 2.${NC} ${GREEN}启动录制${NC}"
+            echo -e " ${BLUE} 2.${NC} ${GREEN}启动录制 (后台)${NC}"
         fi
         echo -e " ${BLUE} 3.${NC} 查看实时日志"
         echo -e " ${BLUE}10.${NC} 更新程序"
         echo -e " ${BLUE}11.${NC} ${RED}卸载程序${NC}"
 
         echo -e "\n${BOLD}【 功能扩展 】${NC}"
-
+        
         echo -e " ${BLUE} 4.${NC} 手动渲染          ${BLUE} 5.${NC} 运行测试"
         # ===== biliupR 显示逻辑（仅在已安装时显示版本）=====
         if [ -n "$BILIUP_LOCAL_VERSION" ]; then
@@ -679,7 +651,7 @@ main_menu() {
                         stop_dmr; stop_extra_processes
                     fi
                 else
-                    check_config && start_dmr
+                    check_config && start_dmr && view_log
                 fi
             } ;;
             3) view_log ;;
