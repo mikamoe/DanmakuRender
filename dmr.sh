@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-VERSION="260206"
+VERSION="260410"
 # ===================== 配置变量 =====================
 # 安装路径及相关文件、目录设置
 DMR_DIR="/opt/DanmakuRender-5"
@@ -410,6 +410,12 @@ start_dmr() {
         echo -e "${LOG_WARN}程序已在运行中。${NC}"; return 1
     fi
 
+    if [ -z "$TMUX" ]; then
+        echo -e "${LOG_ERROR}当前不在 tmux 环境中，无法启动录制。${NC}"
+        echo -e "${LOG_WARN}请先进入 tmux 会话后，再使用选项 [2] 启动。${NC}"
+        return 1
+    fi
+
     mkdir -p "$RUNTIME_LOG_DIR"
 
     pushd "$DMR_DIR" > /dev/null || return 1
@@ -417,6 +423,7 @@ start_dmr() {
 
     local full_logpath="${RUNTIME_LOG_DIR}/dmr_$(date +"%Y%m%d_%H%M%S").log"
 
+    echo -e "${LOG_INFO}检测到当前处于 tmux 环境。${NC}"
     echo -e "${LOG_INFO}正在进入目录：${CYAN}${DMR_DIR}${NC}"
     echo -e "${LOG_INFO}正在启动主程序：${CYAN}${DMR_CMD}${NC}"
     echo -e "${LOG_INFO}日志文件：${CYAN}${full_logpath}${NC}"
